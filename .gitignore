@@ -1,0 +1,27 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/application-local.properties
+**/application-*.local.properties
+**/application-secrets.properties
+
+# Gradle caches and build output
+.gradle-codex/
+**/.gradle/
+**/build/
+
+# Runtime and diagnostic logs
+*.log
+**/boot-error*.txt
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+
+# Temporary local credentials
+.db-password
