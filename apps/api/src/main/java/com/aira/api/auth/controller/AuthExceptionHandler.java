@@ -4,6 +4,8 @@ import com.aira.api.auth.exception.InvalidSignupRequestException;
 import com.aira.api.auth.exception.InvalidLoginRequestException;
 import com.aira.api.auth.exception.AuthenticationFailedException;
 import com.aira.api.auth.exception.NicknameAlreadyExistsException;
+import com.aira.api.auth.exception.InvalidPasswordResetTokenException;
+import com.aira.api.auth.exception.InvalidPasswordResetRequestException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -12,7 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = {AuthController.class, RecoveryEmailController.class})
+@RestControllerAdvice(assignableTypes = {
+        AuthController.class, RecoveryEmailController.class, PasswordResetController.class})
 public class AuthExceptionHandler {
     @ExceptionHandler(AuthenticationFailedException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
@@ -51,6 +54,19 @@ public class AuthExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     ErrorResponse unreadableBody() {
         return invalid(List.of(new FieldError("request", "요청 본문을 확인해주세요.")));
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    ErrorResponse invalidPasswordResetToken() {
+        return new ErrorResponse("INVALID_PASSWORD_RESET_TOKEN",
+                "Password reset token is invalid or expired.", null);
+    }
+
+    @ExceptionHandler(InvalidPasswordResetRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    ErrorResponse invalidPasswordResetRequest() {
+        return invalid(List.of(new FieldError("newPassword", "Invalid value.")));
     }
 
     private static ErrorResponse invalid(List<FieldError> errors) {

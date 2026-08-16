@@ -78,7 +78,9 @@ class SessionAuthenticationFilterTests {
 
     @Test
     void authEntryPointsIgnoreStaleSessionCookie() throws Exception {
-        for (String path : new String[] {"/api/auth/signup", "/api/auth/login", "/api/auth/logout"}) {
+        for (String path : new String[] {"/api/auth/signup", "/api/auth/login", "/api/auth/logout",
+                "/api/auth/recovery-email/verifications/confirm",
+                "/api/auth/password-reset/requests", "/api/auth/password-reset/confirm"}) {
             FilterChain chain = mock(FilterChain.class);
             MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
             request.setCookies(new Cookie(SessionCookieFactory.COOKIE_NAME, "stale-token"));

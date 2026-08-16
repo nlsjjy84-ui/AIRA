@@ -34,7 +34,9 @@ public final class AuthRequestBodyLimitFilter extends OncePerRequestFilter {
         return !path.equals("/api/auth/signup")
                 && !path.equals("/api/auth/login")
                 && !path.equals("/api/auth/recovery-email/verifications")
-                && !path.equals("/api/auth/recovery-email/verifications/confirm");
+                && !path.equals("/api/auth/recovery-email/verifications/confirm")
+                && !path.equals("/api/auth/password-reset/requests")
+                && !path.equals("/api/auth/password-reset/confirm");
     }
 
     @Override

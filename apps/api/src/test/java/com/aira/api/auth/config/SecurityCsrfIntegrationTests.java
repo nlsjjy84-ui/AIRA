@@ -40,7 +40,9 @@ class SecurityCsrfIntegrationTests {
         for (String path : new String[] {
                 "/api/auth/signup", "/api/auth/login", "/api/auth/logout",
                 "/api/auth/recovery-email/verifications",
-                "/api/auth/recovery-email/verifications/confirm"}) {
+                "/api/auth/recovery-email/verifications/confirm",
+                "/api/auth/password-reset/requests",
+                "/api/auth/password-reset/confirm"}) {
             mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content("{}"))
                     .andExpect(status().isForbidden());
         }
@@ -50,7 +52,9 @@ class SecurityCsrfIntegrationTests {
     void validCsrfTokenPassesProtectionForPublicAuthEndpoints() throws Exception {
         for (String path : new String[] {
                 "/api/auth/signup", "/api/auth/login",
-                "/api/auth/recovery-email/verifications/confirm"}) {
+                "/api/auth/recovery-email/verifications/confirm",
+                "/api/auth/password-reset/requests",
+                "/api/auth/password-reset/confirm"}) {
             mvc.perform(post(path).with(csrf())
                             .contentType(MediaType.APPLICATION_JSON).content("{}"))
                     .andExpect(status().isBadRequest());

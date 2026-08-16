@@ -39,12 +39,25 @@ public class RecoveryEmailProtector {
                     new GCMParameterSpec(128, iv));
             byte[] encrypted = cipher.doFinal(normalized.getBytes(StandardCharsets.UTF_8));
             byte[] ciphertext = ByteBuffer.allocate(iv.length + encrypted.length).put(iv).put(encrypted).array();
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(lookupKey, "HmacSHA256"));
             return new ProtectedRecoveryEmail(normalized, ciphertext,
-                    mac.doFinal(normalized.getBytes(StandardCharsets.UTF_8)), keyVersion);
+                    lookupHash(normalized), keyVersion);
         } catch (GeneralSecurityException impossible) {
             throw new IllegalStateException("Recovery email protection is unavailable", impossible);
+        }
+    }
+
+    public RecoveryEmailLookup lookup(String email) {
+        String normalized = normalize(email);
+        return new RecoveryEmailLookup(normalized, lookupHash(normalized));
+    }
+
+    private byte[] lookupHash(String normalized) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(lookupKey, "HmacSHA256"));
+            return mac.doFinal(normalized.getBytes(StandardCharsets.UTF_8));
+        } catch (GeneralSecurityException impossible) {
+            throw new IllegalStateException("Recovery email lookup protection is unavailable", impossible);
         }
     }
 

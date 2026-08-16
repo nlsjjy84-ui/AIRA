@@ -30,7 +30,9 @@ public class SecurityConfig {
                 .logout(logout -> logout.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST,
-                                "/api/auth/recovery-email/verifications/confirm").permitAll()
+                                "/api/auth/recovery-email/verifications/confirm",
+                                "/api/auth/password-reset/requests",
+                                "/api/auth/password-reset/confirm").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications").authenticated()
                         .anyRequest().permitAll())
