@@ -14,6 +14,7 @@ public class AuthProperties {
     private final Argon2 argon2 = new Argon2();
     private final Session session = new Session();
     private final RecoveryEmail recoveryEmail = new RecoveryEmail();
+    private final Resend resend = new Resend();
     private List<String> reservedNicknames = new ArrayList<>(
             List.of("admin", "administrator", "관리자", "운영자"));
 
@@ -26,6 +27,7 @@ public class AuthProperties {
     }
 
     public RecoveryEmail getRecoveryEmail() { return recoveryEmail; }
+    public Resend getResend() { return resend; }
 
     public List<String> getReservedNicknames() {
         return List.copyOf(reservedNicknames);
@@ -76,5 +78,17 @@ public class AuthProperties {
         public void setLookupKey(String value) { lookupKey = value; }
         public short getKeyVersion() { return keyVersion; }
         public void setKeyVersion(short value) { keyVersion = value; }
+    }
+
+    public static class Resend {
+        private String apiKey;
+        private String from;
+        private String publicBaseUrl;
+        public String getApiKey() { return apiKey; }
+        public void setApiKey(String value) { apiKey = value; }
+        public String getFrom() { return from; }
+        public void setFrom(String value) { from = value; }
+        public String getPublicBaseUrl() { return publicBaseUrl; }
+        public void setPublicBaseUrl(String value) { publicBaseUrl = value; }
     }
 }

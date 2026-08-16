@@ -8,6 +8,9 @@ import com.aira.api.auth.security.SessionTokenHasher;
 import com.aira.api.auth.security.RecoveryEmailProtector;
 import com.aira.api.auth.security.VerificationTokenGenerator;
 import com.aira.api.auth.email.EmailSender;
+import com.aira.api.auth.email.ResendEmailSender;
+import com.aira.api.auth.email.SdkResendGateway;
+import com.resend.Resend;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -61,9 +64,22 @@ public class AuthConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(EmailSender.class)
-    EmailSender emailSender() {
-        return (email, rawToken) -> {
+    EmailSender emailSender(AuthProperties properties) {
+        var resend = properties.getResend();
+        if (resend.getApiKey() == null || resend.getApiKey().isBlank()) {
+            return (email, rawToken) -> {
+                throw new IllegalStateException("Recovery email sender is not configured");
+            };
+        }
+        if (!resend.getApiKey().startsWith("re_")) {
+            throw new IllegalStateException("Resend API key configuration is invalid");
+        }
+        try {
+            return new ResendEmailSender(
+                    new SdkResendGateway(new Resend(resend.getApiKey())),
+                    resend.getFrom(), resend.getPublicBaseUrl());
+        } catch (RuntimeException exception) {
             throw new IllegalStateException("Recovery email sender is not configured");
-        };
+        }
     }
 }
