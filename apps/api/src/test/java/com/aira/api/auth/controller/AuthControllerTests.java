@@ -16,6 +16,8 @@ import com.aira.api.auth.config.AuthProperties;
 import com.aira.api.auth.service.AuthService;
 import com.aira.api.auth.service.LoginResult;
 import com.aira.api.auth.service.LoginService;
+import com.aira.api.auth.service.LogoutService;
+import jakarta.servlet.http.Cookie;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,13 +28,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 class AuthControllerTests {
     AuthService service = mock(AuthService.class);
     LoginService loginService = mock(LoginService.class);
+    LogoutService logoutService = mock(LogoutService.class);
     MockMvc mvc;
 
     @BeforeEach
     void setUp() {
         AuthProperties properties = new AuthProperties();
         mvc = MockMvcBuilders.standaloneSetup(
-                        new AuthController(service, loginService,
+                        new AuthController(service, loginService, logoutService,
                                 new SessionCookieFactory(properties.getSession())))
                 .addFilters(new AuthRequestBodyLimitFilter())
                 .setControllerAdvice(new AuthExceptionHandler()).build();
@@ -162,5 +165,26 @@ class AuthControllerTests {
                 .andExpect(jsonPath("$.errors[0].message").value("요청 본문이 너무 큽니다."));
 
         verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void logoutRevokesPresentedTokenAndAlwaysDeletesCookie() throws Exception {
+        mvc.perform(post("/api/auth/logout")
+                        .cookie(new Cookie(SessionCookieFactory.COOKIE_NAME, "opaque-token")))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value(SessionCookieFactory.COOKIE_NAME, ""))
+                .andExpect(cookie().maxAge(SessionCookieFactory.COOKIE_NAME, 0))
+                .andExpect(cookie().httpOnly(SessionCookieFactory.COOKIE_NAME, true))
+                .andExpect(cookie().secure(SessionCookieFactory.COOKIE_NAME, true));
+        verify(logoutService).logout("opaque-token");
+    }
+
+    @Test
+    void logoutWithoutCookieHasSameResponseAndDoesNotExposeState() throws Exception {
+        mvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""))
+                .andExpect(cookie().maxAge(SessionCookieFactory.COOKIE_NAME, 0));
+        verify(logoutService).logout(null);
     }
 }

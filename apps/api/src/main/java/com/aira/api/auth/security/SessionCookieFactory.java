@@ -1,6 +1,7 @@
 package com.aira.api.auth.security;
 
 import com.aira.api.auth.config.AuthProperties;
+import java.time.Duration;
 import org.springframework.http.ResponseCookie;
 
 public final class SessionCookieFactory {
@@ -22,6 +23,16 @@ public final class SessionCookieFactory {
                 .secure(secure)
                 .sameSite(sameSite)
                 .path("/")
+                .build();
+    }
+
+    public ResponseCookie delete() {
+        return ResponseCookie.from(COOKIE_NAME, "")
+                .httpOnly(true)
+                .secure(secure)
+                .sameSite(sameSite)
+                .path("/")
+                .maxAge(Duration.ZERO)
                 .build();
     }
 }

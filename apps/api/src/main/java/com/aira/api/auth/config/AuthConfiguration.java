@@ -5,6 +5,7 @@ import com.aira.api.auth.security.PasswordHasher;
 import com.aira.api.auth.security.SessionCookieFactory;
 import com.aira.api.auth.security.SessionTokenGenerator;
 import com.aira.api.auth.security.SessionTokenHasher;
+import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,5 +36,10 @@ public class AuthConfiguration {
     @Bean
     SessionCookieFactory sessionCookieFactory(AuthProperties properties) {
         return new SessionCookieFactory(properties.getSession());
+    }
+
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
     }
 }

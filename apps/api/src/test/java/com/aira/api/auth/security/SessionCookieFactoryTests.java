@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.aira.api.auth.config.AuthProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseCookie;
+import java.time.Duration;
 
 class SessionCookieFactoryTests {
     @Test
@@ -24,5 +25,17 @@ class SessionCookieFactoryTests {
         assertFalse(cookie.isSecure());
         assertTrue(cookie.isHttpOnly());
         assertEquals("Lax", cookie.getSameSite());
+    }
+
+    @Test
+    void deleteExpiresTheSessionCookieWithMatchingSecurityAttributes() {
+        ResponseCookie cookie = new SessionCookieFactory(new AuthProperties().getSession()).delete();
+        assertEquals(SessionCookieFactory.COOKIE_NAME, cookie.getName());
+        assertEquals("", cookie.getValue());
+        assertEquals(Duration.ZERO, cookie.getMaxAge());
+        assertTrue(cookie.isHttpOnly());
+        assertTrue(cookie.isSecure());
+        assertEquals("Lax", cookie.getSameSite());
+        assertEquals("/", cookie.getPath());
     }
 }
