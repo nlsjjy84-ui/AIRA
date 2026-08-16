@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = AuthController.class)
+@RestControllerAdvice(assignableTypes = {AuthController.class, RecoveryEmailController.class})
 public class AuthExceptionHandler {
     @ExceptionHandler(AuthenticationFailedException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)

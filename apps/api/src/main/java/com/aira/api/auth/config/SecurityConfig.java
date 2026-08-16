@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 public class SecurityConfig {
@@ -21,13 +22,18 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http, SessionAuthenticationFilter sessionAuthenticationFilter) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.spa())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .requestCache(cache -> cache.disable())
                 .formLogin(login -> login.disable())
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/recovery-email/verifications/confirm").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/recovery-email/verifications").authenticated()
+                        .anyRequest().permitAll())
                 .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
         return http.build();
     }

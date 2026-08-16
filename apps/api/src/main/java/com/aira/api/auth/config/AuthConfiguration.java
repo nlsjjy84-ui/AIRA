@@ -5,10 +5,14 @@ import com.aira.api.auth.security.PasswordHasher;
 import com.aira.api.auth.security.SessionCookieFactory;
 import com.aira.api.auth.security.SessionTokenGenerator;
 import com.aira.api.auth.security.SessionTokenHasher;
+import com.aira.api.auth.security.RecoveryEmailProtector;
+import com.aira.api.auth.security.VerificationTokenGenerator;
+import com.aira.api.auth.email.EmailSender;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 
 @Configuration
 @EnableConfigurationProperties(AuthProperties.class)
@@ -41,5 +45,25 @@ public class AuthConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    RecoveryEmailProtector recoveryEmailProtector(AuthProperties properties) {
+        var recovery = properties.getRecoveryEmail();
+        return new RecoveryEmailProtector(
+                recovery.getEncryptionKey(), recovery.getLookupKey(), recovery.getKeyVersion());
+    }
+
+    @Bean
+    VerificationTokenGenerator verificationTokenGenerator(SessionTokenGenerator generator) {
+        return generator::generate;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(EmailSender.class)
+    EmailSender emailSender() {
+        return (email, rawToken) -> {
+            throw new IllegalStateException("Recovery email sender is not configured");
+        };
     }
 }

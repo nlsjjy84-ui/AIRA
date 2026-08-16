@@ -13,6 +13,7 @@ public class AuthProperties {
 
     private final Argon2 argon2 = new Argon2();
     private final Session session = new Session();
+    private final RecoveryEmail recoveryEmail = new RecoveryEmail();
     private List<String> reservedNicknames = new ArrayList<>(
             List.of("admin", "administrator", "관리자", "운영자"));
 
@@ -23,6 +24,8 @@ public class AuthProperties {
     public Session getSession() {
         return session;
     }
+
+    public RecoveryEmail getRecoveryEmail() { return recoveryEmail; }
 
     public List<String> getReservedNicknames() {
         return List.copyOf(reservedNicknames);
@@ -61,5 +64,17 @@ public class AuthProperties {
         public void setCookieSecure(boolean cookieSecure) { this.cookieSecure = cookieSecure; }
         public String getCookieSameSite() { return cookieSameSite; }
         public void setCookieSameSite(String cookieSameSite) { this.cookieSameSite = cookieSameSite; }
+    }
+
+    public static class RecoveryEmail {
+        private String encryptionKey;
+        private String lookupKey;
+        private short keyVersion = 1;
+        public String getEncryptionKey() { return encryptionKey; }
+        public void setEncryptionKey(String value) { encryptionKey = value; }
+        public String getLookupKey() { return lookupKey; }
+        public void setLookupKey(String value) { lookupKey = value; }
+        public short getKeyVersion() { return keyVersion; }
+        public void setKeyVersion(short value) { keyVersion = value; }
     }
 }

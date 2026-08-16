@@ -24,7 +24,8 @@ public final class SessionAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI().substring(request.getContextPath().length());
         return path.equals("/api/auth/signup")
                 || path.equals("/api/auth/login")
-                || path.equals("/api/auth/logout");
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/recovery-email/verifications/confirm");
     }
 
     @Override

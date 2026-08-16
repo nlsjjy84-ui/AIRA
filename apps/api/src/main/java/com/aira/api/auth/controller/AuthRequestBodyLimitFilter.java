@@ -31,7 +31,10 @@ public final class AuthRequestBodyLimitFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         if (!"POST".equalsIgnoreCase(request.getMethod())) return true;
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        return !path.equals("/api/auth/signup") && !path.equals("/api/auth/login");
+        return !path.equals("/api/auth/signup")
+                && !path.equals("/api/auth/login")
+                && !path.equals("/api/auth/recovery-email/verifications")
+                && !path.equals("/api/auth/recovery-email/verifications/confirm");
     }
 
     @Override

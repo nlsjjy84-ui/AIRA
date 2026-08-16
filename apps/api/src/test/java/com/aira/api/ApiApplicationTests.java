@@ -9,7 +9,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"spring.datasource.password=",
 		"spring.datasource.driver-class-name=org.h2.Driver",
 		"spring.flyway.enabled=false",
-		"spring.jpa.hibernate.ddl-auto=create-drop"
+		"spring.jpa.hibernate.ddl-auto=create-drop",
+		"aira.auth.recovery-email.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+		"aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 class ApiApplicationTests {
 

@@ -14,7 +14,9 @@ import org.springframework.context.annotation.Import;
 
 @DataJpaTest(properties = {
         "spring.flyway.enabled=false",
-        "spring.jpa.hibernate.ddl-auto=create-drop"
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "aira.auth.recovery-email.encryption-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 @Import({AuthConfiguration.class, AuthService.class, SignupPersistenceService.class,
         LoginService.class, LoginPersistenceService.class})
