@@ -35,6 +35,20 @@ public class UserInterest {
 
     protected UserInterest() {}
 
+    public static UserInterest create(AppUser user, MarketEntity marketEntity, OffsetDateTime now) {
+        if (user == null || marketEntity == null || now == null) {
+            throw new IllegalArgumentException("User interest creation values are required");
+        }
+        UserInterest interest = new UserInterest();
+        interest.user = user;
+        interest.marketEntity = marketEntity;
+        interest.interestLevel = null;
+        interest.alertEnabled = true;
+        interest.createdAt = now;
+        interest.updatedAt = now;
+        return interest;
+    }
+
     public UUID getId() { return id; }
     public AppUser getUser() { return user; }
     public MarketEntity getMarketEntity() { return marketEntity; }

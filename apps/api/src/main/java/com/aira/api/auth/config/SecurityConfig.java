@@ -35,6 +35,7 @@ public class SecurityConfig {
                                 "/api/auth/password-reset/confirm").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications").authenticated()
+                        .requestMatchers("/api/me/interests", "/api/me/interests/**").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
         return http.build();

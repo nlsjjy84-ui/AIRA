@@ -4,6 +4,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,5 +73,13 @@ class SecurityCsrfIntegrationTests {
         mvc.perform(put("/api/example")).andExpect(status().isForbidden());
         mvc.perform(patch("/api/example")).andExpect(status().isForbidden());
         mvc.perform(delete("/api/example")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void userInterestEndpointsRequireAuthentication() throws Exception {
+        mvc.perform(get("/api/me/interests"))
+                .andExpect(result -> assertTrue(
+                        result.getResponse().getStatus() == 401
+                                || result.getResponse().getStatus() == 403));
     }
 }
