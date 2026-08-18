@@ -63,6 +63,39 @@ public class Event {
 
     protected Event() {}
 
+    public static Event createEarnings(String title, OffsetDateTime occurredAt,
+            OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now) {
+        if (title == null || title.isBlank() || occurredAt == null || observedAt == null
+                || dedupKey == null || dedupKey.length == 0 || now == null) {
+            throw new IllegalArgumentException("Earnings event creation values are required");
+        }
+        Event event = new Event();
+        event.eventType = EventType.EARNINGS;
+        event.title = title;
+        event.occurredAt = occurredAt;
+        event.occurredUntil = null;
+        event.firstObservedAt = observedAt;
+        event.lastObservedAt = observedAt;
+        event.status = EventStatus.CANDIDATE;
+        event.dedupKey = dedupKey.clone();
+        event.createdAt = now;
+        event.updatedAt = now;
+        return event;
+    }
+
+    public void observeAt(OffsetDateTime observedAt, OffsetDateTime now) {
+        if (observedAt == null || now == null) {
+            throw new IllegalArgumentException("Event observation values are required");
+        }
+        if (status == EventStatus.MERGED || status == EventStatus.DISCARDED) {
+            throw new IllegalStateException("Merged or discarded events cannot be re-observed");
+        }
+        if (observedAt.isAfter(lastObservedAt)) {
+            lastObservedAt = observedAt;
+            updatedAt = now;
+        }
+    }
+
     public UUID getId() { return id; }
     public EventType getEventType() { return eventType; }
     public String getTitle() { return title; }

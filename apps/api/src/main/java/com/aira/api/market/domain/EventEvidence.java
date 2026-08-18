@@ -27,6 +27,20 @@ public class EventEvidence {
 
     protected EventEvidence() {}
 
+    public static EventEvidence supports(Event event, Evidence evidence, OffsetDateTime now) {
+        if (event == null || event.getId() == null || evidence == null
+                || evidence.getId() == null || now == null) {
+            throw new IllegalArgumentException("Event evidence link values are required");
+        }
+        EventEvidence link = new EventEvidence();
+        link.id = new EventEvidenceId(event.getId(), evidence.getId());
+        link.event = event;
+        link.evidence = evidence;
+        link.relationType = "SUPPORTS";
+        link.linkedAt = now;
+        return link;
+    }
+
     public EventEvidenceId getId() { return id; }
     public Event getEvent() { return event; }
     public Evidence getEvidence() { return evidence; }

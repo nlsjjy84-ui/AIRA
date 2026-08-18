@@ -31,6 +31,21 @@ public class EventEntity {
 
     protected EventEntity() {}
 
+    public static EventEntity subject(Event event, MarketEntity marketEntity, OffsetDateTime now) {
+        if (event == null || event.getId() == null || marketEntity == null
+                || marketEntity.getId() == null || now == null) {
+            throw new IllegalArgumentException("Event subject link values are required");
+        }
+        EventEntity link = new EventEntity();
+        link.id = new EventEntityId(event.getId(), marketEntity.getId());
+        link.event = event;
+        link.marketEntity = marketEntity;
+        link.relationType = "SUBJECT";
+        link.relevance = Relevance.HIGH;
+        link.createdAt = now;
+        return link;
+    }
+
     public EventEntityId getId() { return id; }
     public Event getEvent() { return event; }
     public MarketEntity getMarketEntity() { return marketEntity; }
