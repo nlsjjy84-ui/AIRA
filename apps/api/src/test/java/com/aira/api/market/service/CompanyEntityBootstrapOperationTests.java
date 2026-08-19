@@ -42,7 +42,7 @@ class CompanyEntityBootstrapOperationTests {
         operation = new CompanyEntityBootstrapOperation(entities,
                 Clock.fixed(Instant.parse("2026-08-19T06:00:00Z"), ZoneOffset.UTC),
                 () -> sequence.getAndIncrement() == 0 ? FIRST_KEY : SECOND_KEY);
-        org.mockito.Mockito.lenient().when(entities.save(any())).thenAnswer(invocation -> {
+        org.mockito.Mockito.lenient().when(entities.saveAndFlush(any())).thenAnswer(invocation -> {
             MarketEntity value = invocation.getArgument(0);
             set(value, "id", UUID.randomUUID());
             return value;
@@ -54,7 +54,7 @@ class CompanyEntityBootstrapOperationTests {
         var result = operation.create(new CompanyEntityBootstrapCommand("Example Company", "KR"));
 
         var captor = ArgumentCaptor.forClass(MarketEntity.class);
-        verify(entities).save(captor.capture());
+        verify(entities).saveAndFlush(captor.capture());
         var company = captor.getValue();
         assertEquals(EntityType.COMPANY, company.getEntityType());
         assertTrue(company.isActive());
@@ -101,7 +101,7 @@ class CompanyEntityBootstrapOperationTests {
                 () -> operation.create(new CompanyEntityBootstrapCommand("   ")));
         assertThrows(IllegalArgumentException.class,
                 () -> operation.create(new CompanyEntityBootstrapCommand("x".repeat(301))));
-        verify(entities, never()).save(any());
+        verify(entities, never()).saveAndFlush(any());
     }
 
     @Test
@@ -110,7 +110,7 @@ class CompanyEntityBootstrapOperationTests {
                 () -> operation.create(new CompanyEntityBootstrapCommand("Company", "kr")));
         assertThrows(IllegalArgumentException.class,
                 () -> operation.create(new CompanyEntityBootstrapCommand("Company", "KOR")));
-        verify(entities, never()).save(any());
+        verify(entities, never()).saveAndFlush(any());
     }
 
     @Test

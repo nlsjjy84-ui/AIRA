@@ -35,7 +35,7 @@ public class CompanyEntityBootstrapOperation {
         }
         MarketEntity company = MarketEntity.company(command.canonicalName(), command.countryCode(),
                 opaqueIdentityGenerator.get(), OffsetDateTime.now(clock));
-        MarketEntity stored = entities.save(company);
+        MarketEntity stored = entities.saveAndFlush(company);
         return new CompanyEntityBootstrapResult(stored.getId(), stored.getCanonicalKey(),
                 stored.getCanonicalName(), stored.getCountryCode());
     }
