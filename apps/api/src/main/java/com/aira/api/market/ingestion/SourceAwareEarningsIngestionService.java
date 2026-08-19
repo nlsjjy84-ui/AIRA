@@ -9,21 +9,26 @@ import com.aira.api.market.normalization.EarningsFactNormalizationService;
 import com.aira.api.market.normalization.EarningsNormalizationInput;
 import com.aira.api.market.normalization.EarningsEventNormalizationService;
 import com.aira.api.market.repository.EvidenceRepository;
+import com.aira.api.market.repository.EvidenceRegistrationStore;
 import com.aira.api.market.service.SourceRegistryService;
+import java.util.Arrays;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class SourceAwareEarningsIngestionService {
     private final SourceRegistryService sources;
+    private final EvidenceRegistrationStore evidenceRegistrations;
     private final EvidenceRepository evidence;
     private final EarningsEventNormalizationService events;
     private final EarningsFactNormalizationService facts;
 
     public SourceAwareEarningsIngestionService(SourceRegistryService sources,
-            EvidenceRepository evidence, EarningsEventNormalizationService events,
+            EvidenceRegistrationStore evidenceRegistrations, EvidenceRepository evidence,
+            EarningsEventNormalizationService events,
             EarningsFactNormalizationService facts) {
         this.sources = sources;
+        this.evidenceRegistrations = evidenceRegistrations;
         this.evidence = evidence;
         this.events = events;
         this.facts = facts;
@@ -36,11 +41,13 @@ public class SourceAwareEarningsIngestionService {
         }
         Source source = sources.registerOrReuse(input.source());
         EvidenceRegistration evidenceInput = input.evidence();
-        Evidence savedEvidence = evidence.saveAndFlush(Evidence.collected(source,
-                evidenceInput.evidenceType(), evidenceInput.externalId(),
-                evidenceInput.originalUrl(), evidenceInput.title(), evidenceInput.contentHash(),
-                evidenceInput.locator(), evidenceInput.publishedAt(),
-                evidenceInput.collectedAt(), evidenceInput.revision()));
+        var evidenceId = evidenceRegistrations.registerOrGetId(source, evidenceInput);
+        Evidence savedEvidence = evidence.findById(evidenceId)
+                .orElseThrow(() -> new IllegalStateException("Registered evidence was not found"));
+        if (!Arrays.equals(savedEvidence.getContentHash(), evidenceInput.contentHash())) {
+            throw new IllegalStateException(
+                    "Evidence identity conflicts with different filing content");
+        }
 
         Event event = events.normalize(new EarningsNormalizationInput(input.subjectEntityId(),
                 savedEvidence.getId(), input.reportingPeriodEnd(), input.neutralTitle(),

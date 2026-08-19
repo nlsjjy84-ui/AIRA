@@ -21,6 +21,7 @@ import com.aira.api.market.normalization.EarningsFactNormalizationInput;
 import com.aira.api.market.normalization.EarningsFactNormalizationService;
 import com.aira.api.market.normalization.EarningsNormalizationInput;
 import com.aira.api.market.repository.EvidenceRepository;
+import com.aira.api.market.repository.EvidenceRegistrationStore;
 import com.aira.api.market.service.SourceRegistration;
 import com.aira.api.market.service.SourceRegistryService;
 import java.lang.reflect.Field;
@@ -41,6 +42,7 @@ class SourceAwareEarningsIngestionServiceTests {
     private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-08-19T00:00:00Z");
 
     @Mock private SourceRegistryService sources;
+    @Mock private EvidenceRegistrationStore evidenceRegistrations;
     @Mock private EvidenceRepository evidence;
     @Mock private EarningsEventNormalizationService events;
     @Mock private EarningsFactNormalizationService facts;
@@ -52,16 +54,20 @@ class SourceAwareEarningsIngestionServiceTests {
 
     @BeforeEach
     void setUp() throws Exception {
-        service = new SourceAwareEarningsIngestionService(sources, evidence, events, facts);
+        service = new SourceAwareEarningsIngestionService(
+                sources, evidenceRegistrations, evidence, events, facts);
         source = instance(Source.class, UUID.randomUUID());
+        Evidence savedEvidence = Evidence.collected(source, EvidenceType.DISCLOSURE,
+                "filing-1", "https://example.gov/filing-1", "Filing",
+                new byte[] {1, 2, 3}, "table:revenue", NOW, NOW, 1);
+        set(savedEvidence, "id", UUID.randomUUID());
         event = instance(Event.class, UUID.randomUUID());
         fact = instance(Fact.class, UUID.randomUUID());
         lenient().when(sources.registerOrReuse(any())).thenReturn(source);
-        lenient().when(evidence.saveAndFlush(any())).thenAnswer(invocation -> {
-            Evidence saved = invocation.getArgument(0);
-            set(saved, "id", UUID.randomUUID());
-            return saved;
-        });
+        lenient().when(evidenceRegistrations.registerOrGetId(any(), any()))
+                .thenReturn(savedEvidence.getId());
+        lenient().when(evidence.findById(savedEvidence.getId()))
+                .thenReturn(java.util.Optional.of(savedEvidence));
         lenient().when(events.normalize(any())).thenReturn(event);
         lenient().when(facts.normalize(any())).thenReturn(fact);
     }
@@ -91,7 +97,7 @@ class SourceAwareEarningsIngestionServiceTests {
         service.ingest(input("sec", "filing-2"));
 
         verify(sources, org.mockito.Mockito.times(2)).registerOrReuse(any());
-        verify(evidence, org.mockito.Mockito.times(2)).saveAndFlush(any());
+        verify(evidenceRegistrations, org.mockito.Mockito.times(2)).registerOrGetId(any(), any());
     }
 
     @Test
@@ -128,7 +134,22 @@ class SourceAwareEarningsIngestionServiceTests {
     void nullInputCreatesNoPartialState() {
         assertThrows(IllegalArgumentException.class, () -> service.ingest(null));
         verify(sources, never()).registerOrReuse(any());
-        verify(evidence, never()).saveAndFlush(any());
+        verify(evidenceRegistrations, never()).registerOrGetId(any(), any());
+        verify(events, never()).normalize(any());
+        verify(facts, never()).normalize(any());
+    }
+
+    @Test
+    void rejectsSameEvidenceIdentityWithDifferentContent() throws Exception {
+        Evidence conflicting = Evidence.collected(source, EvidenceType.DISCLOSURE,
+                "filing-1", "https://example.gov/filing-1", "Filing",
+                new byte[] {9, 9, 9}, "table:revenue", NOW, NOW, 1);
+        set(conflicting, "id", UUID.randomUUID());
+        when(evidenceRegistrations.registerOrGetId(any(), any())).thenReturn(conflicting.getId());
+        when(evidence.findById(conflicting.getId()))
+                .thenReturn(java.util.Optional.of(conflicting));
+
+        assertThrows(IllegalStateException.class, () -> service.ingest(input("sec", "filing-1")));
         verify(events, never()).normalize(any());
         verify(facts, never()).normalize(any());
     }

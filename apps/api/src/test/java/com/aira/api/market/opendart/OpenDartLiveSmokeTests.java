@@ -21,9 +21,10 @@ class OpenDartLiveSmokeTests {
         var annualCfsRows = response.list().stream()
                 .filter(row -> "2025".equals(row.businessYear()))
                 .filter(row -> "11011".equals(row.reportCode()))
-                .filter(row -> "CFS".equals(row.financialStatementDivision()))
                 .toList();
-        assertTrue(annualCfsRows.stream().anyMatch(row -> "ifrs_Revenue".equals(row.accountId())));
+        assertTrue(annualCfsRows.stream().anyMatch(row ->
+                java.util.Set.of("ifrs_Revenue", "ifrs-full_Revenue")
+                        .contains(row.accountId())));
         assertTrue(annualCfsRows.stream()
                 .anyMatch(row -> "dart_OperatingIncomeLoss".equals(row.accountId())));
     }

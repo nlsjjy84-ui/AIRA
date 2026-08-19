@@ -23,22 +23,23 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
-public final class OpenDartAnnualCfsAdapter {
+public class OpenDartAnnualCfsAdapter {
     private static final String NAMESPACE = "OPENDART";
     private static final String IDENTIFIER_TYPE = "CORP_CODE";
     private static final String REPORT_CODE = "11011";
     private static final String CFS = "CFS";
     private static final SourceRegistration SOURCE = new SourceRegistration(
             SourceType.REGULATOR, "opendart", "OpenDART", "opendart.fss.or.kr");
-    private static final Map<FactPredicate, String> ACCOUNT_IDS = Map.of(
-            FactPredicate.REVENUE, "ifrs_Revenue",
-            FactPredicate.OPERATING_INCOME, "dart_OperatingIncomeLoss");
-    private static final DateTimeFormatter DART_DATE = DateTimeFormatter.ofPattern("uuuu.MM.dd");
+    private static final Map<FactPredicate, List<String>> ACCOUNT_IDS = Map.of(
+            FactPredicate.REVENUE, List.of("ifrs_Revenue", "ifrs-full_Revenue"),
+            FactPredicate.OPERATING_INCOME, List.of("dart_OperatingIncomeLoss"));
 
     private final OpenDartAnnualCfsClient client;
     private final EntityExternalIdentifierRegistryService identifiers;
@@ -65,21 +66,60 @@ public final class OpenDartAnnualCfsAdapter {
         if (request == null) {
             throw new IllegalArgumentException("OpenDART request is required");
         }
-        OpenDartFinancialResponse response = client.fetch(request.corpCode(), request.businessYear());
+        return ingestFiling(request.context(),
+                List.of(request.predicate())).getFirst();
+    }
+
+    @Transactional
+    public List<IngestionReceipt> ingestFiling(
+            OpenDartAnnualCfsContext context, List<FactPredicate> predicates) {
+        if (context == null) {
+            throw new IllegalArgumentException("OpenDART request context is required");
+        }
+        if (predicates == null || predicates.isEmpty() || predicates.stream().anyMatch(p -> p == null)) {
+            throw new IllegalArgumentException("At least one fact predicate is required");
+        }
+        OpenDartFinancialResponse response = client.fetch(context.corpCode(), context.businessYear());
         requireSuccess(response);
         UUID entityId = identifiers.findEntity(
-                        new ExternalIdentifierKey(NAMESPACE, IDENTIFIER_TYPE, request.corpCode()))
+                        new ExternalIdentifierKey(NAMESPACE, IDENTIFIER_TYPE, context.corpCode()))
                 .filter(entity -> entity.getEntityType() == EntityType.COMPANY)
                 .map(entity -> entity.getId())
                 .orElseThrow(() -> new IllegalStateException(
                         "OpenDART corp code is not mapped to a company entity"));
 
-        String accountId = ACCOUNT_IDS.get(request.predicate());
+        List<OpenDartFinancialRow> selected = predicates.stream()
+                .map(predicate -> selectRow(response, context, predicate))
+                .toList();
+        String receiptNumber = selected.getFirst().receiptNumber();
+        if (selected.stream().anyMatch(row -> !receiptNumber.equals(row.receiptNumber()))) {
+            throw malformed("supported accounts do not belong to one filing");
+        }
+        // v1 is CFS-only. Revisit content-hash/revision semantics before combining OFS
+        // or another OpenDART endpoint with this filing Evidence identity.
+        byte[] filingHash = filingContentHash(response, receiptNumber, context);
+        var receipts = new java.util.ArrayList<IngestionReceipt>();
+        for (int index = 0; index < predicates.size(); index++) {
+            receipts.add(boundary.ingest(toInput(
+                    context, predicates.get(index), entityId, selected.get(index), filingHash)));
+        }
+        return List.copyOf(receipts);
+    }
+
+    private static OpenDartFinancialRow selectRow(OpenDartFinancialResponse response,
+            OpenDartAnnualCfsContext context, FactPredicate predicate) {
+        List<String> accountIds = ACCOUNT_IDS.get(predicate);
+        if (accountIds == null) {
+            throw new IllegalArgumentException("Unsupported fact predicate");
+        }
         List<OpenDartFinancialRow> matches = response.list().stream()
-                .filter(row -> REPORT_CODE.equals(row.reportCode()))
-                .filter(row -> CFS.equals(row.financialStatementDivision()))
-                .filter(row -> Integer.toString(request.businessYear()).equals(row.businessYear()))
-                .filter(row -> accountId.equals(row.accountId()))
+                .filter(row -> context.reportCode().equals(row.reportCode()))
+                .filter(row -> Integer.toString(context.businessYear()).equals(row.businessYear()))
+                .filter(row -> row.corpCode() == null || context.corpCode().equals(row.corpCode()))
+                .filter(row -> row.financialStatementDivision() == null
+                        || context.financialStatementDivision()
+                                .equals(row.financialStatementDivision()))
+                .filter(row -> accountIds.contains(row.accountId()))
                 .toList();
         if (matches.isEmpty()) {
             throw new OpenDartProviderException(OpenDartProviderException.Category.NO_DATA,
@@ -90,29 +130,31 @@ public final class OpenDartAnnualCfsAdapter {
                     OpenDartProviderException.Category.MALFORMED_RESPONSE,
                     "OpenDART returned an ambiguous annual CFS account");
         }
-        return boundary.ingest(toInput(request, entityId, matches.getFirst()));
+        return matches.getFirst();
     }
 
     private SourceAwareEarningsIngestionInput toInput(
-            OpenDartAnnualCfsRequest request, UUID entityId, OpenDartFinancialRow row) {
-        Period period = parsePeriod(row.currentTerm());
+            OpenDartAnnualCfsContext context, FactPredicate predicate,
+            UUID entityId, OpenDartFinancialRow row,
+            byte[] filingHash) {
+        Period period = annualPeriod(context.businessYear(), context.fiscalYearEndMonth());
         BigDecimal amount = parseAmount(row.currentTermAmount());
         String currency = requireCurrency(row.currency());
-        String locator = "CFS/" + required(row.statementDivision(), "statement division")
+        String locator = context.financialStatementDivision() + "/"
+                + required(row.statementDivision(), "statement division")
                 + "/" + row.accountId() + "/thstrm_amount";
         OffsetDateTime collectedAt = OffsetDateTime.now(clock);
         var evidence = new EvidenceRegistration(
                 EvidenceType.DISCLOSURE,
                 required(row.receiptNumber(), "receipt number"),
                 "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + row.receiptNumber(),
-                "OpenDART annual CFS " + row.accountId(),
-                contentHash(request.corpCode(), row, period, amount, currency),
-                locator, null, collectedAt, 1);
+                "OpenDART annual CFS filing", filingHash,
+                null, null, collectedAt, 1);
         return new SourceAwareEarningsIngestionInput(
                 SOURCE, evidence, entityId, period.end(),
-                "Annual CFS " + request.predicate(),
+                "Annual CFS " + predicate,
                 period.end().atStartOfDay().atOffset(ZoneOffset.UTC),
-                request.predicate(), amount, currency, period.start(), period.end(), locator);
+                predicate, amount, currency, period.start(), period.end(), locator);
     }
 
     static BigDecimal parseAmount(String value) {
@@ -126,20 +168,10 @@ public final class OpenDartAnnualCfsAdapter {
         }
     }
 
-    private static Period parsePeriod(String value) {
-        if (value == null) {
-            throw malformed("current-term period is missing");
-        }
-        String[] parts = value.trim().split("\\s*~\\s*", -1);
-        if (parts.length != 2) {
-            throw malformed("current-term period is malformed");
-        }
-        try {
-            return new Period(LocalDate.parse(parts[0], DART_DATE),
-                    LocalDate.parse(parts[1], DART_DATE));
-        } catch (DateTimeParseException exception) {
-            throw malformed("current-term period is malformed");
-        }
+    static Period annualPeriod(int businessYear, int fiscalYearEndMonth) {
+        LocalDate end = LocalDate.of(businessYear, fiscalYearEndMonth, 1)
+                .with(java.time.temporal.TemporalAdjusters.lastDayOfMonth());
+        return new Period(end.minusYears(1).plusDays(1), end);
     }
 
     private static String requireCurrency(String value) {
@@ -179,13 +211,17 @@ public final class OpenDartAnnualCfsAdapter {
                 "OpenDART request failed with status " + response.status());
     }
 
-    private static byte[] contentHash(String corpCode, OpenDartFinancialRow row,
-            Period period, BigDecimal amount, String currency) {
-        String canonical = String.join("\n",
-                "opendart-annual-cfs-v1", corpCode, row.receiptNumber(), row.businessYear(),
-                row.reportCode(), row.financialStatementDivision(), row.statementDivision(),
-                row.accountId(), period.start().toString(), period.end().toString(), currency,
-                amount.stripTrailingZeros().toPlainString());
+    private static byte[] filingContentHash(
+            OpenDartFinancialResponse response, String receiptNumber,
+            OpenDartAnnualCfsContext context) {
+        Comparator<OpenDartFinancialRow> order = Comparator
+                .comparing(OpenDartAnnualCfsAdapter::stableRow);
+        String canonical = response.list().stream()
+                .filter(row -> receiptNumber.equals(row.receiptNumber()))
+                .sorted(order)
+                .map(OpenDartAnnualCfsAdapter::stableRow)
+                .collect(java.util.stream.Collectors.joining("\n",
+                        "opendart-filing-v1\n" + stableContext(context) + "\n", ""));
         try {
             return MessageDigest.getInstance("SHA-256")
                     .digest(canonical.getBytes(StandardCharsets.UTF_8));
@@ -194,14 +230,35 @@ public final class OpenDartAnnualCfsAdapter {
         }
     }
 
+    private static String stableContext(OpenDartAnnualCfsContext context) {
+        return String.join("/", context.corpCode(), Integer.toString(context.businessYear()),
+                context.reportCode(), context.financialStatementDivision());
+    }
+
+    private static String stableRow(OpenDartFinancialRow row) {
+        return java.util.Arrays.asList(row.receiptNumber(), row.businessYear(), row.reportCode(),
+                        row.corpCode(), row.financialStatementDivision(), row.statementDivision(),
+                        row.statementName(), row.accountId(), row.accountName(), row.accountDetail(),
+                        row.currentTerm(), row.currentTermName(), row.currentTermAmount(),
+                        row.previousTermName(), row.previousTermAmount(),
+                        row.beforePreviousTermName(), row.beforePreviousTermAmount(), row.order(),
+                        row.currency())
+                .stream().map(OpenDartAnnualCfsAdapter::lengthPrefixed)
+                .collect(java.util.stream.Collectors.joining());
+    }
+
+    private static String lengthPrefixed(String value) {
+        return value == null ? "-1:" : value.length() + ":" + value;
+    }
+
     private static OpenDartProviderException malformed(String detail) {
         return new OpenDartProviderException(
                 OpenDartProviderException.Category.MALFORMED_RESPONSE,
                 "OpenDART " + detail);
     }
 
-    private record Period(LocalDate start, LocalDate end) {
-        private Period {
+    record Period(LocalDate start, LocalDate end) {
+        Period {
             if (end.isBefore(start)) {
                 throw malformed("current-term period is reversed");
             }

@@ -28,6 +28,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class OpenDartAnnualCfsAdapterTests {
+    private static final OpenDartAnnualCfsContext CONTEXT =
+            new OpenDartAnnualCfsContext("00126380", 2025, "11011", "CFS", 12);
     @Mock private OpenDartAnnualCfsClient client;
     @Mock private EntityExternalIdentifierRegistryService identifiers;
     @Mock private EarningsIngestionBoundary boundary;
@@ -61,7 +64,7 @@ class OpenDartAnnualCfsAdapterTests {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,234.50")));
 
         assertEquals(receipt, adapter.ingest(
-                new OpenDartAnnualCfsRequest("00126380", 2025, FactPredicate.REVENUE)));
+                new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)));
 
         verify(client).fetch("00126380", 2025);
         verify(identifiers).findEntity(new ExternalIdentifierKey(
@@ -87,12 +90,76 @@ class OpenDartAnnualCfsAdapterTests {
         var exact = row("dart_OperatingIncomeLoss", "77");
         when(client.fetch("00126380", 2025)).thenReturn(success(exact));
 
-        adapter.ingest(new OpenDartAnnualCfsRequest(
-                "00126380", 2025, FactPredicate.OPERATING_INCOME));
+        adapter.ingest(new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.OPERATING_INCOME));
 
         var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
         verify(boundary).ingest(captor.capture());
         assertEquals(FactPredicate.OPERATING_INCOME, captor.getValue().predicate());
+    }
+
+    @Test
+    void acceptsExactFullRevenueAliasAndRejectsAliasCollision() {
+        when(client.fetch("00126380", 2025))
+                .thenReturn(success(row("ifrs-full_Revenue", "100")));
+        adapter.ingest(new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE));
+        verify(boundary).ingest(any());
+
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                row("ifrs_Revenue", "100"), row("ifrs-full_Revenue", "100")));
+        var failure = assertThrows(OpenDartProviderException.class, () -> adapter.ingest(
+                new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)));
+        assertEquals(OpenDartProviderException.Category.MALFORMED_RESPONSE, failure.category());
+    }
+
+    @Test
+    void derivesAnnualPeriodFromFiscalYearEndMonth() {
+        var period = OpenDartAnnualCfsAdapter.annualPeriod(2025, 3);
+        assertEquals("2024-04-01", period.start().toString());
+        assertEquals("2025-03-31", period.end().toString());
+    }
+
+    @Test
+    void ingestsTwoMetricsFromOneFetchWithSharedFilingEvidence() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"), row("dart_OperatingIncomeLoss", "100")));
+
+        var receipts = adapter.ingestFiling(CONTEXT,
+                List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME));
+
+        assertEquals(2, receipts.size());
+        verify(client).fetch("00126380", 2025);
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(2)).ingest(captor.capture());
+        var inputs = captor.getAllValues();
+        assertArrayEquals(inputs.get(0).evidence().contentHash(),
+                inputs.get(1).evidence().contentHash());
+        assertEquals("20260331000123", inputs.get(0).evidence().externalId());
+        assertEquals("20260331000123", inputs.get(1).evidence().externalId());
+        assertEquals(null, inputs.get(0).evidence().locator());
+    }
+
+    @Test
+    void filingHashIsStableAcrossProviderRowOrdering() {
+        var revenue = revenueRow("1,000");
+        var operatingIncome = row("dart_OperatingIncomeLoss", "100");
+        when(client.fetch("00126380", 2025))
+                .thenReturn(success(revenue, operatingIncome))
+                .thenReturn(success(operatingIncome, revenue));
+
+        adapter.ingestFiling(CONTEXT, List.of(FactPredicate.REVENUE));
+        adapter.ingestFiling(CONTEXT, List.of(FactPredicate.REVENUE));
+
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(2)).ingest(captor.capture());
+        assertArrayEquals(captor.getAllValues().get(0).evidence().contentHash(),
+                captor.getAllValues().get(1).evidence().contentHash());
+    }
+
+    @Test
+    void multiMetricFilingDefinesOneTransactionBoundary() throws Exception {
+        assertTrue(OpenDartAnnualCfsAdapter.class
+                .getMethod("ingestFiling", OpenDartAnnualCfsContext.class, List.class)
+                .isAnnotationPresent(Transactional.class));
     }
 
     @Test
@@ -103,7 +170,7 @@ class OpenDartAnnualCfsAdapterTests {
         when(client.fetch("00126380", 2025)).thenReturn(success(unsupported));
 
         var failure = assertThrows(OpenDartProviderException.class, () -> adapter.ingest(
-                new OpenDartAnnualCfsRequest("00126380", 2025, FactPredicate.REVENUE)));
+                new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)));
 
         assertEquals(OpenDartProviderException.Category.NO_DATA, failure.category());
         verify(boundary, never()).ingest(any());
@@ -115,17 +182,16 @@ class OpenDartAnnualCfsAdapterTests {
         when(identifiers.findEntity(any())).thenReturn(Optional.empty());
 
         assertThrows(IllegalStateException.class, () -> adapter.ingest(
-                new OpenDartAnnualCfsRequest("00126380", 2025, FactPredicate.REVENUE)));
+                new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)));
         verify(boundary, never()).ingest(any());
     }
 
     @Test
     void preservesLeadingZeroAndRejectsInvalidCorpCodes() {
-        var request = new OpenDartAnnualCfsRequest(
-                "00126380", 2025, FactPredicate.REVENUE);
-        assertEquals("00126380", request.corpCode());
+        var request = new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE);
+        assertEquals("00126380", request.context().corpCode());
         assertThrows(IllegalArgumentException.class,
-                () -> new OpenDartAnnualCfsRequest("126380", 2025, FactPredicate.REVENUE));
+                () -> new OpenDartAnnualCfsContext("126380", 2025, "11011", "CFS", 12));
     }
 
     @Test
@@ -157,27 +223,22 @@ class OpenDartAnnualCfsAdapterTests {
             when(client.fetch("00126380", 2025))
                     .thenReturn(new OpenDartFinancialResponse(entry.status(), "provider text", null));
             var failure = assertThrows(OpenDartProviderException.class, () -> adapter.ingest(
-                    new OpenDartAnnualCfsRequest("00126380", 2025, FactPredicate.REVENUE)));
+                    new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)));
             assertEquals(entry.category(), failure.category());
         }
         verify(boundary, never()).ingest(any());
     }
 
     @Test
-    void deterministicContentHashIgnoresCollectionTimeAndAccountName() {
+    void deterministicFilingHashIgnoresCollectionTime() {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
-        adapter.ingest(new OpenDartAnnualCfsRequest(
-                "00126380", 2025, FactPredicate.REVENUE));
+        adapter.ingest(new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE));
         var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
         verify(boundary).ingest(captor.capture());
         byte[] first = captor.getValue().evidence().contentHash();
 
-        var changedName = new OpenDartFinancialRow("20260331000123", "2025", "11011",
-                "CFS", "IS", "ifrs_Revenue", "changed display label",
-                "2025.01.01 ~ 2025.12.31", "1000.0", "KRW");
-        when(client.fetch("00126380", 2025)).thenReturn(success(changedName));
-        adapter.ingest(new OpenDartAnnualCfsRequest(
-                "00126380", 2025, FactPredicate.REVENUE));
+        when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
+        adapter.ingest(new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE));
         verify(boundary, org.mockito.Mockito.times(2)).ingest(captor.capture());
         byte[] second = captor.getAllValues().getLast().evidence().contentHash();
 
@@ -192,7 +253,7 @@ class OpenDartAnnualCfsAdapterTests {
         when(client.fetch("00126380", 2025)).thenReturn(success(ofs));
         assertEquals(OpenDartProviderException.Category.NO_DATA,
                 assertThrows(OpenDartProviderException.class, () -> adapter.ingest(
-                        new OpenDartAnnualCfsRequest("00126380", 2025, FactPredicate.REVENUE)))
+                        new OpenDartAnnualCfsRequest(CONTEXT, FactPredicate.REVENUE)))
                         .category());
     }
 
