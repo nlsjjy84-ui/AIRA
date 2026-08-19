@@ -30,7 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 class SourceAwareIngestionPostgresE2ETests {
     private static final OffsetDateTime NOW = OffsetDateTime.parse("2026-08-19T00:00:00Z");
 
-    @Autowired private SourceAwareEarningsIngestionService ingestion;
+    @Autowired private EarningsIngestionBoundary ingestion;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
     @PersistenceContext private EntityManager entityManager;
@@ -45,17 +45,17 @@ class SourceAwareIngestionPostgresE2ETests {
 
         transaction.executeWithoutResult(status -> {
             insertCompany(subjectId, "COMPANY:INGESTION-E2E:" + suffix);
-            SourceAwareIngestionResult first = ingestion.ingest(
+            IngestionReceipt first = ingestion.ingest(
                     input(firstSourceKey, "evidence-1-" + suffix, subjectId));
-            SourceAwareIngestionResult repeated = ingestion.ingest(
+            IngestionReceipt repeated = ingestion.ingest(
                     input(firstSourceKey, "evidence-2-" + suffix, subjectId));
-            SourceAwareIngestionResult different = ingestion.ingest(
+            IngestionReceipt different = ingestion.ingest(
                     input(secondSourceKey, "evidence-3-" + suffix, subjectId));
             entityManager.flush();
 
-            assertEquals(first.source().getId(), repeated.source().getId());
-            assertNotEquals(first.evidence().getId(), repeated.evidence().getId());
-            assertNotEquals(first.source().getId(), different.source().getId());
+            assertEquals(first.sourceId(), repeated.sourceId());
+            assertNotEquals(first.evidenceId(), repeated.evidenceId());
+            assertNotEquals(first.sourceId(), different.sourceId());
             assertEquals(1, count("SELECT count(*) FROM source WHERE external_key = ?",
                     firstSourceKey));
             assertEquals(1, count("SELECT count(*) FROM source WHERE external_key = ?",
@@ -66,14 +66,14 @@ class SourceAwareIngestionPostgresE2ETests {
                     JOIN evidence e ON e.id = fa.evidence_id
                     JOIN source s ON s.id = e.source_id
                     WHERE fa.fact_id = ? AND s.external_key IN (?, ?)
-                    """, first.fact().getId(), firstSourceKey, secondSourceKey));
-            assertEquals(first.source().getId(), jdbc.queryForObject("""
+                    """, first.factId(), firstSourceKey, secondSourceKey));
+            assertEquals(first.sourceId(), jdbc.queryForObject("""
                     SELECT s.id
                     FROM fact_assertion fa
                     JOIN evidence e ON e.id = fa.evidence_id
                     JOIN source s ON s.id = e.source_id
                     WHERE fa.fact_id = ? AND e.id = ?
-                    """, UUID.class, first.fact().getId(), first.evidence().getId()));
+                    """, UUID.class, first.factId(), first.evidenceId()));
             status.setRollbackOnly();
         });
 
