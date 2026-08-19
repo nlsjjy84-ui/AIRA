@@ -57,6 +57,39 @@ public class MarketEntity {
 
     protected MarketEntity() {}
 
+    public static MarketEntity company(String canonicalName, String countryCode,
+            UUID opaqueIdentity, OffsetDateTime now) {
+        if (canonicalName == null || canonicalName.isBlank()
+                || canonicalName.trim().length() > 300) {
+            throw new IllegalArgumentException("Company canonical name is required");
+        }
+        if (opaqueIdentity == null || now == null) {
+            throw new IllegalArgumentException("Company internal identity and creation time are required");
+        }
+        String normalizedCountryCode = optionalCountryCode(countryCode);
+        MarketEntity entity = new MarketEntity();
+        entity.entityType = EntityType.COMPANY;
+        entity.canonicalName = canonicalName.trim();
+        entity.canonicalKey = "COMPANY:" + opaqueIdentity;
+        entity.countryCode = normalizedCountryCode;
+        entity.active = true;
+        entity.createdAt = now;
+        entity.updatedAt = now;
+        return entity;
+    }
+
+    private static String optionalCountryCode(String countryCode) {
+        if (countryCode == null) {
+            return null;
+        }
+        String normalized = countryCode.trim();
+        if (!normalized.matches("[A-Z]{2}")) {
+            throw new IllegalArgumentException(
+                    "Company country code must be an ISO alpha-2 uppercase code");
+        }
+        return normalized;
+    }
+
     public UUID getId() { return id; }
     public EntityType getEntityType() { return entityType; }
     public String getCanonicalName() { return canonicalName; }

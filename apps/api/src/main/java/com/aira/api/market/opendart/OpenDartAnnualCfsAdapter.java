@@ -24,6 +24,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -44,6 +45,7 @@ public final class OpenDartAnnualCfsAdapter {
     private final EarningsIngestionBoundary boundary;
     private final Clock clock;
 
+    @Autowired
     public OpenDartAnnualCfsAdapter(OpenDartAnnualCfsClient client,
             EntityExternalIdentifierRegistryService identifiers,
             EarningsIngestionBoundary boundary) {

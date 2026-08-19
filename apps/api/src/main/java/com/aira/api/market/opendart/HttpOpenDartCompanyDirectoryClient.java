@@ -8,6 +8,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ public final class HttpOpenDartCompanyDirectoryClient implements OpenDartCompany
     private final OpenDartCompanyDirectoryParser parser;
     private final String apiKey;
 
+    @Autowired
     public HttpOpenDartCompanyDirectoryClient(@Value("${aira.opendart.api-key:}") String apiKey) {
         this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
                 new OpenDartCompanyDirectoryParser(), apiKey);
