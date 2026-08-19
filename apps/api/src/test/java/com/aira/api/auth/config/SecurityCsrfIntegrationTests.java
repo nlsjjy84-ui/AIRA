@@ -1,6 +1,7 @@
 package com.aira.api.auth.config;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -81,5 +82,19 @@ class SecurityCsrfIntegrationTests {
                 .andExpect(result -> assertTrue(
                         result.getResponse().getStatus() == 401
                                 || result.getResponse().getStatus() == 403));
+    }
+
+    @Test
+    void companyFinancialFactsGetIsExplicitlyPublicForAnonymousAndAuthenticatedClients()
+            throws Exception {
+        String path = "/api/companies/00000000-0000-0000-0000-000000000001/financial-facts";
+        mvc.perform(get(path).param("periodStart", "2025-01-01")
+                        .param("periodEnd", "2025-12-31"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get(path).with(user("authenticated-user"))
+                        .param("periodStart", "2025-01-01")
+                        .param("periodEnd", "2025-12-31"))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(path)).andExpect(status().isForbidden());
     }
 }
