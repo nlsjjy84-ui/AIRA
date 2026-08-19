@@ -97,4 +97,18 @@ class SecurityCsrfIntegrationTests {
                 .andExpect(status().isNotFound());
         mvc.perform(post(path)).andExpect(status().isForbidden());
     }
+
+    @Test
+    void companyDiscoveryAndPeriodsAreExplicitlyPublicGetOnly() throws Exception {
+        mvc.perform(get("/api/companies")).andExpect(status().isOk());
+        mvc.perform(get("/api/companies").with(user("authenticated-user")))
+                .andExpect(status().isOk());
+
+        String periods = "/api/companies/00000000-0000-0000-0000-000000000001/financial-periods";
+        mvc.perform(get(periods)).andExpect(status().isNotFound());
+        mvc.perform(get(periods).with(user("authenticated-user")))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/companies")).andExpect(status().isForbidden());
+        mvc.perform(post(periods)).andExpect(status().isForbidden());
+    }
 }

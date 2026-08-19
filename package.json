@@ -1,13 +1,16 @@
 {
   "name": "aira",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Evidence-linked public market information",
+  "private": true,
+  "workspaces": ["apps/web"],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev:web": "npm run dev --workspace @aira/web",
+    "build:web": "npm run build --workspace @aira/web",
+    "test:web": "npm run test --workspace @aira/web",
+    "test:e2e": "npm run test:e2e --workspace @aira/web"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "license": "UNLICENSED"
 }

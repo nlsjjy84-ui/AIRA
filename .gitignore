@@ -22,6 +22,12 @@
 .DS_Store
 Thumbs.db
 
+# Frontend dependencies, builds, and browser-test artifacts
+node_modules/
+**/dist/
+**/playwright-report/
+**/test-results/
+
 
 # Temporary local credentials
 .db-password

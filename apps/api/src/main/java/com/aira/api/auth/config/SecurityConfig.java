@@ -37,6 +37,8 @@ public class SecurityConfig {
                                 "/api/auth/recovery-email/verifications").authenticated()
                         .requestMatchers("/api/me/interests", "/api/me/interests/**").authenticated()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/companies",
+                                "/api/companies/*/financial-periods",
                                 "/api/companies/*/financial-facts").permitAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
