@@ -57,6 +57,32 @@ public class Evidence {
 
     protected Evidence() {}
 
+    public static Evidence collected(Source source, EvidenceType evidenceType,
+            String externalId, String originalUrl, String title, byte[] contentHash,
+            String locator, OffsetDateTime publishedAt, OffsetDateTime collectedAt,
+            int revision) {
+        if (source == null || source.getId() == null || evidenceType == null
+                || originalUrl == null || originalUrl.isBlank()
+                || contentHash == null || contentHash.length == 0
+                || collectedAt == null || revision < 1
+                || (externalId != null && (externalId.isBlank() || externalId.length() > 255))) {
+            throw new IllegalArgumentException("Evidence collection values are invalid");
+        }
+        Evidence evidence = new Evidence();
+        evidence.source = source;
+        evidence.evidenceType = evidenceType;
+        evidence.externalId = externalId;
+        evidence.originalUrl = originalUrl;
+        evidence.title = title;
+        evidence.contentHash = contentHash.clone();
+        evidence.locator = locator;
+        evidence.publishedAt = publishedAt;
+        evidence.collectedAt = collectedAt;
+        evidence.revision = revision;
+        evidence.status = EvidenceStatus.ACTIVE;
+        return evidence;
+    }
+
     public UUID getId() { return id; }
     public Source getSource() { return source; }
     public EvidenceType getEvidenceType() { return evidenceType; }
