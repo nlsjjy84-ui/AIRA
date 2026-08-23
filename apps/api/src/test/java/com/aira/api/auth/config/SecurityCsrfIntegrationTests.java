@@ -78,10 +78,30 @@ class SecurityCsrfIntegrationTests {
 
     @Test
     void userInterestEndpointsRequireAuthentication() throws Exception {
+        mvc.perform(get("/api/me"))
+                .andExpect(result -> assertTrue(
+                        result.getResponse().getStatus() == 401
+                                || result.getResponse().getStatus() == 403));
         mvc.perform(get("/api/me/interests"))
                 .andExpect(result -> assertTrue(
                         result.getResponse().getStatus() == 401
                                 || result.getResponse().getStatus() == 403));
+    }
+
+    @Test
+    void currentUserReturnsMinimalPrincipalForAuthenticatedRequest() throws Exception {
+        var principal = new com.aira.api.auth.security.AiraPrincipal(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000010"), "AiraUser");
+        var authentication = org.springframework.security.authentication
+                .UsernamePasswordAuthenticationToken.authenticated(
+                        principal, null, java.util.List.of());
+        mvc.perform(get("/api/me").with(org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.nickname").value("AiraUser"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.passwordHash").doesNotExist());
     }
 
     @Test
