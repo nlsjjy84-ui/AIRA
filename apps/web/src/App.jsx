@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
-import { addInterest, getCurrentUser, getInterests, login, logout, removeInterest, signup } from './api/authApi.js'
+import { addInterest, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
+import { reconcileAlerts } from './api/alertApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
 
@@ -100,11 +101,13 @@ export default function App() {
   const [interestsState, setInterestsState] = useState({ loading: false, data: [], error: null })
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
   const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
+  const [alertsState, setAlertsState] = useState({ loading: false, data: [], error: null })
 
   const becomeAnonymous = useCallback((notice = null) => {
     setSession({ loading: false, user: null, error: null, notice })
     setInterestsState({ loading: false, data: [], error: null })
     setBriefingState({ loading: false, data: null, error: null })
+    setAlertsState({ loading: false, data: [], error: null })
   }, [])
 
   const loadSession = useCallback(() => {
@@ -184,6 +187,16 @@ export default function App() {
     return [...grouped.values()]
   }, [factsState.data])
   const interested = selectedCompany && interestsState.data.some(item => item.entityId === selectedCompany.companyId)
+  const selectedInterest = selectedCompany && interestsState.data.find(item => item.entityId === selectedCompany.companyId)
+
+  const loadAlerts = useCallback(() => {
+    if (!session.user) return
+    setAlertsState({ loading: true, data: [], error: null })
+    reconcileAlerts().then(body => setAlertsState({ loading: false, data: body.alerts ?? [], error: null }))
+      .catch(error => error.status === 401 || error.status === 403 ? becomeAnonymous() : setAlertsState({ loading: false, data: [], error }))
+  }, [session.user, becomeAnonymous])
+
+  useEffect(() => { if (session.user && !interestsState.loading) loadAlerts() }, [session.user, interestsState.loading, interestsState.data, loadAlerts])
 
   async function changeInterest(remove = false) {
     if (!session.user) { setAuthMode('login'); return }
@@ -198,6 +211,15 @@ export default function App() {
       if (error.status === 401 || error.status === 403) becomeAnonymous('세션이 만료되었습니다. 다시 로그인하면 관심회사를 저장할 수 있습니다.')
       else setInterestAction({ loading: false, error, retry })
     }
+  }
+
+  async function changeAlertSetting(enabled) {
+    setInterestAction({ loading: true, error: null, retry: null })
+    try {
+      if (enabled) await enableInterestAlert(selectedCompany.companyId)
+      else await disableInterestAlert(selectedCompany.companyId)
+      setInterestAction({ loading: false, error: null, retry: null }); loadInterests()
+    } catch (error) { setInterestAction({ loading: false, error, retry: () => changeAlertSetting(enabled) }) }
   }
 
   async function performLogout() {
@@ -243,6 +265,19 @@ export default function App() {
         </article>)}</div>
       </section>}
 
+      {session.user && <section id="my-alerts" className="content-section alert-section" aria-labelledby="alerts-title">
+        <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
+        {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
+        {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <Status>새로 확인된 내용이 없습니다.</Status>}
+        <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
+          <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
+          <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
+          <div className="event-evidence"><strong>{item.sourceName}</strong><span>공시 접수번호 {item.evidenceExternalId}</span>
+            <a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">상세 확인 <span aria-hidden="true">↗</span></a></div>
+        </article>)}</div>
+      </section>}
+
       <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>01</span><h2 id="companies-title">기업 선택</h2></div>
         {companiesState.loading && <Status busy>기업을 불러오는 중입니다.</Status>}{companiesState.error && <ErrorState error={companiesState.error} subject="기업" retry={loadCompanies} />}{!companiesState.loading && !companiesState.error && companiesState.data.length === 0 && <Status>현재 확인할 수 있는 기업이 없습니다. 데이터가 준비되면 이곳에 표시됩니다.</Status>}
         <div className="company-list">{companiesState.data.map(company => <button key={company.companyId} type="button" className={`company-option ${selectedCompany?.companyId === company.companyId ? 'selected' : ''}`} aria-pressed={selectedCompany?.companyId === company.companyId} onClick={() => selectCompany(company)}><span className="company-name">{company.canonicalName}</span><span className="company-meta">{company.countryCode === 'KR' ? '대한민국' : company.countryCode ?? '국가 미상'}</span><span aria-hidden="true">→</span></button>)}</div>
@@ -250,6 +285,7 @@ export default function App() {
 
       {selectedCompany && <section className="content-section" aria-labelledby="period-title">
         <div className="selection-heading"><div className="section-heading"><span>02</span><h2 id="period-title">보고 기간</h2></div><button type="button" className={interested ? 'saved-action' : 'secondary-action'} disabled={interestAction.loading} onClick={() => changeInterest(Boolean(interested))}>{interestAction.loading ? '처리 중…' : interested ? '관심회사에서 삭제' : session.user ? '관심회사에 저장' : '로그인하고 관심회사에 저장'}</button></div>
+        {interested && <button type="button" className="secondary-action" disabled={interestAction.loading} onClick={() => changeAlertSetting(!selectedInterest?.alertEnabled)}>{selectedInterest?.alertEnabled ? '앱 알림 끄기' : '앱 알림 켜기'}</button>}
         {interestAction.error && <ErrorState error={interestAction.error} subject="관심회사" retry={interestAction.retry} />}
         {periodsState.loading && <Status busy>이용 가능한 기간을 불러오는 중입니다.</Status>}{periodsState.error && <ErrorState error={periodsState.error} subject="보고 기간" retry={() => selectCompany(selectedCompany)} />}{!periodsState.loading && !periodsState.error && periodsState.data.length === 0 && <Status>이 기업에서 이용 가능한 재무 기간이 없습니다.</Status>}
         {periodsState.data.length > 0 && <div className="period-control"><label htmlFor="reporting-period">정확한 보고 기간</label><select id="reporting-period" value={selectedPeriod ? `${selectedPeriod.periodStart}|${selectedPeriod.periodEnd}` : ''} onChange={event => { const [start, end] = event.target.value.split('|'); setSelectedPeriod(periodsState.data.find(period => period.periodStart === start && period.periodEnd === end)) }}>{periodsState.data.length > 1 && <option value="">기간을 선택하세요</option>}{periodsState.data.map(period => <option key={`${period.periodStart}|${period.periodEnd}`} value={`${period.periodStart}|${period.periodEnd}`}>{period.periodStart} — {period.periodEnd}</option>)}</select></div>}

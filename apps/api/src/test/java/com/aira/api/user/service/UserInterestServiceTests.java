@@ -1,6 +1,7 @@
 package com.aira.api.user.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -60,7 +61,7 @@ class UserInterestServiceTests {
 
         assertEquals(entityId, response.entityId());
         assertNull(response.interestLevel());
-        assertTrue(response.alertEnabled());
+        assertFalse(response.alertEnabled());
     }
 
     @Test
@@ -91,6 +92,17 @@ class UserInterestServiceTests {
         service.remove(userId, entityId);
 
         verify(interests).deleteByUser_IdAndMarketEntity_Id(userId, entityId);
+    }
+
+    @Test
+    void explicitlyEnablesAndDisablesInAppAlerts() {
+        UserInterest interest = UserInterest.create(mock(AppUser.class), activeEntity(EntityType.COMPANY),
+                java.time.OffsetDateTime.now());
+        when(interests.findByUser_IdAndMarketEntity_Id(userId, entityId)).thenReturn(Optional.of(interest));
+        when(interests.saveAndFlush(interest)).thenReturn(interest);
+
+        assertTrue(service.setAlertEnabled(userId, entityId, true).alertEnabled());
+        assertFalse(service.setAlertEnabled(userId, entityId, false).alertEnabled());
     }
 
     private MarketEntity activeEntity(EntityType type) {

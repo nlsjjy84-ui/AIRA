@@ -42,4 +42,16 @@ public class UserInterestController {
             @PathVariable UUID entityId) {
         service.remove(principal.userId(), entityId);
     }
+
+    @PostMapping("/{entityId}/alert")
+    public UserInterestResponse enableAlert(@AuthenticationPrincipal AiraPrincipal principal,
+            @PathVariable UUID entityId) {
+        return service.setAlertEnabled(principal.userId(), entityId, true);
+    }
+
+    @DeleteMapping("/{entityId}/alert")
+    public UserInterestResponse disableAlert(@AuthenticationPrincipal AiraPrincipal principal,
+            @PathVariable UUID entityId) {
+        return service.setAlertEnabled(principal.userId(), entityId, false);
+    }
 }

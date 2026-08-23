@@ -160,4 +160,21 @@ class SecurityCsrfIntegrationTests {
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .jsonPath("$.passwordHash").doesNotExist());
     }
+
+    @Test
+    void alertEndpointsArePrivateAndReconciliationRequiresCsrf() throws Exception {
+        mvc.perform(get("/api/me/alerts")).andExpect(result -> assertTrue(
+                result.getResponse().getStatus() == 401 || result.getResponse().getStatus() == 403));
+        mvc.perform(post("/api/me/alerts/reconcile")).andExpect(status().isForbidden());
+
+        var principal = new com.aira.api.auth.security.AiraPrincipal(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000010"), "AiraUser");
+        var auth = org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+                .authenticated(principal, null, java.util.List.of());
+        mvc.perform(post("/api/me/alerts/reconcile").with(csrf()).with(
+                        org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication(auth)))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.alerts").isEmpty())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.passwordHash").doesNotExist());
+    }
 }

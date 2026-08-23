@@ -40,10 +40,13 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
       title: '내 브리핑', status: state.interests.length ? 'READY' : 'EMPTY',
       generatedAt: state.interests.length ? '2026-08-23T00:00:00Z' : null,
       items: state.interests.length ? [briefingItem] : [] })
+    if (key === 'POST /api/me/alerts/reconcile') return json({ alerts: [] })
     if (key === 'POST /api/auth/signup') return json({ user: { id: 'new-user', nickname: 'ReturnUser' } }, 201)
     if (key === 'POST /api/auth/login') { state.user = { userId: 'user-1', nickname: 'ReturnUser' }; return json({ user: { id: 'user-1', nickname: 'ReturnUser' } }) }
     if (key === 'POST /api/auth/logout') { state.user = null; return json(null, 204) }
-    if (method === 'POST' && path.startsWith('/api/me/interests/')) { state.interests = [interest]; return json(interest, 201) }
+    if (method === 'POST' && path.endsWith('/alert')) { state.interests = state.interests.map(item => ({ ...item, alertEnabled: true })); return json(state.interests[0]) }
+    if (method === 'DELETE' && path.endsWith('/alert')) { state.interests = state.interests.map(item => ({ ...item, alertEnabled: false })); return json(state.interests[0]) }
+    if (method === 'POST' && path.startsWith('/api/me/interests/')) { state.interests = [{ ...interest, alertEnabled: false }]; return json(state.interests[0], 201) }
     if (method === 'DELETE' && path.startsWith('/api/me/interests/')) { state.interests = []; return json(null, 204) }
     throw new Error(`Unexpected request: ${key}`)
   })
@@ -123,7 +126,7 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     expect(await screen.findByText('ReturnUser')).toBeInTheDocument()
     const section = screen.getByRole('heading', { name: '내 관심회사' }).closest('section')
-    await user.click(within(section).getByRole('button', { name: /삼성전자.*재무정보 다시 보기/ }))
+    await user.click(await within(section).findByRole('button', { name: /삼성전자.*재무정보 다시 보기/ }))
     expect(await screen.findByText('333,605,938,000,000')).toBeInTheDocument()
   })
 

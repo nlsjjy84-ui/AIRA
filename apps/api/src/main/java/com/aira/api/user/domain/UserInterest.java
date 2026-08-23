@@ -43,7 +43,7 @@ public class UserInterest {
         interest.user = user;
         interest.marketEntity = marketEntity;
         interest.interestLevel = null;
-        interest.alertEnabled = true;
+        interest.alertEnabled = false;
         interest.createdAt = now;
         interest.updatedAt = now;
         return interest;
@@ -56,4 +56,10 @@ public class UserInterest {
     public boolean isAlertEnabled() { return alertEnabled; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
+
+    public void setAlertEnabled(boolean enabled, OffsetDateTime now) {
+        if (now == null) throw new IllegalArgumentException("Alert setting time is required");
+        alertEnabled = enabled;
+        updatedAt = now;
+    }
 }

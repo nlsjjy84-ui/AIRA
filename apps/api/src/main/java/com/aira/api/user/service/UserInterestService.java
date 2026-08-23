@@ -66,6 +66,14 @@ public class UserInterestService {
         interests.deleteByUser_IdAndMarketEntity_Id(userId, entityId);
     }
 
+    @Transactional
+    public UserInterestResponse setAlertEnabled(UUID userId, UUID entityId, boolean enabled) {
+        UserInterest interest = interests.findByUser_IdAndMarketEntity_Id(userId, entityId)
+                .orElseThrow(InterestEntityNotFoundException::new);
+        interest.setAlertEnabled(enabled, OffsetDateTime.now(ZoneOffset.UTC));
+        return toResponse(interests.saveAndFlush(interest));
+    }
+
     private static void validate(MarketEntity entity) {
         if (!entity.isActive()) {
             throw new InvalidInterestEntityException("Inactive entities cannot be added");
