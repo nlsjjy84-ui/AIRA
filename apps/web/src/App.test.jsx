@@ -10,6 +10,7 @@ const facts = [
   { predicate: 'OPERATING_INCOME', value: 43601051000000, currency: 'KRW', evidenceId: 'evidence-1', sourceName: 'OpenDART', evidenceExternalId: '20260310002820', evidenceOriginalUrl: 'https://dart.fss.or.kr/report/viewer.do?rcept_no=20260310002820' },
 ]
 const interest = { entityId: company.companyId, entityType: 'COMPANY', canonicalName: '삼성전자', countryCode: 'KR', interestLevel: null, alertEnabled: true }
+const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CANDIDATE', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
 
 function json(body, status = 200) {
   return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) })
@@ -26,6 +27,7 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (key === 'GET /api/companies') return json({ companies: [company] })
     if (path.includes('/financial-periods')) return json({ companyId: company.companyId, periods: [period] })
     if (path.includes('/financial-facts')) return json({ companyId: company.companyId, facts })
+    if (path.includes('/events')) return json({ companyId: company.companyId, events: [eventExperience] })
     if (key === 'GET /api/me/interests') return json(state.interests)
     if (key === 'POST /api/auth/signup') return json({ user: { id: 'new-user', nickname: 'ReturnUser' } }, 201)
     if (key === 'POST /api/auth/login') { state.user = { userId: 'user-1', nickname: 'ReturnUser' }; return json({ user: { id: 'user-1', nickname: 'ReturnUser' } }) }
@@ -55,8 +57,21 @@ describe('authenticated interest and return experience', () => {
     await selectSamsung(user)
     expect(await screen.findByText('333,605,938,000,000')).toBeInTheDocument()
     expect(screen.getByText('43,601,051,000,000')).toBeInTheDocument()
-    expect(screen.getAllByText('OpenDART')).toHaveLength(1)
+    expect(screen.getAllByText('OpenDART')).toHaveLength(2)
     expect(screen.getByRole('button', { name: '로그인하고 관심회사에 저장' })).toBeInTheDocument()
+  })
+
+  it('separates an official event, rule assessment, uncertainty, and source evidence', async () => {
+    const backend = server()
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    await selectSamsung(user)
+    expect(await screen.findByRole('heading', { name: eventExperience.title })).toBeInTheDocument()
+    expect(screen.getByText(eventExperience.assessment.summary)).toBeInTheDocument()
+    expect(screen.getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
+    expect(screen.queryByText(/매수|매도|추천/)).not.toBeInTheDocument()
   })
 
   it('signs up without creating a session and leads naturally to login', async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getCompanies, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
+import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { addInterest, getCurrentUser, getInterests, login, logout, removeInterest, signup } from './api/authApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
@@ -95,6 +95,7 @@ export default function App() {
   const [periodsState, setPeriodsState] = useState({ loading: false, data: [], error: null })
   const [selectedPeriod, setSelectedPeriod] = useState(null)
   const [factsState, setFactsState] = useState({ loading: false, data: [], error: null })
+  const [eventsState, setEventsState] = useState({ loading: false, data: [], error: null })
   const [interestsState, setInterestsState] = useState({ loading: false, data: [], error: null })
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
 
@@ -138,12 +139,16 @@ export default function App() {
     setSelectedCompany(company)
     setSelectedPeriod(null)
     setFactsState({ loading: false, data: [], error: null })
+    setEventsState({ loading: true, data: [], error: null })
     setPeriodsState({ loading: true, data: [], error: null })
     getFinancialPeriods(company.companyId).then(body => {
       const periods = body.periods ?? []
       setPeriodsState({ loading: false, data: periods, error: null })
       if (periods.length === 1) setSelectedPeriod(periods[0])
     }).catch(error => setPeriodsState({ loading: false, data: [], error }))
+    getCompanyEvents(company.companyId)
+      .then(body => setEventsState({ loading: false, data: body.events ?? [], error: null }))
+      .catch(error => setEventsState({ loading: false, data: [], error }))
   }, [])
 
   const loadFacts = useCallback(() => {
@@ -222,6 +227,22 @@ export default function App() {
         {factsState.loading && <Status busy>재무정보와 공식 근거를 확인하는 중입니다.</Status>}{factsState.error && <ErrorState error={factsState.error} subject="재무정보" retry={loadFacts} />}{!factsState.loading && !factsState.error && factsState.data.length === 0 && <Status>선택한 기간에 표시할 재무정보가 없습니다.</Status>}
         <dl className="fact-list">{factsState.data.map(fact => <div className="fact-row" key={`${fact.predicate}-${fact.evidenceId}`}><dt>{LABELS[fact.predicate] ?? fact.predicate}</dt><dd><strong>{new Intl.NumberFormat('ko-KR').format(fact.value)}</strong> <span>{fact.currency}</span></dd></div>)}</dl>
         {evidence.length > 0 && <aside className="evidence" aria-labelledby="evidence-title"><p className="eyebrow" id="evidence-title">OFFICIAL EVIDENCE</p>{evidence.map(item => <div key={item.evidenceId} className="evidence-row"><div><strong>{item.sourceName}</strong><span>공시 식별자 {item.evidenceExternalId}</span></div><a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">원문 확인 <span aria-hidden="true">↗</span></a></div>)}<p className="evidence-note">같은 공시에 포함된 재무 항목은 하나의 공식 근거로 묶어 표시합니다.</p></aside>}
+      </section>}
+
+      {selectedCompany && <section className="content-section event-section" aria-labelledby="events-title">
+        <div className="section-heading"><span>04</span><h2 id="events-title">관련 사건과 확인할 의미</h2></div>
+        {eventsState.loading && <Status busy>관련 사건을 확인하는 중입니다.</Status>}
+        {eventsState.error && <ErrorState error={eventsState.error} subject="관련 사건" retry={() => selectCompany(selectedCompany)} />}
+        {!eventsState.loading && !eventsState.error && eventsState.data.length === 0 && <Status>현재 근거와 함께 확인할 사건이 없습니다.</Status>}
+        <div className="event-list">{eventsState.data.map(item => <article key={item.eventId} className="event-card">
+          <p className="eyebrow">WHAT HAPPENED</p><h3>{item.title}</h3>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+          <div className="assessment"><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
+            <h4>아직 확인할 점</h4><p>{item.assessment.uncertainty}</p>
+            <p className="assessment-meta">중요도 {item.assessment.importance} · 확신 {item.assessment.confidence} · 규칙 기반 분석</p></div>
+          <div className="event-evidence"><strong>{item.evidence.sourceName}</strong><span>공시 식별자 {item.evidence.externalId}</span>
+            <a href={item.evidence.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>
+        </article>)}</div>
       </section>}
     </main>
     <footer><span>AIRA</span><p>공식 시장정보를 근거와 함께 제공합니다.</p></footer>

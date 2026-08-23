@@ -96,6 +96,16 @@ public class Event {
         }
     }
 
+    public void describeOfficialAnnualFiling(String companyName, OffsetDateTime now) {
+        if (companyName == null || companyName.isBlank() || now == null
+                || eventType != EventType.EARNINGS || occurredAt == null) {
+            throw new IllegalArgumentException("Official annual filing description values are required");
+        }
+        title = companyName.trim() + "가 " + occurredAt.getYear()
+                + " 회계연도 연간 재무결과를 공식 공시했습니다.";
+        updatedAt = now;
+    }
+
     public UUID getId() { return id; }
     public EventType getEventType() { return eventType; }
     public String getTitle() { return title; }

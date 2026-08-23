@@ -28,6 +28,21 @@ public class AssessmentEvidence {
 
     protected AssessmentEvidence() {}
 
+    public static AssessmentEvidence supports(Assessment assessment, Evidence evidence,
+            OffsetDateTime now) {
+        if (assessment == null || assessment.getId() == null || evidence == null
+                || evidence.getId() == null || now == null) {
+            throw new IllegalArgumentException("Assessment evidence link values are required");
+        }
+        AssessmentEvidence link = new AssessmentEvidence();
+        link.id = new AssessmentEvidenceId(assessment.getId(), evidence.getId());
+        link.assessment = assessment;
+        link.evidence = evidence;
+        link.usageType = "SUPPORTS";
+        link.createdAt = now;
+        return link;
+    }
+
     public AssessmentEvidenceId getId() { return id; }
     public Assessment getAssessment() { return assessment; }
     public Evidence getEvidence() { return evidence; }

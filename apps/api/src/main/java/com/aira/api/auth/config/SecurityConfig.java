@@ -39,7 +39,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/companies",
                                 "/api/companies/*/financial-periods",
-                                "/api/companies/*/financial-facts").permitAll()
+                                "/api/companies/*/financial-facts",
+                                "/api/companies/*/events").permitAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
         return http.build();

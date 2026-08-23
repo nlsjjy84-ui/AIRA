@@ -131,4 +131,12 @@ class SecurityCsrfIntegrationTests {
         mvc.perform(post("/api/companies")).andExpect(status().isForbidden());
         mvc.perform(post(periods)).andExpect(status().isForbidden());
     }
+
+    @Test
+    void companyEventsArePublicReadOnlyForAnonymousAndAuthenticatedClients() throws Exception {
+        String events = "/api/companies/00000000-0000-0000-0000-000000000001/events";
+        mvc.perform(get(events)).andExpect(status().isOk());
+        mvc.perform(get(events).with(user("authenticated-user"))).andExpect(status().isOk());
+        mvc.perform(post(events)).andExpect(status().isForbidden());
+    }
 }

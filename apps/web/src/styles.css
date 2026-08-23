@@ -60,6 +60,15 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 .interest-list button { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); background: var(--surface); cursor: pointer; text-align: left; }
 .interest-list button:hover { border-color: var(--accent); }
 .interest-list span { color: var(--accent); font-size: .9rem; font-weight: 700; }
+.event-list { display: grid; gap: 1rem; }
+.event-card { padding: clamp(1.2rem, 3vw, 1.8rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.event-card h3 { margin: .25rem 0; font-size: 1.25rem; }
+.event-card h4 { margin: 1rem 0 .25rem; }
+.event-meta, .assessment-meta { color: var(--muted); font-size: .9rem; }
+.assessment { margin: 1.25rem 0; padding: 1rem 1.2rem; border-left: 3px solid var(--accent); background: var(--paper); }
+.event-evidence { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.event-evidence span { color: var(--muted); }
+.event-evidence a { margin-left: auto; color: var(--accent); font-weight: 700; }
 .period-caption { color: var(--muted); }
 .fact-list { margin: 2rem 0 3rem; border-top: 1px solid var(--ink); }
 .fact-row { display: grid; grid-template-columns: minmax(8rem, 1fr) 2fr; align-items: baseline; padding: 1.3rem 0; border-bottom: 1px solid var(--line); }
