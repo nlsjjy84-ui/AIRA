@@ -61,6 +61,8 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 .interest-list button:hover { border-color: var(--accent); }
 .interest-list span { color: var(--accent); font-size: .9rem; font-weight: 700; }
 .event-list { display: grid; gap: 1rem; }
+.briefing-list { display: grid; gap: 1rem; }
+.briefing-card { border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; background: var(--paper); }
 .event-card { padding: clamp(1.2rem, 3vw, 1.8rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .event-card h3 { margin: .25rem 0; font-size: 1.25rem; }
 .event-card h4 { margin: 1rem 0 .25rem; }

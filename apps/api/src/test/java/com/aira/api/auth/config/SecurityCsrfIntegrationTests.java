@@ -139,4 +139,25 @@ class SecurityCsrfIntegrationTests {
         mvc.perform(get(events).with(user("authenticated-user"))).andExpect(status().isOk());
         mvc.perform(post(events)).andExpect(status().isForbidden());
     }
+
+    @Test
+    void briefingEndpointsRequireSessionOwnershipAndCsrf() throws Exception {
+        String current = "/api/me/briefings/current";
+        mvc.perform(post(current)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/me/briefings/00000000-0000-0000-0000-000000000001"))
+                .andExpect(result -> assertTrue(result.getResponse().getStatus() == 401
+                        || result.getResponse().getStatus() == 403));
+
+        var principal = new com.aira.api.auth.security.AiraPrincipal(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000010"), "AiraUser");
+        var authentication = org.springframework.security.authentication
+                .UsernamePasswordAuthenticationToken.authenticated(principal, null, java.util.List.of());
+        mvc.perform(post(current).with(csrf()).with(org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.authentication(authentication)))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.status").value("EMPTY"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.passwordHash").doesNotExist());
+    }
 }

@@ -12,6 +12,13 @@ const facts = [
 const interest = { entityId: company.companyId, entityType: 'COMPANY', canonicalName: '삼성전자', countryCode: 'KR', interestLevel: null, alertEnabled: true }
 const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CANDIDATE', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
 
+const briefingItem = { displayOrder: 1, companyId: company.companyId, companyName: company.canonicalName,
+  eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
+  occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
+  uncertainty: eventExperience.assessment.uncertainty, importance: 'MEDIUM', confidence: 'MEDIUM',
+  sourceName: 'OpenDART', evidenceExternalId: eventExperience.evidence.externalId,
+  evidenceOriginalUrl: eventExperience.evidence.originalUrl }
+
 function json(body, status = 200) {
   return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) })
 }
@@ -29,6 +36,10 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (path.includes('/financial-facts')) return json({ companyId: company.companyId, facts })
     if (path.includes('/events')) return json({ companyId: company.companyId, events: [eventExperience] })
     if (key === 'GET /api/me/interests') return json(state.interests)
+    if (key === 'POST /api/me/briefings/current') return json({ briefingId: state.interests.length ? 'briefing-1' : null,
+      title: '내 브리핑', status: state.interests.length ? 'READY' : 'EMPTY',
+      generatedAt: state.interests.length ? '2026-08-23T00:00:00Z' : null,
+      items: state.interests.length ? [briefingItem] : [] })
     if (key === 'POST /api/auth/signup') return json({ user: { id: 'new-user', nickname: 'ReturnUser' } }, 201)
     if (key === 'POST /api/auth/login') { state.user = { userId: 'user-1', nickname: 'ReturnUser' }; return json({ user: { id: 'user-1', nickname: 'ReturnUser' } }) }
     if (key === 'POST /api/auth/logout') { state.user = null; return json(null, 204) }
@@ -200,5 +211,24 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByText('세션 확인 중…')).toBeInTheDocument()
     releaseSession()
     await waitFor(() => expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument())
+  })
+
+  it('renders a private briefing with event, assessment, uncertainty, and source', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest] })
+    global.fetch = backend.fetch
+    render(<App />)
+    const briefing = (await screen.findByRole('heading', { name: '내 브리핑' })).closest('section')
+    expect(await within(briefing).findByText(company.canonicalName)).toBeInTheDocument()
+    expect(within(briefing).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
+    expect(within(briefing).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
+    expect(within(briefing).getByRole('link', { name: /근거 보기/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
+    expect(within(briefing).queryByText(/매수|매도|추천|알림/)).not.toBeInTheDocument()
+  })
+
+  it('shows a safe briefing empty state without interests', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    global.fetch = backend.fetch
+    render(<App />)
+    expect(await screen.findByText('관심회사를 저장하면 연결된 분석을 이곳에서 확인할 수 있습니다.')).toBeInTheDocument()
   })
 })

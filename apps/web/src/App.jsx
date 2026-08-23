@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { addInterest, getCurrentUser, getInterests, login, logout, removeInterest, signup } from './api/authApi.js'
+import { getOrCreateBriefing } from './api/briefingApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
 
@@ -98,10 +99,12 @@ export default function App() {
   const [eventsState, setEventsState] = useState({ loading: false, data: [], error: null })
   const [interestsState, setInterestsState] = useState({ loading: false, data: [], error: null })
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
+  const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
 
   const becomeAnonymous = useCallback((notice = null) => {
     setSession({ loading: false, user: null, error: null, notice })
     setInterestsState({ loading: false, data: [], error: null })
+    setBriefingState({ loading: false, data: null, error: null })
   }, [])
 
   const loadSession = useCallback(() => {
@@ -134,6 +137,19 @@ export default function App() {
   }, [session.user, becomeAnonymous])
 
   useEffect(loadInterests, [loadInterests])
+
+  const loadBriefing = useCallback(() => {
+    if (!session.user) return
+    setBriefingState({ loading: true, data: null, error: null })
+    getOrCreateBriefing().then(data => setBriefingState({ loading: false, data, error: null }))
+      .catch(error => error.status === 401 || error.status === 403
+        ? becomeAnonymous('세션이 만료되었습니다. 공개 정보는 계속 볼 수 있습니다.')
+        : setBriefingState({ loading: false, data: null, error }))
+  }, [session.user, becomeAnonymous])
+
+  useEffect(() => {
+    if (session.user && !interestsState.loading && !interestsState.error) loadBriefing()
+  }, [session.user, interestsState.loading, interestsState.error, interestsState.data, loadBriefing])
 
   const selectCompany = useCallback((company) => {
     setSelectedCompany(company)
@@ -209,6 +225,22 @@ export default function App() {
         {interestsState.error && <ErrorState error={interestsState.error} subject="관심회사" retry={loadInterests} />}
         {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <Status>아직 저장한 관심회사가 없습니다. 아래에서 기업을 선택해 저장할 수 있습니다.</Status>}
         <div className="interest-list">{interestsState.data.map(item => <button type="button" key={item.entityId} onClick={() => selectCompany({ companyId: item.entityId, canonicalName: item.canonicalName, countryCode: item.countryCode })}><strong>{item.canonicalName}</strong><span>재무정보 다시 보기 →</span></button>)}</div>
+      </section>}
+
+      {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
+        <div className="section-heading"><span>BRIEFING</span><h2 id="briefing-title">내 브리핑</h2></div>
+        {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
+        {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
+        {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
+          <Status>{interestsState.data.length === 0 ? '관심회사를 저장하면 연결된 분석을 이곳에서 확인할 수 있습니다.' : '현재 관심회사에 연결된 분석이 없습니다.'}</Status>}
+        <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
+          <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+          <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
+            <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
+          <div className="event-evidence"><strong>{item.sourceName}</strong><span>공시 접수번호 {item.evidenceExternalId}</span>
+            <a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">근거 보기 <span aria-hidden="true">↗</span></a></div>
+        </article>)}</div>
       </section>}
 
       <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>01</span><h2 id="companies-title">기업 선택</h2></div>
