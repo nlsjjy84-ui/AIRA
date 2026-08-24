@@ -43,6 +43,8 @@ OpenDART live adapter를 별도로 실행할 때만 필요한 값:
 
 ## Run the backend
 
+For the reproducible Windows startup path, including isolated database naming, masked secret input, Flyway initialization, health verification, web startup, and safe restart, follow [Local / Portfolio Runtime Readiness v1](docs/runbooks/LOCAL_RUNTIME_V1.md).
+
 PostgreSQL schema는 `apps/api/src/main/resources/db/migration`의 Flyway migration과 일치해야 합니다. Flyway는 기본적으로 비활성화되어 있으므로 새 데이터베이스에 자동 적용된다고 가정하지 마세요. 적용 전 `docs/database/FLYWAY_MIGRATION_POLICY.md`를 확인해야 합니다.
 
 PowerShell에서 `DB_PASSWORD`를 현재 process에만 설정한 뒤 실행합니다.
