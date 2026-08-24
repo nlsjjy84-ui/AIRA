@@ -24,10 +24,10 @@ Names, OpenDART corporation codes, fiscal year-end months, filing identifiers, f
 - Windows PowerShell
 - JDK 25
 - Node.js 24+ and npm
-- PostgreSQL with an empty local database named `aira`
+- a local PostgreSQL server and permission to create a new, uniquely named disposable database
 - an OpenDART API key authorized for the official APIs used by AIRA
 
-The PostgreSQL user configured in `application.properties` is `postgres`. The database must support `gen_random_uuid()` and the user must have the DDL rights needed for the initial Flyway run. Review [the Flyway policy](../database/FLYWAY_MIGRATION_POLICY.md) before applying migrations.
+The PostgreSQL user configured in `application.properties` is `postgres`. The disposable database must support `gen_random_uuid()` and the user must have the DDL rights needed for the initial Flyway run. Create a fresh database with a unique name for this run; do not empty, migrate, reset, or otherwise modify an existing `aira` development database. Review [the Flyway policy](../database/FLYWAY_MIGRATION_POLICY.md) before applying migrations.
 
 ## 1. Set process-local configuration
 
@@ -41,7 +41,7 @@ $env:AIRA_RECOVERY_EMAIL_LOOKUP_KEY = '<different-base64-encoded-256-bit-key>'
 $env:OPENDART_API_KEY = '<opendart-api-key>'
 ```
 
-Recovery email keys are required for application bean initialization even though bootstrap does not use account recovery. They must be two different valid 256-bit keys.
+Recovery email keys are required for normal application bean initialization even though bootstrap does not use account recovery. They must be two different valid 256-bit keys. The dedicated `OfficialDemoBootstrapPostgresTests` supplies test-local recovery keys, so its external secret inputs are only `DB_PASSWORD` and `OPENDART_API_KEY`.
 
 ## 2. Initialize the fresh schema and run bootstrap
 
@@ -52,10 +52,11 @@ $env:FLYWAY_ENABLED = 'true'
 $env:AIRA_DEMO_BOOTSTRAP_ENABLED = 'true'
 $env:AIRA_DEMO_BOOTSTRAP_MODE = 'live'
 $env:AIRA_DEMO_BOOTSTRAP_BUSINESS_YEAR = '2025'
+$env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/<fresh-disposable-database>'
 .\gradlew.bat --no-daemon bootRun
 ```
 
-Do not enable bootstrap against production-like execution. No HTTP trigger exists. The runner calls the existing official company preparation operation first and the existing event-assessment preparation operation second.
+Replace the datasource placeholder with the unique fresh database created for this run. Do not enable bootstrap against production-like execution. No HTTP trigger exists. The runner calls the existing official company preparation operation first and the existing event-assessment preparation operation second.
 
 Expected log shape after success:
 
@@ -121,7 +122,7 @@ $env:SPRING_DATASOURCE_URL = 'jdbc:postgresql://localhost:5432/<fresh-disposable
 .\gradlew.bat --no-daemon test --tests com.aira.api.demo.OfficialDemoBootstrapPostgresTests
 ```
 
-The datasource override must name a newly created, empty, disposable database; never point this verification at an existing `aira` development database. The test enables Flyway, calls live OpenDART, runs bootstrap twice, and verifies official Fact/Evidence/Event/Assessment records, stable company identities, company-event queries, Interest consumption, Briefing, and Alert. It is skipped unless the E2E flag, DB password, and OpenDART key are all present. `--no-daemon` ensures the live test does not reuse a Gradle daemon started under a different network environment.
+The datasource override must name a newly created, empty, disposable database; never point this verification at an existing `aira` development database. The test enables Flyway, calls live OpenDART, runs bootstrap twice, and verifies Revenue and Operating Income facts, active OpenDART evidence, one earnings Event and one completed Assessment per company, stable company identities, company-event queries, Interest consumption, Briefing `READY` with two items, and two Alerts with OpenDART provenance. It is skipped unless the E2E flag, DB password, and OpenDART key are all present. `--no-daemon` ensures the live test does not reuse a Gradle daemon started under a different network environment.
 
 ## 6. Return to normal startup
 
@@ -142,3 +143,5 @@ Remove-Item Env:FLYWAY_ENABLED -ErrorAction SilentlyContinue
 ```
 
 There is no application-level database reset command. Use only a dedicated disposable database for clean-room reruns; do not run Flyway `clean` against shared or retained data.
+
+After the API and verification processes have stopped, remove only the uniquely named disposable database created for this run. The completed milestone verification confirmed that cleanup while leaving the existing `aira` development database untouched; the test class itself does not create or drop databases.
