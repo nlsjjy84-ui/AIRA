@@ -82,3 +82,9 @@ The existing schema is validated and retained. Re-run the integration check afte
 - `npm` PowerShell execution-policy error: invoke `npm.cmd`, as shown above, instead of `npm`.
 
 Normal runtime does not require `OPENDART_API_KEY`, Resend credentials, demo bootstrap flags, or any external AI call.
+
+## Optional account-recovery email delivery
+
+The account-recovery screens are available in the normal web application, but sending verification and password-reset links requires the existing Resend adapter. Before API startup, provide `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and an HTTPS `AIRA_PUBLIC_BASE_URL` through a secure process environment. The public base URL must route `/recovery-email/confirm` and `/password-reset/confirm` back to the Vite/Spring application.
+
+Without those optional values, normal login, signup, and financial browsing still work; email-delivery requests fail safely and no recovery token is shown in the product UI or logs. Do not expose a token manually to bypass email delivery.

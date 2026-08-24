@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
-import { addInterest, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, signup } from './api/authApi.js'
+import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { reconcileAlerts } from './api/alertApi.js'
 
@@ -85,13 +85,117 @@ function AuthPanel({ mode, setMode, close, authenticated }) {
           {state.loading ? '처리 중…' : mode === 'signup' ? '회원가입' : '로그인'}
         </button>
       </form>
+      {mode === 'login' && <button type="button" className="text-action" onClick={() => setMode('forgot')}>비밀번호를 잊으셨나요?</button>}
     </section>
   </div>
 }
 
+function RecoveryPanel({ mode, token, setMode, close, completeLink }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmation, setConfirmation] = useState('')
+  const [state, setState] = useState({ loading: false, error: null, notice: null })
+
+  async function submit(event) {
+    event.preventDefault()
+    setState({ loading: true, error: null, notice: null })
+    try {
+      if (mode === 'forgot') {
+        await requestPasswordReset(email)
+        setEmail('')
+        setState({ loading: false, error: null, notice: '입력한 주소가 등록되어 있다면 비밀번호 재설정 안내를 보냈습니다.' })
+      } else if (mode === 'reset') {
+        if (password !== confirmation) {
+          setState({ loading: false, error: '새 비밀번호가 서로 일치하지 않습니다.', notice: null })
+          return
+        }
+        await confirmPasswordReset(token, password)
+        setPassword('')
+        setConfirmation('')
+        completeLink()
+        setState({ loading: false, error: null, notice: '비밀번호를 변경하고 기존 로그인 세션을 종료했습니다. 새 비밀번호로 로그인해 주세요.' })
+      } else {
+        await confirmRecoveryEmail(token)
+        completeLink()
+        setState({ loading: false, error: null, notice: '복구 이메일 확인 요청을 처리했습니다.' })
+      }
+    } catch (error) {
+      const invalid = mode === 'reset' && error.code === 'INVALID_PASSWORD_RESET_TOKEN'
+      setState({ loading: false, error: invalid
+        ? '재설정 링크가 유효하지 않거나 만료되었습니다. 새 링크를 요청해 주세요.'
+        : '요청을 처리하지 못했습니다. 입력값을 확인하고 다시 시도해 주세요.', notice: null })
+    }
+  }
+
+  const reset = mode === 'reset'
+  const verify = mode === 'recovery-confirm'
+  const title = reset ? '새 비밀번호 설정' : verify ? '복구 이메일 확인' : '비밀번호 재설정'
+  return <div className="auth-overlay" role="presentation">
+    <section className="auth-panel" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
+      <button type="button" className="close-button" onClick={close} aria-label="계정 복구 창 닫기">×</button>
+      <p className="eyebrow">AIRA ACCOUNT RECOVERY</p>
+      <h2 id="recovery-title">{title}</h2>
+      <p className="auth-intro">{reset ? '링크는 30분 동안 한 번만 사용할 수 있습니다.' : verify ? '이 링크로 복구 이메일 확인을 완료합니다.' : '계정에 등록한 복구 이메일을 입력해 주세요.'}</p>
+      <form onSubmit={submit}>
+        {mode === 'forgot' && <><label htmlFor="reset-email">복구 이메일</label><input id="reset-email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength="254" required autoComplete="email" autoFocus /></>}
+        {reset && <>
+          <label htmlFor="new-password">새 비밀번호</label>
+          <input id="new-password" type="password" value={password} onChange={event => setPassword(event.target.value)} minLength="15" maxLength="72" required autoComplete="new-password" autoFocus />
+          <small>15자 이상 72자 이하</small>
+          <label htmlFor="confirm-password">새 비밀번호 확인</label>
+          <input id="confirm-password" type="password" value={confirmation} onChange={event => setConfirmation(event.target.value)} minLength="15" maxLength="72" required autoComplete="new-password" />
+        </>}
+        {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
+        {state.error && <p className="form-error" role="alert">{state.error}</p>}
+        {!state.notice && <button className="primary-action submit-action" disabled={state.loading}>{state.loading ? '처리 중…' : reset ? '비밀번호 변경' : verify ? '이메일 확인' : '재설정 안내 요청'}</button>}
+      </form>
+      {state.notice && (reset
+        ? <button type="button" className="primary-action submit-action" onClick={() => setMode('login')}>로그인으로 이동</button>
+        : <button type="button" className="secondary-action submit-action" onClick={close}>닫기</button>)}
+      {mode === 'forgot' && <button type="button" className="text-action" onClick={() => setMode('login')}>로그인으로 돌아가기</button>}
+    </section>
+  </div>
+}
+
+function RecoveryEmailSettings() {
+  const [email, setEmail] = useState('')
+  const [state, setState] = useState({ loading: false, error: null, notice: null })
+  async function submit(event) {
+    event.preventDefault()
+    setState({ loading: true, error: null, notice: null })
+    try {
+      await requestRecoveryEmailVerification(email)
+      setEmail('')
+      setState({ loading: false, error: null, notice: '확인 메일을 보냈습니다. 30분 안에 메일의 링크를 열어 주세요.' })
+    } catch {
+      setState({ loading: false, error: '확인 메일을 보내지 못했습니다. 주소와 메일 전송 설정을 확인해 주세요.', notice: null })
+    }
+  }
+  return <section id="account-recovery" className="content-section recovery-section" aria-labelledby="account-recovery-title">
+    <div className="section-heading"><span>ACCOUNT</span><h2 id="account-recovery-title">계정 복구 이메일</h2></div>
+    <p className="status">비밀번호를 잊었을 때 사용할 이메일을 확인합니다. 현재 주소는 개인정보 보호를 위해 화면에 표시하지 않습니다.</p>
+    <form className="recovery-email-form" onSubmit={submit}>
+      <label htmlFor="recovery-email">복구 이메일</label>
+      <input id="recovery-email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength="254" required autoComplete="email" />
+      <button className="secondary-action" disabled={state.loading}>{state.loading ? '처리 중…' : '확인 메일 보내기'}</button>
+    </form>
+    {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
+    {state.error && <p className="form-error" role="alert">{state.error}</p>}
+  </section>
+}
+
+function initialRecoveryEntry() {
+  if (typeof window === 'undefined') return { mode: null, token: '' }
+  const token = new URLSearchParams(window.location.search).get('token') ?? ''
+  if (window.location.pathname === '/password-reset/confirm') return { mode: 'reset', token }
+  if (window.location.pathname === '/recovery-email/confirm') return { mode: 'recovery-confirm', token }
+  return { mode: null, token: '' }
+}
+
 export default function App() {
+  const [recoveryEntry, setRecoveryEntry] = useState(initialRecoveryEntry)
   const [session, setSession] = useState({ loading: true, user: null, error: null, notice: null })
-  const [authMode, setAuthMode] = useState(null)
+  const [authMode, setAuthMode] = useState(recoveryEntry.mode)
   const [companiesState, setCompaniesState] = useState({ loading: true, data: [], error: null })
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [periodsState, setPeriodsState] = useState({ loading: false, data: [], error: null })
@@ -249,6 +353,8 @@ export default function App() {
         <div className="interest-list">{interestsState.data.map(item => <button type="button" key={item.entityId} onClick={() => selectCompany({ companyId: item.entityId, canonicalName: item.canonicalName, countryCode: item.countryCode })}><strong>{item.canonicalName}</strong><span>재무정보 다시 보기 →</span></button>)}</div>
       </section>}
 
+      {session.user && <RecoveryEmailSettings />}
+
       {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
         <div className="section-heading"><span>BRIEFING</span><h2 id="briefing-title">내 브리핑</h2></div>
         {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
@@ -314,6 +420,7 @@ export default function App() {
       </section>}
     </main>
     <footer><span>AIRA</span><p>공식 시장정보를 근거와 함께 제공합니다.</p></footer>
-    {authMode && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
+    {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
+    {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}
   </>
 }

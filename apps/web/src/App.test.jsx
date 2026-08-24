@@ -59,7 +59,7 @@ async function selectSamsung(user) {
 }
 
 beforeEach(() => { document.cookie = 'XSRF-TOKEN=test-csrf; path=/' })
-afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/' })
+afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'; window.history.replaceState({}, '', '/') })
 
 describe('authenticated interest and return experience', () => {
   it('preserves anonymous navigation and the public financial journey', async () => {
@@ -214,6 +214,87 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByText('세션 확인 중…')).toBeInTheDocument()
     releaseSession()
     await waitFor(() => expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument())
+  })
+
+  it('enters password recovery from login and preserves a generic request response', async () => {
+    const backend = server({ overrides: {
+      'POST /api/auth/password-reset/requests': () => json(null, 202),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '로그인' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '비밀번호를 잊으셨나요?' }))
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('복구 이메일'), 'person@example.com')
+    await user.click(within(dialog).getByRole('button', { name: '재설정 안내 요청' }))
+    expect(await within(dialog).findByText('입력한 주소가 등록되어 있다면 비밀번호 재설정 안내를 보냈습니다.')).toBeInTheDocument()
+    const call = backend.fetch.mock.calls.find(([path]) => path === '/api/auth/password-reset/requests')
+    expect(JSON.parse(call[1].body)).toEqual({ email: 'person@example.com' })
+  })
+
+  it('handles an invalid or expired reset link without exposing the token', async () => {
+    window.history.replaceState({}, '', '/password-reset/confirm?token=sensitive-reset-token')
+    const backend = server({ overrides: {
+      'POST /api/auth/password-reset/confirm': () => json({ code: 'INVALID_PASSWORD_RESET_TOKEN' }, 400),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).not.toHaveTextContent('sensitive-reset-token')
+    await user.type(within(dialog).getByLabelText('새 비밀번호'), 'changed-secure-password')
+    await user.type(within(dialog).getByLabelText('새 비밀번호 확인'), 'changed-secure-password')
+    await user.click(within(dialog).getByRole('button', { name: '비밀번호 변경' }))
+    expect(await within(dialog).findByText('재설정 링크가 유효하지 않거나 만료되었습니다. 새 링크를 요청해 주세요.')).toBeInTheDocument()
+  })
+
+  it('completes password reset, removes the token URL, and returns toward login', async () => {
+    window.history.replaceState({}, '', '/password-reset/confirm?token=one-time-token')
+    const backend = server({ overrides: {
+      'POST /api/auth/password-reset/confirm': () => json(null, 204),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('새 비밀번호'), 'changed-secure-password')
+    await user.type(within(dialog).getByLabelText('새 비밀번호 확인'), 'changed-secure-password')
+    await user.click(within(dialog).getByRole('button', { name: '비밀번호 변경' }))
+    expect(await within(dialog).findByText(/기존 로그인 세션을 종료했습니다/)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
+    expect(window.location.search).toBe('')
+    await user.click(within(dialog).getByRole('button', { name: '로그인으로 이동' }))
+    expect(screen.getByRole('heading', { name: '로그인' })).toBeInTheDocument()
+  })
+
+  it('lets an authenticated user request recovery-email verification without displaying the address', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
+      'POST /api/auth/recovery-email/verifications': () => json(null, 202),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const section = (await screen.findByRole('heading', { name: '계정 복구 이메일' })).closest('section')
+    await user.type(within(section).getByLabelText('복구 이메일'), 'private@example.com')
+    await user.click(within(section).getByRole('button', { name: '확인 메일 보내기' }))
+    expect(await within(section).findByText(/30분 안에 메일의 링크/)).toBeInTheDocument()
+    expect(section).not.toHaveTextContent('private@example.com')
+  })
+
+  it('confirms recovery email from the delivered link without rendering its token', async () => {
+    window.history.replaceState({}, '', '/recovery-email/confirm?token=private-verification-token')
+    const backend = server({ overrides: {
+      'POST /api/auth/recovery-email/verifications/confirm': () => json(null, 204),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).not.toHaveTextContent('private-verification-token')
+    await user.click(within(dialog).getByRole('button', { name: '이메일 확인' }))
+    expect(await within(dialog).findByText('복구 이메일 확인 요청을 처리했습니다.')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/')
   })
 
   it('renders a private briefing with event, assessment, uncertainty, and source', async () => {

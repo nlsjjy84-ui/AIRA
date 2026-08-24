@@ -108,6 +108,10 @@ footer p { margin: 0; }
 .form-error { color: var(--error); }
 .submit-action { justify-content: center; margin-top: 1rem; }
 .submit-action:disabled, .saved-action:disabled, .secondary-action:disabled { cursor: wait; opacity: .65; }
+.text-action { display: block; margin: 1rem auto 0; border: 0; color: var(--accent); background: transparent; cursor: pointer; font-weight: 700; text-decoration: underline; }
+.recovery-email-form { display: grid; grid-template-columns: minmax(12rem, 1fr) auto; align-items: end; gap: .65rem; max-width: 38rem; }
+.recovery-email-form label { grid-column: 1 / -1; font-weight: 700; }
+.recovery-email-form input { min-width: 0; padding: .8rem; border: 1px solid var(--line); border-radius: .35rem; color: var(--ink); background: var(--surface); }
 
 @media (max-width: 40rem) {
   .site-header, main { padding-left: 1.15rem; padding-right: 1.15rem; }
@@ -124,6 +128,7 @@ footer p { margin: 0; }
   .selection-heading { align-items: stretch; flex-direction: column; }
   .selection-heading > button { align-self: flex-start; }
   .interest-list button { align-items: flex-start; flex-direction: column; }
+  .recovery-email-form { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
