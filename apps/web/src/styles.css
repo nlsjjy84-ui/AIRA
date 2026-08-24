@@ -65,6 +65,14 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 .briefing-card { border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; background: var(--paper); }
 .alert-list { display: grid; gap: 1rem; }
 .alert-card { border-left: 4px solid var(--accent); padding: 1.25rem; background: var(--surface); }
+.insight-reason { margin: .65rem 0; color: var(--accent); font-weight: 700; }
+.insight-time, .evidence-reference { color: var(--muted); font-size: .86rem; }
+.insight-actions { display: flex; align-items: center; justify-content: space-between; gap: .8rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.official-evidence-action { color: var(--accent); font-weight: 700; }
+.personalization-empty { padding-bottom: 1rem; }
+.personalization-empty .status { margin-bottom: .25rem; }
+.event-card.insight-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.event-card:focus-visible { outline: 3px solid #267c5d; outline-offset: 3px; }
 .event-card { padding: clamp(1.2rem, 3vw, 1.8rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .event-card h3 { margin: .25rem 0; font-size: 1.25rem; }
 .event-card h4 { margin: 1rem 0 .25rem; }
@@ -129,6 +137,8 @@ footer p { margin: 0; }
   .selection-heading > button { align-self: flex-start; }
   .interest-list button { align-items: flex-start; flex-direction: column; }
   .recovery-email-form { grid-template-columns: 1fr; }
+  .insight-actions { align-items: stretch; flex-direction: column; }
+  .insight-actions > * { justify-content: center; text-align: center; }
 }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }

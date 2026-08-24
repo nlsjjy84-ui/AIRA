@@ -22,6 +22,13 @@ function ErrorState({ error, subject, retry }) {
     <button type="button" className="secondary-action" onClick={retry}>다시 시도</button></div>
 }
 
+function formatDateTime(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
 function AuthPanel({ mode, setMode, close, authenticated }) {
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
@@ -206,6 +213,8 @@ export default function App() {
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
   const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
   const [alertsState, setAlertsState] = useState({ loading: false, data: [], error: null })
+  const [pendingInsightTarget, setPendingInsightTarget] = useState(null)
+  const [highlightedEventId, setHighlightedEventId] = useState(null)
 
   const becomeAnonymous = useCallback((notice = null) => {
     setSession({ loading: false, user: null, error: null, notice })
@@ -258,8 +267,10 @@ export default function App() {
     if (session.user && !interestsState.loading && !interestsState.error) loadBriefing()
   }, [session.user, interestsState.loading, interestsState.error, interestsState.data, loadBriefing])
 
-  const selectCompany = useCallback((company) => {
+  const selectCompany = useCallback((company, eventId = null) => {
     setSelectedCompany(company)
+    setHighlightedEventId(eventId)
+    setPendingInsightTarget(eventId ? { companyId: company.companyId, eventId } : null)
     setSelectedPeriod(null)
     setFactsState({ loading: false, data: [], error: null })
     setEventsState({ loading: true, data: [], error: null })
@@ -273,6 +284,21 @@ export default function App() {
       .then(body => setEventsState({ loading: false, data: body.events ?? [], error: null }))
       .catch(error => setEventsState({ loading: false, data: [], error }))
   }, [])
+
+  const openInsightContext = useCallback((item) => {
+    selectCompany({ companyId: item.companyId, canonicalName: item.companyName }, item.eventId)
+  }, [selectCompany])
+
+  useEffect(() => {
+    if (!pendingInsightTarget || eventsState.loading || selectedCompany?.companyId !== pendingInsightTarget.companyId) return
+    const target = document.getElementById(`event-${pendingInsightTarget.eventId}`)
+      ?? document.getElementById('events-title')
+    if (target) {
+      target.focus({ preventScroll: true })
+      target.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      setPendingInsightTarget(null)
+    }
+  }, [eventsState.loading, eventsState.data, pendingInsightTarget, selectedCompany])
 
   const loadFacts = useCallback(() => {
     if (!selectedCompany || !selectedPeriod) return
@@ -337,7 +363,7 @@ export default function App() {
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href="#my-interests">내 관심회사</a><span className="session-label">{session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && session.user && <><a href="#my-interests">관심회사</a><a href="#my-briefing">브리핑</a><a href="#my-alerts">알림</a><span className="session-label">{session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
@@ -349,7 +375,7 @@ export default function App() {
         <div className="section-heading"><span>MY</span><h2 id="interests-title">내 관심회사</h2></div>
         {interestsState.loading && <Status busy>관심회사를 불러오는 중입니다.</Status>}
         {interestsState.error && <ErrorState error={interestsState.error} subject="관심회사" retry={loadInterests} />}
-        {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <Status>아직 저장한 관심회사가 없습니다. 아래에서 기업을 선택해 저장할 수 있습니다.</Status>}
+        {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <div className="personalization-empty"><Status>아직 저장한 관심회사가 없습니다. 회사를 탐색하고 관심회사로 저장해 보세요.</Status><a className="secondary-action" href="#companies">회사 탐색하기</a></div>}
         <div className="interest-list">{interestsState.data.map(item => <button type="button" key={item.entityId} onClick={() => selectCompany({ companyId: item.entityId, canonicalName: item.canonicalName, countryCode: item.countryCode })}><strong>{item.canonicalName}</strong><span>재무정보 다시 보기 →</span></button>)}</div>
       </section>}
 
@@ -360,14 +386,17 @@ export default function App() {
         {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
         {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
         {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
-          <Status>{interestsState.data.length === 0 ? '관심회사를 저장하면 연결된 분석을 이곳에서 확인할 수 있습니다.' : '현재 관심회사에 연결된 분석이 없습니다.'}</Status>}
+          <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '브리핑은 저장한 관심회사의 AIRA 분석으로 구성됩니다.' : '현재 관심회사에 연결된 분석이 없습니다.'}</Status><a className="secondary-action" href="#companies">관심회사 살펴보기</a></div>}
+        {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
           <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3>
+          <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
           <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
             <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <div className="event-evidence"><strong>{item.sourceName}</strong><span>공시 접수번호 {item.evidenceExternalId}</span>
-            <a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">근거 보기 <span aria-hidden="true">↗</span></a></div>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openInsightContext(item)}>AIRA에서 회사 맥락 보기</button>
+            <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
+          <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
         </article>)}</div>
       </section>}
 
@@ -375,12 +404,15 @@ export default function App() {
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
-        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <Status>새로 확인된 내용이 없습니다.</Status>}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '알림은 관심회사를 저장하고 앱 알림을 켜면 준비됩니다.' : '새로 확인된 AIRA 분석이 없습니다. 회사 맥락에서 앱 알림 설정을 확인할 수 있습니다.'}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
+          <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
+          {item.createdAt && <p className="insight-time">알림 생성 {formatDateTime(item.createdAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
-          <div className="event-evidence"><strong>{item.sourceName}</strong><span>공시 접수번호 {item.evidenceExternalId}</span>
-            <a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">상세 확인 <span aria-hidden="true">↗</span></a></div>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openInsightContext(item)}>AIRA에서 회사 맥락 보기</button>
+            <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
+          <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
         </article>)}</div>
       </section>}
 
@@ -404,11 +436,11 @@ export default function App() {
       </section>}
 
       {selectedCompany && <section className="content-section event-section" aria-labelledby="events-title">
-        <div className="section-heading"><span>04</span><h2 id="events-title">관련 사건과 확인할 의미</h2></div>
+        <div className="section-heading"><span>04</span><h2 id="events-title" tabIndex="-1">관련 사건과 확인할 의미</h2></div>
         {eventsState.loading && <Status busy>관련 사건을 확인하는 중입니다.</Status>}
         {eventsState.error && <ErrorState error={eventsState.error} subject="관련 사건" retry={() => selectCompany(selectedCompany)} />}
         {!eventsState.loading && !eventsState.error && eventsState.data.length === 0 && <Status>현재 근거와 함께 확인할 사건이 없습니다.</Status>}
-        <div className="event-list">{eventsState.data.map(item => <article key={item.eventId} className="event-card">
+        <div className="event-list">{eventsState.data.map(item => <article id={`event-${item.eventId}`} tabIndex="-1" key={item.eventId} className={`event-card ${highlightedEventId === item.eventId ? 'insight-target' : ''}`}>
           <p className="eyebrow">WHAT HAPPENED</p><h3>{item.title}</h3>
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
           <div className="assessment"><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
