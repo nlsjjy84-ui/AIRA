@@ -85,6 +85,6 @@ npm.cmd run test:e2e
 
 ## Demo data status
 
-현재 개발 데이터베이스에는 Samsung COMPANY와 2025 Annual CFS 재무정보를 검증한 이력이 있지만, 새 데이터베이스용 end-to-end demo bootstrap은 아직 자동화되지 않았습니다. 새 환경에서 Samsung 데이터가 자동 생성된다고 가정하지 마세요. 재현 가능한 bootstrap/runbook은 후속 completion milestone에서 다룹니다.
+새 로컬 PostgreSQL 환경에서 공식 OpenDART 데이터 경로를 명시적으로 준비할 수 있습니다. Bootstrap은 기본 실행에서 비활성이고, live OpenDART mode와 API key를 함께 opt-in해야 합니다. Fresh schema 적용, 대표 기업 준비, 재실행 검증과 UI 확인 절차는 [Official Demo Bootstrap & Runbook v1](docs/runbooks/OFFICIAL_DEMO_BOOTSTRAP_V1.md)을 따르세요.
 
 Architecture와 데이터 경계 변경 전에는 `docs/architecture`와 `docs/adr`을 먼저 확인하세요.

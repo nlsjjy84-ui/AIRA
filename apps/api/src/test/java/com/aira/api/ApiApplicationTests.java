@@ -1,5 +1,9 @@
 package com.aira.api;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import com.aira.api.demo.OfficialDemoBootstrapRunner;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -14,9 +18,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 		"aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 class ApiApplicationTests {
+	@Autowired(required = false)
+	OfficialDemoBootstrapRunner demoBootstrapRunner;
 
 	@Test
 	void contextLoads() {
+		assertNull(demoBootstrapRunner,
+				"Official demo bootstrap must remain disabled in the default application context");
 	}
 
 }
