@@ -24,6 +24,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.dao.DataIntegrityViolationException;
 
 class UserInterestServiceTests {
@@ -65,20 +67,25 @@ class UserInterestServiceTests {
     }
 
     @Test
-    void rejectsInactiveAndUnsupportedEntities() {
+    void rejectsInactiveEntities() {
         MarketEntity inactive = mock(MarketEntity.class);
         when(inactive.isActive()).thenReturn(false);
         when(entities.findById(entityId)).thenReturn(Optional.of(inactive));
         assertThrows(InvalidInterestEntityException.class, () -> service.add(userId, entityId));
+    }
 
-        MarketEntity market = activeEntity(EntityType.MARKET);
-        when(entities.findById(entityId)).thenReturn(Optional.of(market));
+    @ParameterizedTest
+    @EnumSource(value = EntityType.class, names = "COMPANY", mode = EnumSource.Mode.EXCLUDE)
+    void rejectsEveryActiveNonCompanyEntity(EntityType entityType) {
+        MarketEntity entity = activeEntity(entityType);
+        when(entities.findById(entityId)).thenReturn(Optional.of(entity));
+
         assertThrows(InvalidInterestEntityException.class, () -> service.add(userId, entityId));
     }
 
     @Test
     void convertsConcurrentUniqueViolationToDuplicateInterest() {
-        MarketEntity entity = activeEntity(EntityType.SECURITY);
+        MarketEntity entity = activeEntity(EntityType.COMPANY);
         when(entities.findById(entityId)).thenReturn(Optional.of(entity));
         when(users.getReferenceById(userId)).thenReturn(mock(AppUser.class));
         when(interests.saveAndFlush(any(UserInterest.class)))

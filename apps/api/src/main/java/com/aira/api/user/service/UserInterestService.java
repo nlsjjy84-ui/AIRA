@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UserInterestService {
     private static final Set<EntityType> V1_ENTITY_TYPES =
-            EnumSet.of(EntityType.COMPANY, EntityType.SECURITY, EntityType.INDUSTRY);
+            EnumSet.of(EntityType.COMPANY);
 
     private final UserInterestRepository interests;
     private final MarketEntityRepository entities;
