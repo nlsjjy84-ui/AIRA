@@ -96,13 +96,15 @@ class OfficialDemoBootstrapPostgresTests {
         assertEquals("READY", briefing.status());
         assertEquals(2, briefing.items().size());
         assertEquals(companyIds(first), briefing.items().stream()
-                .map(com.aira.api.delivery.dto.BriefingResponse.Item::companyId)
+                .flatMap(item -> item.companies().stream())
+                .map(com.aira.api.delivery.dto.RelatedCompany::companyId)
                 .collect(Collectors.toUnmodifiableSet()));
 
         var alertResult = alerts.reconcile(userId);
         assertEquals(2, alertResult.alerts().size());
         assertEquals(companyIds(first), alertResult.alerts().stream()
-                .map(com.aira.api.delivery.dto.AlertResponse.Item::companyId)
+                .flatMap(item -> item.companies().stream())
+                .map(com.aira.api.delivery.dto.RelatedCompany::companyId)
                 .collect(Collectors.toUnmodifiableSet()));
         assertTrue(alertResult.alerts().stream()
                 .allMatch(alert -> "OpenDART".equals(alert.sourceName())));

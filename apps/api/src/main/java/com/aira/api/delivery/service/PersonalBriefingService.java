@@ -2,6 +2,7 @@ package com.aira.api.delivery.service;
 
 import com.aira.api.delivery.dto.BriefingResponse;
 import com.aira.api.delivery.dto.BriefingResponse.Item;
+import com.aira.api.delivery.dto.RelatedCompany;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -27,18 +28,22 @@ public class PersonalBriefingService {
             WHERE id=? AND user_id=?
             """;
     static final String ITEM_SQL = """
-            SELECT DISTINCT ON (bi.display_order) bi.display_order,en.id,en.canonical_name,ev.id,
+            SELECT DISTINCT ON (bi.display_order) bi.display_order,ev.id,
                    ev.event_type,ev.title,ev.occurred_at,a.id,a.summary,a.uncertainty,
                    a.importance,a.confidence,s.name,e.external_id,e.original_url
             FROM briefing_item bi
             JOIN assessment a ON a.id=bi.assessment_id
             JOIN event ev ON ev.id=a.event_id
-            JOIN event_entity ee ON ee.event_id=ev.id
-            JOIN entity en ON en.id=ee.entity_id
             JOIN assessment_evidence ae ON ae.assessment_id=a.id
             JOIN evidence e ON e.id=ae.evidence_id
             JOIN source s ON s.id=e.source_id WHERE bi.briefing_id=?
             ORDER BY bi.display_order,e.id
+            """;
+    static final String COMPANIES_SQL = """
+            SELECT en.id,en.canonical_name FROM event_entity ee
+            JOIN entity en ON en.id=ee.entity_id
+            WHERE ee.event_id=? AND en.entity_type='COMPANY' AND en.active=true
+            ORDER BY en.id ASC
             """;
     static final String CANDIDATE_SQL = """
             SELECT a.id,ev.occurred_at,a.completed_at
@@ -109,15 +114,25 @@ public class PersonalBriefingService {
                 briefingId, userId);
         if (headers.isEmpty()) throw new BriefingNotFoundException();
         Header header = headers.getFirst();
-        List<Item> items = jdbc.query(ITEM_SQL,
-                (rs, row) -> new Item(rs.getShort(1), rs.getObject(2, UUID.class), rs.getString(3),
-                        rs.getObject(4, UUID.class), rs.getString(5), rs.getString(6),
-                        rs.getObject(7, OffsetDateTime.class), rs.getObject(8, UUID.class),
+        List<RawItem> rawItems = jdbc.query(ITEM_SQL,
+                (rs, row) -> new RawItem(rs.getShort(1), rs.getObject(2, UUID.class),
+                        rs.getString(3), rs.getString(4), rs.getObject(5, OffsetDateTime.class),
+                        rs.getObject(6, UUID.class), rs.getString(7), rs.getString(8),
                         rs.getString(9), rs.getString(10), rs.getString(11), rs.getString(12),
-                        rs.getString(13), rs.getString(14), rs.getString(15)), briefingId);
+                        rs.getString(13)), briefingId);
+        List<Item> items = rawItems.stream().map(raw -> new Item(raw.displayOrder(),
+                companies(raw.eventId()), raw.eventId(), raw.eventType(), raw.eventTitle(),
+                raw.occurredAt(), raw.assessmentId(), raw.summary(), raw.uncertainty(),
+                raw.importance(), raw.confidence(), raw.sourceName(), raw.evidenceExternalId(),
+                raw.evidenceOriginalUrl())).toList();
         return new BriefingResponse(header.id(), header.title(), header.status(), header.briefingType(),
                 header.periodStart(), header.periodEnd(), header.generatedAt(),
                 items.stream().distinct().toList());
+    }
+
+    private List<RelatedCompany> companies(UUID eventId) {
+        return RelatedCompanyOrder.normalize(jdbc.query(COMPANIES_SQL, (rs, row) ->
+                new RelatedCompany(rs.getObject(1, UUID.class), rs.getString(2)), eventId));
     }
 
     private void lockUser(UUID userId) {
@@ -214,6 +229,10 @@ public class PersonalBriefingService {
     }
 
     record Candidate(UUID assessmentId, OffsetDateTime occurredAt, OffsetDateTime completedAt) {}
+    private record RawItem(short displayOrder, UUID eventId, String eventType, String eventTitle,
+            OffsetDateTime occurredAt, UUID assessmentId, String summary, String uncertainty,
+            String importance, String confidence, String sourceName, String evidenceExternalId,
+            String evidenceOriginalUrl) {}
     private record Header(UUID id, String title, String status, String briefingType,
             OffsetDateTime periodStart, OffsetDateTime periodEnd, OffsetDateTime generatedAt) {}
 }

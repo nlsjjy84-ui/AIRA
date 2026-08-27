@@ -322,10 +322,6 @@ export default function App() {
       .catch(error => setEventsState({ loading: false, data: [], error }))
   }, [])
 
-  const openInsightContext = useCallback((item) => {
-    selectCompany({ companyId: item.companyId, canonicalName: item.companyName }, item.eventId)
-  }, [selectCompany])
-
   useEffect(() => {
     if (!pendingInsightTarget || eventsState.loading || selectedCompany?.companyId !== pendingInsightTarget.companyId) return
     const target = document.getElementById(`event-${pendingInsightTarget.eventId}`)
@@ -427,12 +423,12 @@ export default function App() {
         {briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
-          <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3>
+          <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
           <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
           <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
             <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openInsightContext(item)}>AIRA에서 회사 맥락 보기</button>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
             <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
           <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
         </article>)}</div>
@@ -444,11 +440,11 @@ export default function App() {
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
         {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data)}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
-          <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
+          <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
           <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
           {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
-          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openInsightContext(item)}>AIRA에서 회사 맥락 보기</button>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
             <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
           <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
         </article>)}</div>
@@ -562,9 +558,11 @@ export default function App() {
         <div className="event-list">{eventsState.data.map(item => <article id={`event-${item.eventId}`} tabIndex="-1" key={item.eventId} className={`event-card ${highlightedEventId === item.eventId ? 'insight-target' : ''}`}>
           <p className="eyebrow">WHAT HAPPENED</p><h3>{item.title}</h3>
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
-          <div className="assessment"><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
-            <h4>아직 확인할 점</h4><p>{item.assessment.uncertainty}</p>
-            <p className="assessment-meta">중요도 {item.assessment.importance} · 확신 {item.assessment.confidence} · 규칙 기반 분석</p></div>
+          {item.assessment
+            ? <div className="assessment"><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
+              <h4>아직 확인할 점</h4><p>{item.assessment.uncertainty}</p>
+              <p className="assessment-meta">중요도 {item.assessment.importance} · 확신 {item.assessment.confidence} · 규칙 기반 분석</p></div>
+            : <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
           <div className="event-evidence"><strong>{item.evidence.sourceName}</strong><span>공시 식별자 {item.evidence.externalId}</span>
             <a href={item.evidence.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>
         </article>)}</div>

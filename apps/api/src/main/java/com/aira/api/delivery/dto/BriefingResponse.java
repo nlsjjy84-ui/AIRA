@@ -7,11 +7,15 @@ import java.util.UUID;
 public record BriefingResponse(UUID briefingId, String title, String status,
         String briefingType, OffsetDateTime periodStart, OffsetDateTime periodEnd,
         OffsetDateTime generatedAt, List<Item> items) {
-    public record Item(short displayOrder, UUID companyId, String companyName,
+    public record Item(short displayOrder, List<RelatedCompany> companies,
             UUID eventId, String eventType, String eventTitle, OffsetDateTime occurredAt,
             UUID assessmentId, String summary, String uncertainty, String importance,
             String confidence, String sourceName, String evidenceExternalId,
-            String evidenceOriginalUrl) {}
+            String evidenceOriginalUrl) {
+        public Item {
+            companies = List.copyOf(companies);
+        }
+    }
 
     public static BriefingResponse empty(String briefingType, OffsetDateTime periodStart,
             OffsetDateTime periodEnd, OffsetDateTime generatedAt) {

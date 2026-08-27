@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.aira.api.delivery.dto.RelatedCompany;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ class InAppAlertServiceTests {
         assertFalse(sql.contains("CANDIDATE"));
         assertTrue(sql.contains("a.status='COMPLETED'"));
         assertTrue(sql.contains("assessment_evidence"));
+        assertTrue(sql.contains(") AS evidence_backed"));
         assertTrue(sql.contains("ui.alert_enabled=true"));
         assertTrue(sql.contains("MIN(ui.updated_at) AS activated_at"));
         assertTrue(sql.contains("a.completed_at>=ie.activated_at"));
@@ -41,6 +43,16 @@ class InAppAlertServiceTests {
         assertTrue(sql.contains("ORDER BY sent_at DESC,alert_id ASC"));
         assertFalse(sql.contains("status IN"));
         assertFalse(sql.contains("ORDER BY alert_id DESC"));
+        assertTrue(InAppAlertService.COMPANIES_SQL.contains("en.active=true"));
+        assertTrue(InAppAlertService.COMPANIES_SQL.contains("ORDER BY en.id ASC"));
+    }
+
+    @Test
+    void alertRelatedCompaniesAreDeterministicWithoutASingularRepresentative() {
+        RelatedCompany low = new RelatedCompany(id(30), "회사 A");
+        RelatedCompany high = new RelatedCompany(id(31), "회사 B");
+        assertEquals(List.of(low, high),
+                RelatedCompanyOrder.normalize(List.of(high, low, high)));
     }
 
     @Test
@@ -71,6 +83,22 @@ class InAppAlertServiceTests {
         assertTrue(InAppAlertService.selectCandidates(List.of(
                 candidate(EVENT_A, ASSESSMENT_A, null, null),
                 candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, false))).isEmpty());
+    }
+
+    @Test
+    void evidenceMissingSuccessorDoesNotReviveEvidenceBackedPredecessor() {
+        assertTrue(InAppAlertService.selectCandidates(List.of(
+                candidate(EVENT_A, ASSESSMENT_A, null, null, true, true),
+                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, true, false)))
+                .isEmpty());
+    }
+
+    @Test
+    void evidenceBackedTerminalSuccessorCreatesTheCandidate() {
+        assertEquals(List.of(new InAppAlertService.Candidate(EVENT_A, ASSESSMENT_B)),
+                InAppAlertService.selectCandidates(List.of(
+                        candidate(EVENT_A, ASSESSMENT_A, null, null, true, true),
+                        candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, true, true))));
     }
 
     @Test
@@ -117,8 +145,16 @@ class InAppAlertServiceTests {
     private static InAppAlertService.AssessmentCandidate candidate(UUID eventId,
             UUID assessmentId, UUID supersedesAssessmentId, UUID predecessorEventId,
             boolean eligibleAfterActivation) {
+        return candidate(eventId, assessmentId, supersedesAssessmentId, predecessorEventId,
+                eligibleAfterActivation, true);
+    }
+
+    private static InAppAlertService.AssessmentCandidate candidate(UUID eventId,
+            UUID assessmentId, UUID supersedesAssessmentId, UUID predecessorEventId,
+            boolean eligibleAfterActivation, boolean evidenceBacked) {
         return new InAppAlertService.AssessmentCandidate(eventId, assessmentId,
-                supersedesAssessmentId, predecessorEventId, eligibleAfterActivation);
+                supersedesAssessmentId, predecessorEventId, eligibleAfterActivation,
+                evidenceBacked);
     }
 
     private static UUID id(long value) {

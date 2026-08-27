@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App.jsx'
 
 const company = { companyId: '5eafc0b5-c163-4cea-8dbd-131265004e95', canonicalName: '삼성전자', countryCode: 'KR' }
+const relatedCompanies = [
+  { companyId: '00000000-0000-0000-0000-000000000001', companyName: '관련회사 A' },
+  { companyId: '00000000-0000-0000-0000-000000000002', companyName: '관련회사 B' },
+]
 const period = { periodStart: '2025-01-01', periodEnd: '2025-12-31', predicates: ['REVENUE', 'OPERATING_INCOME'] }
 const facts = [
   { predicate: 'REVENUE', value: 333605938000000, currency: 'KRW', evidenceId: 'evidence-1', sourceName: 'OpenDART', evidenceExternalId: '20260310002820', evidenceOriginalUrl: 'https://dart.fss.or.kr/report/viewer.do?rcept_no=20260310002820' },
@@ -30,13 +34,13 @@ const officialEvidence = { evidenceId: 'event-evidence-1', evidenceType: 'DISCLO
   locator: 'section-1', excerpt: 'Stored evidence excerpt',
   source: { sourceId: 'source-1', sourceName: 'Official Registry', sourceType: 'REGULATORY_FILING', canonicalDomain: 'official.example' } }
 
-const briefingItem = { displayOrder: 1, companyId: company.companyId, companyName: company.canonicalName,
+const briefingItem = { displayOrder: 1, companies: relatedCompanies,
   eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
   occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
   uncertainty: eventExperience.assessment.uncertainty, importance: 'MEDIUM', confidence: 'MEDIUM',
   sourceName: 'OpenDART', evidenceExternalId: eventExperience.evidence.externalId,
   evidenceOriginalUrl: eventExperience.evidence.originalUrl }
-const alertItem = { alertId: 'alert-1', companyId: company.companyId, companyName: company.canonicalName,
+const alertItem = { alertId: 'alert-1', companies: relatedCompanies,
   eventId: eventExperience.eventId, eventTitle: eventExperience.title, eventType: eventExperience.eventType,
   occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
   uncertainty: eventExperience.assessment.uncertainty, sourceName: 'OpenDART',
@@ -251,17 +255,31 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByRole('button', { name: '로그인하고 관심회사에 저장' })).toBeInTheDocument()
   })
 
-  it('separates an official event, rule assessment, uncertainty, and source evidence', async () => {
+  it('renders the semantic compatibility terminal company assessment normally', async () => {
     const backend = server()
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
     await selectSamsung(user)
-    expect(await screen.findByRole('heading', { name: eventExperience.title })).toBeInTheDocument()
-    expect(screen.getByText(eventExperience.assessment.summary)).toBeInTheDocument()
-    expect(screen.getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
-    expect(screen.queryByText(/매수|매도|추천/)).not.toBeInTheDocument()
+    const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
+    expect(within(events).getByRole('heading', { name: eventExperience.title })).toBeInTheDocument()
+    expect(within(events).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
+    expect(within(events).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
+    expect(within(events).getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
+    expect(within(events).queryByText(/매수|매도|추천/)).not.toBeInTheDocument()
+  })
+
+  it('renders the semantic compatibility company event without a current assessment safely', async () => {
+    const backend = server({ overrides: {
+      [`GET /api/companies/${company.companyId}/events`]: () => json({
+        companyId: company.companyId, events: [{ ...eventExperience, assessment: null }],
+      }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    await selectSamsung(user)
+    expect(await screen.findByText('현재 표시할 AIRA 해석이 없습니다.')).toBeInTheDocument()
   })
 
   it('signs up without creating a session and leads naturally to login', async () => {
@@ -474,12 +492,12 @@ describe('authenticated interest and return experience', () => {
     expect(window.location.pathname).toBe('/')
   })
 
-  it('renders a private briefing with event, assessment, uncertainty, and source', async () => {
+  it('renders semantic compatibility briefing companies and navigates by event identity', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest] })
     global.fetch = backend.fetch
     render(<App />)
     const briefing = (await screen.findByRole('heading', { name: '내 브리핑' })).closest('section')
-    expect(await within(briefing).findByText(company.canonicalName)).toBeInTheDocument()
+    expect(await within(briefing).findByText('관련 회사: 관련회사 A · 관련회사 B')).toBeInTheDocument()
     expect(within(briefing).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
     expect(within(briefing).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
     expect(within(briefing).getByText('관심회사로 저장한 회사의 AIRA 분석입니다.')).toBeInTheDocument()
@@ -487,11 +505,9 @@ describe('authenticated interest and return experience', () => {
     expect(within(briefing).getByText(/브리핑 생성/)).toBeInTheDocument()
     expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
     expect(within(briefing).queryByText(/매수|매도|추천|알림/)).not.toBeInTheDocument()
-    await userEvent.setup().click(within(briefing).getByRole('button', { name: 'AIRA에서 회사 맥락 보기' }))
-    const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
-    const target = within(events).getByRole('heading', { name: eventExperience.title }).closest('article')
-    await waitFor(() => expect(target).toHaveFocus())
-    expect(target).toHaveClass('insight-target')
+    await userEvent.setup().click(within(briefing).getByRole('button', { name: 'Event 상세 보기' }))
+    expect(await screen.findByRole('heading', { name: 'Event 상세' })).toBeInTheDocument()
+    expect(backend.fetch).toHaveBeenCalledWith(`/api/events/${eventExperience.eventId}`, expect.anything())
   })
 
   it('shows a safe briefing empty state without interests', async () => {
@@ -518,7 +534,7 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByText(/정리 기간/)).toBeInTheDocument()
   })
 
-  it('explains an alert and navigates to its company event while preserving official evidence', async () => {
+  it('renders semantic compatibility alert companies and navigates by event identity', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
       'POST /api/me/alerts/reconcile': () => json({ alerts: [alertItem] }),
     } })
@@ -526,14 +542,13 @@ describe('authenticated interest and return experience', () => {
     const user = userEvent.setup()
     render(<App />)
     const alerts = (await screen.findByRole('heading', { name: '관심회사 알림' })).closest('section')
+    expect(await within(alerts).findByText('관련 회사: 관련회사 A · 관련회사 B')).toBeInTheDocument()
     expect(await within(alerts).findByText('앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.')).toBeInTheDocument()
     expect(within(alerts).getByText(/알림 전달/)).toBeInTheDocument()
     expect(within(alerts).queryByText(/알림 생성/)).not.toBeInTheDocument()
     expect(within(alerts).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', alertItem.evidenceOriginalUrl)
-    await user.click(within(alerts).getByRole('button', { name: 'AIRA에서 회사 맥락 보기' }))
-    const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
-    const target = within(events).getByRole('heading', { name: eventExperience.title }).closest('article')
-    await waitFor(() => expect(target).toHaveFocus())
-    expect(target).toHaveClass('insight-target')
+    await user.click(within(alerts).getByRole('button', { name: 'Event 상세 보기' }))
+    expect(await screen.findByRole('heading', { name: 'Event 상세' })).toBeInTheDocument()
+    expect(backend.fetch).toHaveBeenCalledWith(`/api/events/${eventExperience.eventId}`, expect.anything())
   })
 })

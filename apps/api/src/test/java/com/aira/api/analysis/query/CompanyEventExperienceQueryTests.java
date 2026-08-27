@@ -27,11 +27,13 @@ class CompanyEventExperienceQueryTests {
     }
 
     @Test
-    void currentCandidatesAreCompletedEvidenceBackedAndUseSameEventSupersessionOnly() {
+    void currentCandidatesContainEveryCompletedAssessmentBeforeEvidenceEligibility() {
         String sql = CompanyEventExperienceQuery.CURRENT_ASSESSMENT_SQL;
 
         assertTrue(sql.contains("a.event_id = ? AND a.status = 'COMPLETED'"));
         assertTrue(sql.contains("assessment_evidence"));
+        assertTrue(sql.contains("EXISTS"));
+        assertFalse(sql.contains("ae.evidence_id = ?"));
         assertTrue(sql.contains("a.supersedes_assessment_id"));
         assertTrue(sql.contains("LEFT JOIN assessment predecessor"));
         assertFalse(sql.contains("completed_at DESC"));
@@ -49,6 +51,20 @@ class CompanyEventExperienceQueryTests {
     void completedSuccessorReplacesItsCompletedPredecessor() {
         assertSame(SECOND, CompanyEventExperienceQuery.selectCurrentAssessment(List.of(
                 candidate(A, null, null, FIRST), candidate(B, A, EVENT, SECOND))));
+    }
+
+    @Test
+    void terminalUsingDifferentEvidenceStillReplacesEvidenceBackedPredecessor() {
+        assertSame(SECOND, CompanyEventExperienceQuery.selectCurrentAssessment(List.of(
+                candidate(A, null, null, FIRST, true),
+                candidate(B, A, EVENT, SECOND, true))));
+    }
+
+    @Test
+    void evidenceMissingTerminalDoesNotFallBackToPredecessor() {
+        assertNull(CompanyEventExperienceQuery.selectCurrentAssessment(List.of(
+                candidate(A, null, null, FIRST, true),
+                candidate(B, A, EVENT, SECOND, false))));
     }
 
     @Test
@@ -85,7 +101,13 @@ class CompanyEventExperienceQueryTests {
 
     private static CompanyEventExperienceQuery.AssessmentCandidate candidate(UUID id,
             UUID supersedesId, UUID predecessorEventId, AssessmentExperience assessment) {
+        return candidate(id, supersedesId, predecessorEventId, assessment, true);
+    }
+
+    private static CompanyEventExperienceQuery.AssessmentCandidate candidate(UUID id,
+            UUID supersedesId, UUID predecessorEventId, AssessmentExperience assessment,
+            boolean evidenceBacked) {
         return new CompanyEventExperienceQuery.AssessmentCandidate(
-                id, EVENT, supersedesId, predecessorEventId, assessment);
+                id, EVENT, supersedesId, predecessorEventId, assessment, evidenceBacked);
     }
 }

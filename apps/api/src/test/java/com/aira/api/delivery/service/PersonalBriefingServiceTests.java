@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.aira.api.delivery.dto.BriefingResponse;
+import com.aira.api.delivery.dto.RelatedCompany;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -111,6 +112,17 @@ class PersonalBriefingServiceTests {
         assertTrue(PersonalBriefingService.ITEM_SQL.contains("a.summary"));
         assertTrue(PersonalBriefingService.ITEM_SQL.contains("e.original_url"));
         assertFalse(PersonalBriefingService.ITEM_SQL.contains("user_interest"));
+        assertTrue(PersonalBriefingService.COMPANIES_SQL.contains("en.active=true"));
+        assertTrue(PersonalBriefingService.COMPANIES_SQL.contains("ORDER BY en.id ASC"));
+    }
+
+    @Test
+    void relatedCompaniesAreCompleteDeterministicAndHaveNoArbitraryRepresentative() {
+        RelatedCompany low = new RelatedCompany(new UUID(0, 1), "회사 A");
+        RelatedCompany high = new RelatedCompany(new UUID(0, 2), "회사 B");
+
+        assertEquals(List.of(low, high),
+                RelatedCompanyOrder.normalize(List.of(high, low, high)));
     }
 
     @Test

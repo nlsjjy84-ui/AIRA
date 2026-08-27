@@ -25,9 +25,12 @@ public class CompanyEventExperienceQuery {
             """;
     static final String CURRENT_ASSESSMENT_SQL = """
             SELECT a.id, a.event_id, a.supersedes_assessment_id, predecessor.event_id,
-                   a.importance, a.summary, a.confidence, a.uncertainty,a.time_horizon, a.method
+                   a.importance, a.summary, a.confidence, a.uncertainty,a.time_horizon, a.method,
+                   EXISTS (SELECT 1 FROM assessment_evidence ae
+                           JOIN evidence evidence ON evidence.id=ae.evidence_id
+                           JOIN source source ON source.id=evidence.source_id
+                           WHERE ae.assessment_id=a.id)
             FROM assessment a
-            JOIN assessment_evidence ae ON ae.assessment_id = a.id AND ae.evidence_id = ?
             LEFT JOIN assessment predecessor ON predecessor.id = a.supersedes_assessment_id
             WHERE a.event_id = ? AND a.status = 'COMPLETED'
             """;
@@ -40,7 +43,6 @@ public class CompanyEventExperienceQuery {
     public CompanyEventExperienceResponse find(UUID companyId) {
         List<EventExperience> events = jdbc.query(EVENT_SQL, (rs, row) -> {
             UUID eventId = rs.getObject(1, UUID.class);
-            UUID evidenceId = rs.getObject(6, UUID.class);
             AssessmentExperience assessment = selectCurrentAssessment(jdbc.query(
                     CURRENT_ASSESSMENT_SQL, (assessmentRs, assessmentRow) ->
                             new AssessmentCandidate(assessmentRs.getObject(1, UUID.class),
@@ -50,7 +52,8 @@ public class CompanyEventExperienceQuery {
                                     new AssessmentExperience(assessmentRs.getString(5),
                                             assessmentRs.getString(6), assessmentRs.getString(7),
                                             assessmentRs.getString(8), assessmentRs.getString(9),
-                                            assessmentRs.getString(10))), evidenceId, eventId));
+                                            assessmentRs.getString(10)),
+                                    assessmentRs.getBoolean(11)), eventId));
             return new EventExperience(eventId, rs.getString(2), rs.getString(3),
                     rs.getObject(4, java.time.OffsetDateTime.class), rs.getString(5), assessment,
                     new EvidenceExperience(rs.getString(7), rs.getString(8),
@@ -61,10 +64,10 @@ public class CompanyEventExperienceQuery {
 
     static AssessmentExperience selectCurrentAssessment(List<AssessmentCandidate> candidates) {
         AssessmentCandidate terminal = TerminalAssessmentSelector.select(candidates);
-        return terminal == null ? null : terminal.assessment();
+        return terminal == null || !terminal.evidenceBacked() ? null : terminal.assessment();
     }
 
     record AssessmentCandidate(UUID assessmentId, UUID eventId, UUID supersedesAssessmentId,
-            UUID predecessorEventId, AssessmentExperience assessment)
+            UUID predecessorEventId, AssessmentExperience assessment, boolean evidenceBacked)
             implements TerminalAssessmentSelector.Candidate {}
 }
