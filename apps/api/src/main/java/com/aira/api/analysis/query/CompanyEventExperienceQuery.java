@@ -5,9 +5,7 @@ import com.aira.api.analysis.dto.CompanyEventExperienceResponse.AssessmentExperi
 import com.aira.api.analysis.dto.CompanyEventExperienceResponse.EventExperience;
 import com.aira.api.analysis.dto.CompanyEventExperienceResponse.EvidenceExperience;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,22 +60,11 @@ public class CompanyEventExperienceQuery {
     }
 
     static AssessmentExperience selectCurrentAssessment(List<AssessmentCandidate> candidates) {
-        if (candidates.stream().anyMatch(candidate -> candidate.supersedesAssessmentId() != null
-                && candidate.predecessorEventId() != null
-                && !candidate.eventId().equals(candidate.predecessorEventId()))) {
-            return null;
-        }
-        Set<UUID> superseded = candidates.stream()
-                .filter(candidate -> candidate.supersedesAssessmentId() != null
-                        && candidate.eventId().equals(candidate.predecessorEventId()))
-                .map(AssessmentCandidate::supersedesAssessmentId)
-                .collect(Collectors.toSet());
-        List<AssessmentCandidate> terminal = candidates.stream()
-                .filter(candidate -> !superseded.contains(candidate.assessmentId()))
-                .toList();
-        return terminal.size() == 1 ? terminal.getFirst().assessment() : null;
+        AssessmentCandidate terminal = TerminalAssessmentSelector.select(candidates);
+        return terminal == null ? null : terminal.assessment();
     }
 
     record AssessmentCandidate(UUID assessmentId, UUID eventId, UUID supersedesAssessmentId,
-            UUID predecessorEventId, AssessmentExperience assessment) {}
+            UUID predecessorEventId, AssessmentExperience assessment)
+            implements TerminalAssessmentSelector.Candidate {}
 }

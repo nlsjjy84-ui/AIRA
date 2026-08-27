@@ -149,6 +149,14 @@ class SecurityCsrfIntegrationTests {
     }
 
     @Test
+    void eventDetailIsPublicReadOnly() throws Exception {
+        String detail = "/api/events/00000000-0000-0000-0000-000000000001";
+        mvc.perform(get(detail)).andExpect(status().isNotFound());
+        mvc.perform(get(detail).with(user("authenticated-user"))).andExpect(status().isNotFound());
+        mvc.perform(post(detail)).andExpect(status().isForbidden());
+    }
+
+    @Test
     void briefingEndpointsRequireSessionOwnershipAndCsrf() throws Exception {
         String current = "/api/me/briefings/current";
         mvc.perform(post(current)).andExpect(status().isForbidden());

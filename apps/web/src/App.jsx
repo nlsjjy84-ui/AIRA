@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
-import { getRecentEvents } from './api/eventApi.js'
+import { getEventDetail, getRecentEvents } from './api/eventApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { alertEmptyMessage } from './alertEmptyState.js'
@@ -207,6 +207,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState(recoveryEntry.mode)
   const [companiesState, setCompaniesState] = useState({ loading: true, data: [], error: null })
   const [exploreEventsState, setExploreEventsState] = useState({ loading: true, data: [], error: null })
+  const [eventDetailState, setEventDetailState] = useState({ loading: false, data: null, error: null, eventId: null, contextCompanyId: null })
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [periodsState, setPeriodsState] = useState({ loading: false, data: [], error: null })
   const [selectedPeriod, setSelectedPeriod] = useState(null)
@@ -256,6 +257,16 @@ export default function App() {
     return () => controller.abort()
   }, [])
   useEffect(loadExploreEvents, [loadExploreEvents])
+
+  const openEventDetail = useCallback((eventId, contextCompanyId) => {
+    const controller = new AbortController()
+    setEventDetailState({ loading: true, data: null, error: null, eventId, contextCompanyId })
+    getEventDetail(eventId, controller.signal)
+      .then(data => setEventDetailState({ loading: false, data, error: null, eventId, contextCompanyId }))
+      .catch(error => error.name !== 'AbortError'
+        && setEventDetailState({ loading: false, data: null, error, eventId, contextCompanyId }))
+    return () => controller.abort()
+  }, [])
 
   const loadInterests = useCallback(() => {
     if (!session.user) return
@@ -440,11 +451,48 @@ export default function App() {
         <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={`${item.eventId}-${item.companyId}`}>
           <p className="eyebrow">{item.companyName}</p><h3>{item.title}</h3>
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
-          <button type="button" className="secondary-action" onClick={() => selectCompany({
-            companyId: item.companyId, canonicalName: item.companyName,
-          }, item.eventId)}>회사 맥락에서 보기</button>
+          <button type="button" className="secondary-action"
+            onClick={() => openEventDetail(item.eventId, item.companyId)}>Event 상세 보기</button>
         </article>)}</div>
       </section>
+
+      {(eventDetailState.loading || eventDetailState.error || eventDetailState.data) &&
+        <section id="event-detail" className="content-section event-section" aria-labelledby="event-detail-title">
+          <div className="section-heading"><span>EVENT DETAIL</span><h2 id="event-detail-title">Event 상세</h2></div>
+          {eventDetailState.loading && <Status busy>Event 상세를 불러오는 중입니다.</Status>}
+          {eventDetailState.error?.status === 404 &&
+            <Status>이 Event는 현재 공개 상세로 제공되지 않습니다.</Status>}
+          {eventDetailState.error && eventDetailState.error.status !== 404 &&
+            <ErrorState error={eventDetailState.error} subject="Event 상세"
+              retry={() => openEventDetail(eventDetailState.eventId, eventDetailState.contextCompanyId)} />}
+          {eventDetailState.data && <article className="event-detail">
+            <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT</p>
+              <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
+              <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
+              <p className="event-meta">{eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10)}</p>
+            </section>
+            <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
+              {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
+                <strong>{item.sourceName}</strong><span>{item.title}</span>
+                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 보기 <span aria-hidden="true">↗</span></a>
+              </div>)}
+            </section>
+            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 해석</h3>
+              {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
+              {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
+                <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
+                <p className="assessment-meta">중요도 {eventDetailState.data.assessment.importance} · 확신 {eventDetailState.data.assessment.confidence} · {eventDetailState.data.assessment.method}</p>
+              </div>}
+            </section>
+            {eventDetailState.data.assessment && <section aria-labelledby="assessment-evidence-title">
+              <h3 id="assessment-evidence-title">해석 근거</h3>
+              {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
+                <strong>{item.sourceName}</strong><span>{item.title}</span>
+                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">해석에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
+              </div>)}
+            </section>}
+          </article>}
+        </section>}
 
       <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>01</span><h2 id="companies-title">기업 선택</h2></div>
         {companiesState.loading && <Status busy>기업을 불러오는 중입니다.</Status>}{companiesState.error && <ErrorState error={companiesState.error} subject="기업" retry={loadCompanies} />}{!companiesState.loading && !companiesState.error && companiesState.data.length === 0 && <Status>현재 확인할 수 있는 기업이 없습니다. 데이터가 준비되면 이곳에 표시됩니다.</Status>}
