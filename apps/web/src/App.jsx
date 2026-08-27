@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { getEventDetail, getRecentEvents } from './api/eventApi.js'
+import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { alertEmptyMessage } from './alertEmptyState.js'
@@ -208,6 +209,7 @@ export default function App() {
   const [companiesState, setCompaniesState] = useState({ loading: true, data: [], error: null })
   const [exploreEventsState, setExploreEventsState] = useState({ loading: true, data: [], error: null })
   const [eventDetailState, setEventDetailState] = useState({ loading: false, data: null, error: null, eventId: null, contextCompanyId: null })
+  const [officialEvidenceState, setOfficialEvidenceState] = useState({ loading: false, data: null, error: null, evidenceId: null })
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [periodsState, setPeriodsState] = useState({ loading: false, data: [], error: null })
   const [selectedPeriod, setSelectedPeriod] = useState(null)
@@ -265,6 +267,16 @@ export default function App() {
       .then(data => setEventDetailState({ loading: false, data, error: null, eventId, contextCompanyId }))
       .catch(error => error.name !== 'AbortError'
         && setEventDetailState({ loading: false, data: null, error, eventId, contextCompanyId }))
+    return () => controller.abort()
+  }, [])
+
+  const openOfficialEvidence = useCallback((evidenceId) => {
+    const controller = new AbortController()
+    setOfficialEvidenceState({ loading: true, data: null, error: null, evidenceId })
+    getOfficialEvidence(evidenceId, controller.signal)
+      .then(data => setOfficialEvidenceState({ loading: false, data, error: null, evidenceId }))
+      .catch(error => error.name !== 'AbortError'
+        && setOfficialEvidenceState({ loading: false, data: null, error, evidenceId }))
     return () => controller.abort()
   }, [])
 
@@ -475,6 +487,7 @@ export default function App() {
               {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
                 <strong>{item.sourceName}</strong><span>{item.title}</span>
                 <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 보기 <span aria-hidden="true">↗</span></a>
+                <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
               </div>)}
             </section>
             <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 해석</h3>
@@ -489,8 +502,36 @@ export default function App() {
               {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
                 <strong>{item.sourceName}</strong><span>{item.title}</span>
                 <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">해석에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
+                <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
               </div>)}
             </section>}
+          </article>}
+        </section>}
+
+      {(officialEvidenceState.loading || officialEvidenceState.error || officialEvidenceState.data) &&
+        <section id="official-evidence-detail" className="content-section evidence" aria-labelledby="official-evidence-detail-title">
+          <div className="section-heading"><span>OFFICIAL EVIDENCE</span><h2 id="official-evidence-detail-title">공식 자료</h2></div>
+          {officialEvidenceState.loading && <Status busy>공식 자료를 불러오는 중입니다.</Status>}
+          {officialEvidenceState.error?.status === 404 &&
+            <Status>이 Evidence를 현재 public AIRA 경로에서 표시할 수 없습니다.</Status>}
+          {officialEvidenceState.error && officialEvidenceState.error.status !== 404 &&
+            <ErrorState error={officialEvidenceState.error} subject="공식 자료"
+              retry={() => openOfficialEvidence(officialEvidenceState.evidenceId)} />}
+          {officialEvidenceState.data && <article>
+            <p className="eyebrow">{officialEvidenceState.data.source.sourceName}</p>
+            <h3>{officialEvidenceState.data.title}</h3>
+            <p>문서 식별자 {officialEvidenceState.data.externalId}</p>
+            <p>자료 유형 {officialEvidenceState.data.evidenceType} · 출처 유형 {officialEvidenceState.data.source.sourceType}</p>
+            {officialEvidenceState.data.source.canonicalDomain && <p>출처 도메인 {officialEvidenceState.data.source.canonicalDomain}</p>}
+            <p>공식 자료 발행 {formatDateTime(officialEvidenceState.data.publishedAt) ?? '저장된 발행 시각 없음'}</p>
+            <p>AIRA 자료 수집 {formatDateTime(officialEvidenceState.data.collectedAt) ?? '저장된 수집 시각 없음'}</p>
+            <p>Revision {officialEvidenceState.data.revision}</p>
+            {officialEvidenceState.data.locator && <p>자료 위치 {officialEvidenceState.data.locator}</p>}
+            {officialEvidenceState.data.excerpt && <blockquote>{officialEvidenceState.data.excerpt}</blockquote>}
+            {officialEvidenceState.data.originalUrl
+              ? <a className="official-evidence-action" href={officialEvidenceState.data.originalUrl}
+                target="_blank" rel="noopener noreferrer">공식 원문 열기 <span aria-hidden="true">↗</span></a>
+              : <Status>저장된 공식 원문 링크가 없습니다.</Status>}
           </article>}
         </section>}
 
@@ -510,7 +551,7 @@ export default function App() {
       {selectedPeriod && <section className="content-section facts-section" aria-labelledby="facts-title"><div className="section-heading"><span>03</span><h2 id="facts-title">{selectedCompany.canonicalName} 핵심 재무정보</h2></div><p className="period-caption">{selectedPeriod.periodStart} — {selectedPeriod.periodEnd}</p>
         {factsState.loading && <Status busy>재무정보와 공식 근거를 확인하는 중입니다.</Status>}{factsState.error && <ErrorState error={factsState.error} subject="재무정보" retry={loadFacts} />}{!factsState.loading && !factsState.error && factsState.data.length === 0 && <Status>선택한 기간에 표시할 재무정보가 없습니다.</Status>}
         <dl className="fact-list">{factsState.data.map(fact => <div className="fact-row" key={`${fact.predicate}-${fact.evidenceId}`}><dt>{LABELS[fact.predicate] ?? fact.predicate}</dt><dd><strong>{new Intl.NumberFormat('ko-KR').format(fact.value)}</strong> <span>{fact.currency}</span></dd></div>)}</dl>
-        {evidence.length > 0 && <aside className="evidence" aria-labelledby="evidence-title"><p className="eyebrow" id="evidence-title">OFFICIAL EVIDENCE</p>{evidence.map(item => <div key={item.evidenceId} className="evidence-row"><div><strong>{item.sourceName}</strong><span>공시 식별자 {item.evidenceExternalId}</span></div><a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">원문 확인 <span aria-hidden="true">↗</span></a></div>)}<p className="evidence-note">같은 공시에 포함된 재무 항목은 하나의 공식 근거로 묶어 표시합니다.</p></aside>}
+        {evidence.length > 0 && <aside className="evidence" aria-labelledby="evidence-title"><p className="eyebrow" id="evidence-title">OFFICIAL EVIDENCE</p>{evidence.map(item => <div key={item.evidenceId} className="evidence-row"><div><strong>{item.sourceName}</strong><span>공시 식별자 {item.evidenceExternalId}</span></div><a href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">원문 확인 <span aria-hidden="true">↗</span></a><button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button></div>)}<p className="evidence-note">같은 공시에 포함된 재무 항목은 하나의 공식 근거로 묶어 표시합니다.</p></aside>}
       </section>}
 
       {selectedCompany && <section className="content-section event-section" aria-labelledby="events-title">

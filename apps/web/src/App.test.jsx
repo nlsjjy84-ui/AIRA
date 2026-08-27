@@ -24,6 +24,11 @@ const eventDetail = { eventId: exploreEvent.eventId, eventType: exploreEvent.eve
   assessment: { assessmentId: 'assessment-current', summary: 'Current AIRA context', uncertainty: 'Current uncertainty',
     confidence: 'MEDIUM', importance: 'MEDIUM', timeHorizon: 'UNSPECIFIED', method: 'RULE', analysisVersion: 'v1',
     evidence: [{ evidenceId: 'assessment-evidence-1', sourceName: 'Assessment Source', externalId: 'ASSESS-1', title: 'Assessment-used evidence', originalUrl: 'https://official.example/assessment-1', publishedAt: null }] } }
+const officialEvidence = { evidenceId: 'event-evidence-1', evidenceType: 'DISCLOSURE', externalId: 'EVENT-1',
+  title: 'Stored official document', originalUrl: 'https://official.example/stored-document',
+  publishedAt: '2025-12-31T01:00:00Z', collectedAt: '2026-01-01T02:00:00Z', revision: 2,
+  locator: 'section-1', excerpt: 'Stored evidence excerpt',
+  source: { sourceId: 'source-1', sourceName: 'Official Registry', sourceType: 'REGULATORY_FILING', canonicalDomain: 'official.example' } }
 
 const briefingItem = { displayOrder: 1, companyId: company.companyId, companyName: company.canonicalName,
   eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
@@ -53,6 +58,7 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (key === 'GET /api/companies') return json({ companies: [company] })
     if (key === 'GET /api/events') return json({ events: [exploreEvent] })
     if (key === `GET /api/events/${exploreEvent.eventId}`) return json(eventDetail)
+    if (path.startsWith('/api/evidence/')) return json({ ...officialEvidence, evidenceId: path.split('/').at(-1) })
     if (path.includes('/financial-periods')) return json({ companyId: company.companyId, periods: [period] })
     if (path.includes('/financial-facts')) return json({ companyId: company.companyId, facts })
     if (path.includes('/events')) return json({ companyId: company.companyId, events: [eventExperience] })
@@ -138,6 +144,77 @@ describe('authenticated interest and return experience', () => {
     backend.fetch.mockImplementationOnce(() => json({}, 404))
     await user.click(within(detail).getByRole('button', { name: '다시 시도' }))
     expect(await within(detail).findByText('이 Event는 현재 공개 상세로 제공되지 않습니다.')).toBeInTheDocument()
+  })
+
+  it('opens official evidence from event evidence and shows stored source document and timestamp semantics', async () => {
+    const backend = server()
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    await user.click(within(explore).getByRole('button', { name: 'Event 상세 보기' }))
+    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
+    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
+    const detail = (await screen.findByRole('heading', { name: '공식 자료' })).closest('section')
+    expect(await within(detail).findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
+    expect(within(detail).getByText('Official Registry')).toBeInTheDocument()
+    expect(within(detail).getByText(/공식 자료 발행/)).toBeInTheDocument()
+    expect(within(detail).getByText(/AIRA 자료 수집/)).toBeInTheDocument()
+    expect(within(detail).getByRole('link', { name: /공식 원문 열기/ })).toHaveAttribute('href', officialEvidence.originalUrl)
+  })
+
+  it('opens the same official evidence view from assessment evidence and company fact identity', async () => {
+    const backend = server()
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    await user.click(within(explore).getByRole('button', { name: 'Event 상세 보기' }))
+    const assessmentEvidence = (await screen.findByRole('heading', { name: '해석 근거' })).closest('section')
+    await user.click(within(assessmentEvidence).getByRole('button', { name: '공식 자료 상세' }))
+    expect(await screen.findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
+    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/assessment-evidence-1', expect.anything())
+
+    await selectSamsung(user)
+    const factEvidence = screen.getByText(/같은 공시에 포함된 재무 항목/).closest('aside')
+    await user.click(within(factEvidence).getByRole('button', { name: '공식 자료 상세' }))
+    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/evidence-1', expect.anything())
+  })
+
+  it('shows an exact official evidence unavailable-link state without claiming deletion', async () => {
+    const backend = server({ overrides: {
+      'GET /api/evidence/event-evidence-1': () => json({ ...officialEvidence, originalUrl: null }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    await user.click(within(explore).getByRole('button', { name: 'Event 상세 보기' }))
+    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
+    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
+    expect(await screen.findByText('저장된 공식 원문 링크가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText(/삭제되었습니다|존재하지 않습니다|링크가 깨졌습니다/)).not.toBeInTheDocument()
+  })
+
+  it('distinguishes official evidence loading request failure and public not-found', async () => {
+    let rejectEvidence
+    const backend = server({ overrides: {
+      'GET /api/evidence/event-evidence-1': () => new Promise((resolve, reject) => { rejectEvidence = reject }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    await user.click(within(explore).getByRole('button', { name: 'Event 상세 보기' }))
+    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
+    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
+    expect(screen.getByText('공식 자료를 불러오는 중입니다.')).toBeInTheDocument()
+    rejectEvidence({ status: 500 })
+    const detail = screen.getByRole('heading', { name: '공식 자료' }).closest('section')
+    expect(await within(detail).findByRole('alert')).toBeInTheDocument()
+    backend.fetch.mockImplementationOnce(() => json({}, 404))
+    await user.click(within(detail).getByRole('button', { name: '다시 시도' }))
+    expect(await within(detail).findByText('이 Evidence를 현재 public AIRA 경로에서 표시할 수 없습니다.')).toBeInTheDocument()
   })
 
   it('distinguishes an empty explore event feed without claiming reality has no events', async () => {
