@@ -82,7 +82,8 @@ class OfficialDemoBootstrapPostgresTests {
         for (UUID companyId : companyIds(first)) {
             jdbc.update("""
                     INSERT INTO user_interest(id,user_id,entity_id,interest_level,alert_enabled,created_at,updated_at)
-                    SELECT gen_random_uuid(),?,?, 'HIGH',true,CURRENT_TIMESTAMP,
+                    SELECT gen_random_uuid(),?,?, 'HIGH',true,
+                           min(a.completed_at) - interval '1 second',
                            min(a.completed_at) - interval '1 second'
                     FROM assessment a
                     JOIN event ev ON ev.id=a.event_id

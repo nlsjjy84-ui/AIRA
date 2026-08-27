@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record BriefingResponse(UUID briefingId, String title, String status,
+        String briefingType, OffsetDateTime periodStart, OffsetDateTime periodEnd,
         OffsetDateTime generatedAt, List<Item> items) {
     public record Item(short displayOrder, UUID companyId, String companyName,
             UUID eventId, String eventType, String eventTitle, OffsetDateTime occurredAt,
@@ -12,7 +13,9 @@ public record BriefingResponse(UUID briefingId, String title, String status,
             String confidence, String sourceName, String evidenceExternalId,
             String evidenceOriginalUrl) {}
 
-    public static BriefingResponse empty() {
-        return new BriefingResponse(null, "내 브리핑", "EMPTY", null, List.of());
+    public static BriefingResponse empty(String briefingType, OffsetDateTime periodStart,
+            OffsetDateTime periodEnd, OffsetDateTime generatedAt) {
+        return new BriefingResponse(null, "내 브리핑", "EMPTY", briefingType,
+                periodStart, periodEnd, generatedAt, List.of());
     }
 }

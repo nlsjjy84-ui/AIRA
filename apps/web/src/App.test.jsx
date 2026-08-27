@@ -44,7 +44,8 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (key === 'GET /api/me/interests') return json(state.interests)
     if (key === 'POST /api/me/briefings/current') return json({ briefingId: state.interests.length ? 'briefing-1' : null,
       title: '내 브리핑', status: state.interests.length ? 'READY' : 'EMPTY',
-      generatedAt: state.interests.length ? '2026-08-23T00:00:00Z' : null,
+      briefingType: 'ON_DEMAND', periodStart: '2026-08-22T00:00:00Z', periodEnd: '2026-08-23T00:00:00Z',
+      generatedAt: '2026-08-23T00:00:01Z',
       items: state.interests.length ? [briefingItem] : [] })
     if (key === 'POST /api/me/alerts/reconcile') return json({ alerts: [] })
     if (key === 'POST /api/auth/signup') return json({ user: { id: 'new-user', nickname: 'ReturnUser' } }, 201)
@@ -313,6 +314,7 @@ describe('authenticated interest and return experience', () => {
     expect(within(briefing).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
     expect(within(briefing).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
     expect(within(briefing).getByText('관심회사로 저장한 회사의 AIRA 분석입니다.')).toBeInTheDocument()
+    expect(within(briefing).getByText(/정리 기간/)).toBeInTheDocument()
     expect(within(briefing).getByText(/브리핑 생성/)).toBeInTheDocument()
     expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
     expect(within(briefing).queryByText(/매수|매도|추천|알림/)).not.toBeInTheDocument()
@@ -327,9 +329,24 @@ describe('authenticated interest and return experience', () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
     global.fetch = backend.fetch
     render(<App />)
-    expect(await screen.findByText('브리핑은 저장한 관심회사의 AIRA 분석으로 구성됩니다.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '관심회사 살펴보기' })).toHaveAttribute('href', '#companies')
+    const briefing = (await screen.findByRole('heading', { name: '내 브리핑' })).closest('section')
+    expect(await within(briefing).findByText('아직 관심 회사가 없습니다.')).toBeInTheDocument()
+    expect(within(briefing).getByText('계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 Briefing에서 모아볼 수 있습니다.')).toBeInTheDocument()
+    expect(within(briefing).getByRole('link', { name: '관심회사 살펴보기' })).toHaveAttribute('href', '#companies')
     expect(screen.getByRole('link', { name: '회사와 알림 설정 보기' })).toHaveAttribute('href', '#companies')
+  })
+
+  it('describes an empty catch-up window without claiming that no facts exist', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
+      'POST /api/me/briefings/current': () => json({ briefingId: null, title: '내 브리핑', status: 'EMPTY',
+        briefingType: 'ON_DEMAND', periodStart: '2026-08-22T00:00:00Z', periodEnd: '2026-08-23T00:00:00Z',
+        generatedAt: '2026-08-23T00:00:01Z', items: [] }),
+    } })
+    global.fetch = backend.fetch
+    render(<App />)
+    expect(await screen.findByText('이 Briefing 기간에 새로 정리된 변화가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText(/아무 변화가 없습니다|새로운 일이 없습니다|공시가 없습니다/)).not.toBeInTheDocument()
+    expect(screen.getByText(/정리 기간/)).toBeInTheDocument()
   })
 
   it('explains an alert and navigates to its company event while preserving official evidence', async () => {
