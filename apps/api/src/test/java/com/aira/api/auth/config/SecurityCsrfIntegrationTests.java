@@ -141,6 +141,14 @@ class SecurityCsrfIntegrationTests {
     }
 
     @Test
+    void recentEventFeedIsPublicReadOnlyForAnonymousAndAuthenticatedClients() throws Exception {
+        mvc.perform(get("/api/events")).andExpect(status().isOk());
+        mvc.perform(get("/api/events").with(user("authenticated-user")))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/events")).andExpect(status().isForbidden());
+    }
+
+    @Test
     void briefingEndpointsRequireSessionOwnershipAndCsrf() throws Exception {
         String current = "/api/me/briefings/current";
         mvc.perform(post(current)).andExpect(status().isForbidden());

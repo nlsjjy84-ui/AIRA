@@ -37,6 +37,7 @@ public class SecurityConfig {
                                 "/api/auth/recovery-email/verifications").authenticated()
                         .requestMatchers("/api/me", "/api/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/events",
                                 "/api/companies",
                                 "/api/companies/*/financial-periods",
                                 "/api/companies/*/financial-facts",

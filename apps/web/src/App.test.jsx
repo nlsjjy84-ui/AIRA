@@ -11,6 +11,9 @@ const facts = [
 ]
 const interest = { entityId: company.companyId, entityType: 'COMPANY', canonicalName: '삼성전자', countryCode: 'KR', interestLevel: null, alertEnabled: true }
 const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CONFIRMED', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
+const exploreEvent = { eventId: eventExperience.eventId, companyId: company.companyId,
+  companyName: company.canonicalName, eventType: eventExperience.eventType,
+  title: eventExperience.title, occurredAt: eventExperience.occurredAt }
 
 const briefingItem = { displayOrder: 1, companyId: company.companyId, companyName: company.canonicalName,
   eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
@@ -38,6 +41,7 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (overrides[key]) return overrides[key](state, options)
     if (key === 'GET /api/me') return state.user ? json(state.user) : json({ code: 'UNAUTHORIZED' }, 401)
     if (key === 'GET /api/companies') return json({ companies: [company] })
+    if (key === 'GET /api/events') return json({ events: [exploreEvent] })
     if (path.includes('/financial-periods')) return json({ companyId: company.companyId, periods: [period] })
     if (path.includes('/financial-facts')) return json({ companyId: company.companyId, facts })
     if (path.includes('/events')) return json({ companyId: company.companyId, events: [eventExperience] })
@@ -69,6 +73,43 @@ beforeEach(() => { document.cookie = 'XSRF-TOKEN=test-csrf; path=/' })
 afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'; window.history.replaceState({}, '', '/') })
 
 describe('authenticated interest and return experience', () => {
+  it('explores public factual events and preserves company and event navigation identity', async () => {
+    const backend = server()
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    expect(await within(explore).findByRole('heading', { name: exploreEvent.title })).toBeInTheDocument()
+    expect(within(explore).getByText(company.canonicalName)).toBeInTheDocument()
+    expect(within(explore).getByText(/EARNINGS.*2025-12-31/)).toBeInTheDocument()
+    expect(explore).not.toHaveTextContent(eventExperience.assessment.summary)
+    await user.click(within(explore).getByRole('button', { name: '회사 맥락에서 보기' }))
+    const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
+    const target = within(events).getByRole('heading', { name: exploreEvent.title }).closest('article')
+    await waitFor(() => expect(target).toHaveFocus())
+  })
+
+  it('distinguishes an empty explore event feed without claiming reality has no events', async () => {
+    const backend = server({ overrides: { 'GET /api/events': () => json({ events: [] }) } })
+    global.fetch = backend.fetch
+    render(<App />)
+    expect(await screen.findByText('현재 AIRA에서 확인해 보여줄 수 있는 Event가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText(/시장에 사건이 없음|아무 변화도 없음|중요한 뉴스가 없음|투자 기회가 없음/)).not.toBeInTheDocument()
+  })
+
+  it('distinguishes explore event loading and request failure', async () => {
+    let rejectEvents
+    const backend = server({ overrides: {
+      'GET /api/events': () => new Promise((resolve, reject) => { rejectEvents = reject }),
+    } })
+    global.fetch = backend.fetch
+    render(<App />)
+    expect(screen.getByText('확인된 Event를 불러오는 중입니다.')).toBeInTheDocument()
+    rejectEvents({ status: 500 })
+    const explore = screen.getByRole('heading', { name: '최근 확인된 Event' }).closest('section')
+    expect(await within(explore).findByRole('alert')).toBeInTheDocument()
+  })
+
   it('preserves anonymous navigation and the public financial journey', async () => {
     const backend = server()
     global.fetch = backend.fetch

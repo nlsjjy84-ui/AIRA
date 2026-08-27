@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
+import { getRecentEvents } from './api/eventApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { alertEmptyMessage } from './alertEmptyState.js'
@@ -205,6 +206,7 @@ export default function App() {
   const [session, setSession] = useState({ loading: true, user: null, error: null, notice: null })
   const [authMode, setAuthMode] = useState(recoveryEntry.mode)
   const [companiesState, setCompaniesState] = useState({ loading: true, data: [], error: null })
+  const [exploreEventsState, setExploreEventsState] = useState({ loading: true, data: [], error: null })
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [periodsState, setPeriodsState] = useState({ loading: false, data: [], error: null })
   const [selectedPeriod, setSelectedPeriod] = useState(null)
@@ -243,6 +245,17 @@ export default function App() {
 
   useEffect(loadSession, [loadSession])
   useEffect(loadCompanies, [loadCompanies])
+
+  const loadExploreEvents = useCallback(() => {
+    const controller = new AbortController()
+    setExploreEventsState({ loading: true, data: [], error: null })
+    getRecentEvents(controller.signal)
+      .then(body => setExploreEventsState({ loading: false, data: body.events ?? [], error: null }))
+      .catch(error => error.name !== 'AbortError'
+        && setExploreEventsState({ loading: false, data: [], error }))
+    return () => controller.abort()
+  }, [])
+  useEffect(loadExploreEvents, [loadExploreEvents])
 
   const loadInterests = useCallback(() => {
     if (!session.user) return
@@ -417,6 +430,21 @@ export default function App() {
           <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
         </article>)}</div>
       </section>}
+
+      <section id="events" className="content-section event-section" aria-labelledby="explore-events-title">
+        <div className="section-heading"><span>EXPLORE</span><h2 id="explore-events-title">최근 확인된 Event</h2></div>
+        {exploreEventsState.loading && <Status busy>확인된 Event를 불러오는 중입니다.</Status>}
+        {exploreEventsState.error && <ErrorState error={exploreEventsState.error} subject="Event" retry={loadExploreEvents} />}
+        {!exploreEventsState.loading && !exploreEventsState.error && exploreEventsState.data.length === 0
+          && <Status>현재 AIRA에서 확인해 보여줄 수 있는 Event가 없습니다.</Status>}
+        <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={`${item.eventId}-${item.companyId}`}>
+          <p className="eyebrow">{item.companyName}</p><h3>{item.title}</h3>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+          <button type="button" className="secondary-action" onClick={() => selectCompany({
+            companyId: item.companyId, canonicalName: item.companyName,
+          }, item.eventId)}>회사 맥락에서 보기</button>
+        </article>)}</div>
+      </section>
 
       <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>01</span><h2 id="companies-title">기업 선택</h2></div>
         {companiesState.loading && <Status busy>기업을 불러오는 중입니다.</Status>}{companiesState.error && <ErrorState error={companiesState.error} subject="기업" retry={loadCompanies} />}{!companiesState.loading && !companiesState.error && companiesState.data.length === 0 && <Status>현재 확인할 수 있는 기업이 없습니다. 데이터가 준비되면 이곳에 표시됩니다.</Status>}
