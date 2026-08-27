@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
+import { alertEmptyMessage } from './alertEmptyState.js'
 import { reconcileAlerts } from './api/alertApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
@@ -404,11 +405,11 @@ export default function App() {
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
-        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '알림은 관심회사를 저장하고 앱 알림을 켜면 준비됩니다.' : '새로 확인된 AIRA 분석이 없습니다. 회사 맥락에서 앱 알림 설정을 확인할 수 있습니다.'}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data)}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <p className="eyebrow">{item.companyName}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
           <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
-          {item.createdAt && <p className="insight-time">알림 생성 {formatDateTime(item.createdAt)}</p>}
+          {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
           <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openInsightContext(item)}>AIRA에서 회사 맥락 보기</button>
             <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>

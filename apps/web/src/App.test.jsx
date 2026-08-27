@@ -10,7 +10,7 @@ const facts = [
   { predicate: 'OPERATING_INCOME', value: 43601051000000, currency: 'KRW', evidenceId: 'evidence-1', sourceName: 'OpenDART', evidenceExternalId: '20260310002820', evidenceOriginalUrl: 'https://dart.fss.or.kr/report/viewer.do?rcept_no=20260310002820' },
 ]
 const interest = { entityId: company.companyId, entityType: 'COMPANY', canonicalName: '삼성전자', countryCode: 'KR', interestLevel: null, alertEnabled: true }
-const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CANDIDATE', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
+const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CONFIRMED', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
 
 const briefingItem = { displayOrder: 1, companyId: company.companyId, companyName: company.canonicalName,
   eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
@@ -23,7 +23,7 @@ const alertItem = { alertId: 'alert-1', companyId: company.companyId, companyNam
   occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
   uncertainty: eventExperience.assessment.uncertainty, sourceName: 'OpenDART',
   evidenceExternalId: eventExperience.evidence.externalId, evidenceOriginalUrl: eventExperience.evidence.originalUrl,
-  createdAt: '2026-08-23T03:30:00Z' }
+  createdAt: '2026-08-23T03:30:00Z', sentAt: '2026-08-24T04:45:00Z' }
 
 function json(body, status = 200) {
   return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) })
@@ -341,7 +341,8 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     const alerts = (await screen.findByRole('heading', { name: '관심회사 알림' })).closest('section')
     expect(await within(alerts).findByText('앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.')).toBeInTheDocument()
-    expect(within(alerts).getByText(/알림 생성/)).toBeInTheDocument()
+    expect(within(alerts).getByText(/알림 전달/)).toBeInTheDocument()
+    expect(within(alerts).queryByText(/알림 생성/)).not.toBeInTheDocument()
     expect(within(alerts).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', alertItem.evidenceOriginalUrl)
     await user.click(within(alerts).getByRole('button', { name: 'AIRA에서 회사 맥락 보기' }))
     const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')

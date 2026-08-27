@@ -8,5 +8,5 @@ public record AlertResponse(List<Item> alerts) {
     public record Item(UUID alertId, UUID companyId, String companyName, UUID eventId,
             String eventTitle, String eventType, OffsetDateTime occurredAt, UUID assessmentId,
             String summary, String uncertainty, String sourceName, String evidenceExternalId,
-            String evidenceOriginalUrl, OffsetDateTime createdAt) {}
+            String evidenceOriginalUrl, OffsetDateTime createdAt, OffsetDateTime sentAt) {}
 }
