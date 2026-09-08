@@ -96,6 +96,24 @@ class SecurityCsrfIntegrationTests {
     }
 
     @Test
+    void interestAlertMutationsRequireAuthenticatedOwnershipContextAndCsrf() throws Exception {
+        var principal = new com.aira.api.auth.security.AiraPrincipal(
+                java.util.UUID.fromString("00000000-0000-0000-0000-000000000010"), "AiraUser");
+        var authentication = org.springframework.security.authentication
+                .UsernamePasswordAuthenticationToken.authenticated(
+                        principal, null, java.util.List.of());
+        String path = "/api/me/interests/00000000-0000-0000-0000-000000000099/alert";
+
+        mvc.perform(post(path)).andExpect(status().isForbidden());
+        mvc.perform(post(path).with(org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.authentication(authentication)))
+                .andExpect(status().isForbidden());
+        mvc.perform(delete(path).with(org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.authentication(authentication)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void currentUserReturnsMinimalPrincipalForAuthenticatedRequest() throws Exception {
         var principal = new com.aira.api.auth.security.AiraPrincipal(
                 java.util.UUID.fromString("00000000-0000-0000-0000-000000000010"), "AiraUser");

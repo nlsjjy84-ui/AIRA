@@ -1,7 +1,9 @@
 package com.aira.api.user.controller;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,6 +57,19 @@ class UserInterestControllerTests {
         mvc.perform(post("/api/me/interests/{entityId}", entityId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("ENTITY_NOT_FOUND"));
+    }
+
+    @Test
+    void explicitAlertMutationsUseOnlyTheAuthenticatedUserAndTargetEntity() throws Exception {
+        UUID entityId = UUID.randomUUID();
+
+        mvc.perform(post("/api/me/interests/{entityId}/alert", entityId))
+                .andExpect(status().isOk());
+        mvc.perform(delete("/api/me/interests/{entityId}/alert", entityId))
+                .andExpect(status().isOk());
+
+        verify(service).setAlertEnabled(userId, entityId, true);
+        verify(service).setAlertEnabled(userId, entityId, false);
     }
 
     private record AuthenticatedPrincipalResolver(AiraPrincipal principal)
