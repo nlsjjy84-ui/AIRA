@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +18,9 @@ import org.springframework.test.context.TestPropertySource;
         "aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 @TestPropertySource(properties = "aira.auth.session.cookie-secure=false")
+@EnabledIfEnvironmentVariable(named = "DB_PASSWORD", matches = ".+")
+@EnabledIfEnvironmentVariable(named = "AIRA_AUTH_E2E_USER_A", matches = ".+")
+@EnabledIfEnvironmentVariable(named = "AIRA_AUTH_E2E_USER_B", matches = ".+")
 class AuthenticatedInterestBrowserCleanupPostgresTests {
     private static final String SAMSUNG_ID = "5eafc0b5-c163-4cea-8dbd-131265004e95";
 

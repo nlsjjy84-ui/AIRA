@@ -61,14 +61,25 @@ public class EarningsEventNormalizationService {
         }
 
         EventEntityId entityLinkId = new EventEntityId(event.getId(), subject.getId());
-        if (!eventEntities.existsById(entityLinkId)) {
-            eventEntities.save(EventEntity.subject(event, subject, now));
+        var existingEntityLink = eventEntities.findById(entityLinkId);
+        if (existingEntityLink.isPresent()
+                && !"SUBJECT".equals(existingEntityLink.get().getRelationType())) {
+            throw new IllegalStateException("Company is not the event subject");
+        }
+        if (existingEntityLink.isEmpty()) {
+            eventEntities.saveAndFlush(EventEntity.subject(event, subject, now));
         }
         EventEvidenceId evidenceLinkId = new EventEvidenceId(
                 event.getId(), supportingEvidence.getId());
-        if (!eventEvidence.existsById(evidenceLinkId)) {
-            eventEvidence.save(EventEvidence.supports(event, supportingEvidence, now));
+        var existingEvidenceLink = eventEvidence.findById(evidenceLinkId);
+        if (existingEvidenceLink.isPresent()
+                && !"SUPPORTS".equals(existingEvidenceLink.get().getRelationType())) {
+            throw new IllegalStateException("Evidence does not support the event");
         }
-        return event;
+        if (existingEvidenceLink.isEmpty()) {
+            eventEvidence.saveAndFlush(EventEvidence.supports(event, supportingEvidence, now));
+        }
+        event.confirm(true, true, now);
+        return events.saveAndFlush(event);
     }
 }

@@ -6,6 +6,9 @@ import com.aira.api.analysis.domain.AssessmentEvidenceId;
 import com.aira.api.analysis.domain.Confidence;
 import com.aira.api.analysis.domain.Importance;
 import com.aira.api.analysis.domain.TimeHorizon;
+import com.aira.api.analysis.domain.AssessmentStatus;
+import com.aira.api.analysis.query.TerminalAssessmentSelector;
+import com.aira.api.market.domain.EventStatus;
 import com.aira.api.analysis.repository.AssessmentEvidenceRepository;
 import com.aira.api.analysis.repository.AssessmentRepository;
 import com.aira.api.market.domain.EventEvidenceId;
@@ -18,6 +21,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,23 +49,57 @@ public class RuleBasedEarningsAssessmentService {
 
     @Transactional
     public Assessment assess(UUID eventId, UUID evidenceId) {
-        if (!eventEvidence.existsById(new EventEvidenceId(eventId, evidenceId))) {
+        var event = events.findLockedById(eventId).orElseThrow();
+        if (event.getStatus() != EventStatus.CONFIRMED) {
+            throw new IllegalStateException("Only confirmed events can be assessed");
+        }
+        var eventEvidenceLink = eventEvidence.findById(new EventEvidenceId(eventId, evidenceId))
+                .filter(link -> "SUPPORTS".equals(link.getRelationType()));
+        if (eventEvidenceLink.isEmpty()) {
             throw new IllegalArgumentException("Evidence does not support the event");
         }
-        var event = events.findById(eventId).orElseThrow();
         var supportingEvidence = evidence.findById(evidenceId).orElseThrow();
         byte[] fingerprint = fingerprint(eventId, supportingEvidence.getContentHash());
-        var assessment = assessments.findByEvent_IdAndAnalysisVersionAndInputFingerprint(
-                eventId, VERSION, fingerprint).orElseGet(() -> assessments.saveAndFlush(
-                        Assessment.completedRule(event, VERSION, Importance.MEDIUM, SUMMARY,
-                                Confidence.MEDIUM, UNCERTAINTY, TimeHorizon.UNSPECIFIED,
-                                fingerprint, OffsetDateTime.now(ZoneOffset.UTC))));
+        var existing = assessments.findByEvent_IdAndAnalysisVersionAndInputFingerprint(
+                eventId, VERSION, fingerprint);
+        Assessment assessment = existing.orElseGet(() -> {
+            Assessment current = currentAssessment(eventId);
+            return assessments.saveAndFlush(Assessment.completedRule(event, VERSION,
+                    Importance.MEDIUM, SUMMARY, Confidence.MEDIUM, UNCERTAINTY,
+                    TimeHorizon.UNSPECIFIED, fingerprint, current,
+                    OffsetDateTime.now(ZoneOffset.UTC)));
+        });
         var linkId = new AssessmentEvidenceId(assessment.getId(), evidenceId);
         if (!assessmentEvidence.existsById(linkId)) {
-            assessmentEvidence.save(AssessmentEvidence.supports(assessment, supportingEvidence,
+            assessmentEvidence.saveAndFlush(AssessmentEvidence.supports(assessment, supportingEvidence,
                     OffsetDateTime.now(ZoneOffset.UTC)));
         }
         return assessment;
+    }
+
+    private Assessment currentAssessment(UUID eventId) {
+        List<AssessmentCandidate> candidates = assessments
+                .findAllByEvent_IdAndStatus(eventId, AssessmentStatus.COMPLETED).stream()
+                .map(assessment -> new AssessmentCandidate(assessment,
+                        assessment.getSupersedesAssessment()))
+                .toList();
+        AssessmentCandidate current = TerminalAssessmentSelector.select(candidates);
+        if (!candidates.isEmpty() && current == null) {
+            throw new IllegalStateException("Event does not have one unambiguous current assessment");
+        }
+        return current == null ? null : current.assessment();
+    }
+
+    private record AssessmentCandidate(Assessment assessment, Assessment predecessor)
+            implements TerminalAssessmentSelector.Candidate {
+        @Override public UUID assessmentId() { return assessment.getId(); }
+        @Override public UUID eventId() { return assessment.getEvent().getId(); }
+        @Override public UUID supersedesAssessmentId() {
+            return predecessor == null ? null : predecessor.getId();
+        }
+        @Override public UUID predecessorEventId() {
+            return predecessor == null ? null : predecessor.getEvent().getId();
+        }
     }
 
     private static byte[] fingerprint(UUID eventId, byte[] evidenceHash) {

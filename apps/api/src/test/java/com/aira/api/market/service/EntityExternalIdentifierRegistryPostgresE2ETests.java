@@ -33,6 +33,11 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
     @Test
     void registrationConflictNamespaceAndLookupsUseApprovedIdentitySemantics() {
         String suffix = UUID.randomUUID().toString();
+        String primaryValue = randomCorpCode();
+        String secondaryCandidate;
+        do { secondaryCandidate = randomCorpCode(); }
+        while (secondaryCandidate.equals(primaryValue));
+        final String secondaryValue = secondaryCandidate;
         UUID companyA = UUID.randomUUID();
         UUID companyB = UUID.randomUUID();
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
@@ -41,17 +46,17 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
             insertEntity(companyA, "COMPANY", "COMPANY:EXT-ID-A:" + suffix);
             insertEntity(companyB, "COMPANY", "COMPANY:EXT-ID-B:" + suffix);
             ExternalIdentifierRegistration opendart = registration(
-                    companyA, "OPENDART", "CORP_CODE", "00126380");
+                    companyA, "OPENDART", "CORP_CODE", primaryValue);
 
             EntityExternalIdentifier first = registry.registerOrReuse(opendart);
             EntityExternalIdentifier repeated = registry.registerOrReuse(opendart);
             EntityExternalIdentifier otherNamespace = registry.registerOrReuse(registration(
-                    companyA, "TEST_OFFICIAL", "CORP_CODE", "00126380"));
+                    companyA, "TEST_OFFICIAL", "CORP_CODE", primaryValue));
             EntityExternalIdentifier anotherIdentifier = registry.registerOrReuse(registration(
-                    companyA, "OPENDART", "CORP_CODE", "00000001"));
+                    companyA, "OPENDART", "CORP_CODE", secondaryValue));
 
             assertEquals(first.getId(), repeated.getId());
-            assertEquals("00126380", first.getIdentifierValue());
+            assertEquals(primaryValue, first.getIdentifierValue());
             assertEquals(companyA, registry.findEntity(opendart.identifier())
                     .orElseThrow().getId());
             List<EntityExternalIdentifier> identifiers = registry.findIdentifiers(companyA);
@@ -59,13 +64,13 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
             assertEquals(1, count("""
                     SELECT count(*) FROM entity_external_identifier
                     WHERE namespace = 'OPENDART' AND identifier_type = 'CORP_CODE'
-                        AND identifier_value = '00126380'
-                    """));
+                        AND identifier_value = ?
+                    """, primaryValue));
             assertEquals(companyA, otherNamespace.getEntity().getId());
             assertEquals(companyA, anotherIdentifier.getEntity().getId());
             assertThrows(ExternalIdentifierConflictException.class,
                     () -> registry.registerOrReuse(registration(
-                            companyB, "OPENDART", "CORP_CODE", "00126380")));
+                            companyB, "OPENDART", "CORP_CODE", primaryValue)));
             status.setRollbackOnly();
         });
 
@@ -76,9 +81,10 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
     @Test
     void concurrentRegistrationReturnsOneMappingWithoutDuplicates() throws Exception {
         String suffix = UUID.randomUUID().toString();
+        String identifierValue = randomCorpCode();
         UUID companyId = UUID.randomUUID();
         ExternalIdentifierRegistration registration = registration(
-                companyId, "OPENDART", "CORP_CODE", "00999999");
+                companyId, "OPENDART", "CORP_CODE", identifierValue);
         new TransactionTemplate(transactionManager).executeWithoutResult(
                 status -> insertEntity(companyId, "COMPANY", "COMPANY:EXT-ID-RACE:" + suffix));
 
@@ -100,13 +106,13 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
             assertEquals(1, count("""
                     SELECT count(*) FROM entity_external_identifier
                     WHERE namespace = ? AND identifier_type = ? AND identifier_value = ?
-                    """, "OPENDART", "CORP_CODE", "00999999"));
+                    """, "OPENDART", "CORP_CODE", identifierValue));
         } finally {
             jdbc.update("""
                     DELETE FROM entity_external_identifier
                     WHERE entity_id = ? AND namespace = ? AND identifier_type = ?
                         AND identifier_value = ?
-                    """, companyId, "OPENDART", "CORP_CODE", "00999999");
+                    """, companyId, "OPENDART", "CORP_CODE", identifierValue);
             jdbc.update("DELETE FROM entity WHERE id = ?", companyId);
         }
     }
@@ -115,6 +121,10 @@ class EntityExternalIdentifierRegistryPostgresE2ETests {
             UUID entityId, String namespace, String type, String value) {
         return new ExternalIdentifierRegistration(
                 entityId, new ExternalIdentifierKey(namespace, type, value));
+    }
+
+    private String randomCorpCode() {
+        return String.format("%08d", Math.floorMod(UUID.randomUUID().hashCode(), 100_000_000));
     }
 
     private void insertEntity(UUID id, String type, String canonicalKey) {

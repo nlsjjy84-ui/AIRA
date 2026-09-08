@@ -46,7 +46,9 @@ class AccountRecoveryPostgresE2ETests {
 
         recoveryEmail.request(userId(nickname), email);
         recoveryEmail.confirm(sender.verificationToken);
-        assertEquals(1, count("SELECT count(*) FROM recovery_email WHERE deleted_at IS NULL"));
+        UUID userId = userId(nickname);
+        assertEquals(1, count("SELECT count(*) FROM recovery_email WHERE user_id = ? AND deleted_at IS NULL",
+                userId));
 
         sender.resetToken = null;
         passwordReset.request("unknown-" + email);
@@ -59,18 +61,20 @@ class AccountRecoveryPostgresE2ETests {
                 () -> passwordReset.confirm(resetToken, newPassword));
         assertThrows(AuthenticationFailedException.class,
                 () -> login.login(new LoginRequest(nickname, oldPassword)));
-        assertEquals(2, count("SELECT count(*) FROM user_session WHERE revoke_reason = 'PASSWORD_RESET'"));
+        assertEquals(2, count("SELECT count(*) FROM user_session WHERE user_id = ? AND revoke_reason = 'PASSWORD_RESET'",
+                userId));
 
         login.login(new LoginRequest(nickname, newPassword));
-        assertEquals(1, count("SELECT count(*) FROM user_session WHERE revoked_at IS NULL"));
+        assertEquals(1, count("SELECT count(*) FROM user_session WHERE user_id = ? AND revoked_at IS NULL",
+                userId));
     }
 
     private UUID userId(String nickname) {
         return jdbc.queryForObject("SELECT id FROM app_user WHERE nickname = ?", UUID.class, nickname);
     }
 
-    private int count(String sql) {
-        return jdbc.queryForObject(sql, Integer.class);
+    private int count(String sql, Object... arguments) {
+        return jdbc.queryForObject(sql, Integer.class, arguments);
     }
 
     @TestConfiguration

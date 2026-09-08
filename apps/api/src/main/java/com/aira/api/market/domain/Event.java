@@ -96,6 +96,24 @@ public class Event {
         }
     }
 
+    public void confirm(boolean hasCanonicalEntity, boolean hasEvidence, OffsetDateTime now) {
+        if (now == null) {
+            throw new IllegalArgumentException("Event confirmation time is required");
+        }
+        if (!hasCanonicalEntity || !hasEvidence) {
+            throw new IllegalStateException(
+                    "Confirmed events require a canonical entity and evidence");
+        }
+        if (status == EventStatus.CONFIRMED) {
+            return;
+        }
+        if (status != EventStatus.CANDIDATE) {
+            throw new IllegalStateException("Only candidate events can be confirmed");
+        }
+        status = EventStatus.CONFIRMED;
+        updatedAt = now;
+    }
+
     public void describeOfficialAnnualFiling(String companyName, OffsetDateTime now) {
         if (companyName == null || companyName.isBlank() || now == null
                 || eventType != EventType.EARNINGS || occurredAt == null) {

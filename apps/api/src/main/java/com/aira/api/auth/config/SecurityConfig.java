@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/events",
                                 "/api/events/*",
+                                "/api/assessments/*",
                                 "/api/evidence/*",
                                 "/api/companies",
                                 "/api/companies/*/financial-periods",

@@ -58,6 +58,32 @@ class EventTests {
         }
     }
 
+    @Test
+    void confirmsOnlyAfterEntityAndEvidenceAreReady() {
+        Event event = event();
+        OffsetDateTime confirmedAt = INITIAL_UPDATED_AT.plusDays(1);
+
+        assertThrows(IllegalStateException.class,
+                () -> event.confirm(false, true, confirmedAt));
+        assertThrows(IllegalStateException.class,
+                () -> event.confirm(true, false, confirmedAt));
+
+        event.confirm(true, true, confirmedAt);
+
+        assertEquals(EventStatus.CONFIRMED, event.getStatus());
+        assertEquals(confirmedAt, event.getUpdatedAt());
+    }
+
+    @Test
+    void confirmingAnAlreadyConfirmedEventIsIdempotent() {
+        Event event = event();
+        event.confirm(true, true, INITIAL_UPDATED_AT.plusDays(1));
+
+        event.confirm(true, true, INITIAL_UPDATED_AT.plusDays(2));
+
+        assertEquals(INITIAL_UPDATED_AT.plusDays(1), event.getUpdatedAt());
+    }
+
     private static Event event() {
         return Event.createEarnings("Neutral earnings title", INITIAL_OBSERVED_AT,
                 INITIAL_OBSERVED_AT, new byte[32], INITIAL_UPDATED_AT);

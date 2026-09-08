@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -28,6 +29,7 @@ import org.springframework.web.context.WebApplicationContext;
 })
 class SecurityCsrfIntegrationTests {
     @Autowired WebApplicationContext context;
+    @Autowired JdbcTemplate jdbc;
     MockMvc mvc;
 
     @BeforeEach
@@ -35,6 +37,11 @@ class SecurityCsrfIntegrationTests {
         mvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity())
                 .build();
+        jdbc.update("""
+                MERGE INTO app_user (id,nickname,nickname_normalized,status,created_at,updated_at)
+                KEY(id) VALUES('00000000-0000-0000-0000-000000000010',
+                'AiraUser','airauser','ACTIVE',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                """);
     }
 
     @Test
@@ -162,6 +169,17 @@ class SecurityCsrfIntegrationTests {
         mvc.perform(get(detail)).andExpect(status().isNotFound());
         mvc.perform(get(detail).with(user("authenticated-user"))).andExpect(status().isNotFound());
         mvc.perform(post(detail)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void historicalAssessmentDetailIsPublicReadOnly() throws Exception {
+        String detail = "/api/assessments/00000000-0000-0000-0000-000000000001";
+        mvc.perform(get(detail)).andExpect(status().isNotFound());
+        mvc.perform(get(detail).with(user("authenticated-user"))).andExpect(status().isNotFound());
+        mvc.perform(post(detail)).andExpect(status().isForbidden());
+        mvc.perform(put(detail)).andExpect(status().isForbidden());
+        mvc.perform(patch(detail)).andExpect(status().isForbidden());
+        mvc.perform(delete(detail)).andExpect(status().isForbidden());
     }
 
     @Test

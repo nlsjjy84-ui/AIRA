@@ -1,6 +1,7 @@
 package com.aira.api.analysis.domain;
 
 import com.aira.api.market.domain.Event;
+import com.aira.api.market.domain.EventStatus;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
@@ -74,12 +75,38 @@ public class Assessment {
     public static Assessment completedRule(Event event, String analysisVersion,
             Importance importance, String summary, Confidence confidence, String uncertainty,
             TimeHorizon timeHorizon, byte[] inputFingerprint, OffsetDateTime now) {
+        return completedRule(event, analysisVersion, importance, summary, confidence, uncertainty,
+                timeHorizon, inputFingerprint, null, now);
+    }
+
+    public static Assessment completedRule(Event event, String analysisVersion,
+            Importance importance, String summary, Confidence confidence, String uncertainty,
+            TimeHorizon timeHorizon, byte[] inputFingerprint, Assessment supersedesAssessment,
+            OffsetDateTime now) {
         if (event == null || event.getId() == null || analysisVersion == null
                 || analysisVersion.isBlank() || importance == null || summary == null
                 || summary.isBlank() || confidence == null || uncertainty == null
                 || uncertainty.isBlank() || timeHorizon == null || inputFingerprint == null
                 || inputFingerprint.length == 0 || now == null) {
             throw new IllegalArgumentException("Completed rule assessment values are required");
+        }
+        if (event.getStatus() != EventStatus.CONFIRMED) {
+            throw new IllegalStateException("Completed assessments require a confirmed event");
+        }
+        if (supersedesAssessment != null) {
+            if (supersedesAssessment.getId() == null
+                    || supersedesAssessment.getEvent() == null
+                    || !event.getId().equals(supersedesAssessment.getEvent().getId())) {
+                throw new IllegalArgumentException(
+                        "An assessment can only supersede an assessment for the same event");
+            }
+            Set<Assessment> visited = new HashSet<>();
+            for (Assessment predecessor = supersedesAssessment; predecessor != null;
+                    predecessor = predecessor.getSupersedesAssessment()) {
+                if (!visited.add(predecessor)) {
+                    throw new IllegalArgumentException("Assessment supersession cannot contain a cycle");
+                }
+            }
         }
         Assessment assessment = new Assessment();
         assessment.event = event;
@@ -93,6 +120,7 @@ public class Assessment {
         assessment.status = AssessmentStatus.COMPLETED;
         assessment.inputFingerprint = inputFingerprint.clone();
         assessment.completedAt = now;
+        assessment.supersedesAssessment = supersedesAssessment;
         assessment.createdAt = now;
         assessment.updatedAt = now;
         return assessment;
