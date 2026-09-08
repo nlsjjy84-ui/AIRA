@@ -419,7 +419,7 @@ export default function App() {
         {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
         {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
         {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
-          <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '아직 관심 회사가 없습니다.' : '이 Briefing 기간에 새로 정리된 변화가 없습니다.'}</Status>{interestsState.data.length === 0 && <p>계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 Briefing에서 모아볼 수 있습니다.</p>}<a className="secondary-action" href="#companies">관심회사 살펴보기</a></div>}
+          <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '아직 관심 회사가 없습니다.' : '이 Briefing 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason === 'NO_INTERESTS' && <p>계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 Briefing에서 모아볼 수 있습니다.</p>}<a className="secondary-action" href="#companies">관심회사 살펴보기</a></div>}
         {briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
@@ -428,9 +428,12 @@ export default function App() {
           <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
           <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
             <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
-            <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
-          <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button></div>
+          {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
+            <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
+            <span>공시 접수번호 {reference.externalId}</span>
+            <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
+          </div>)}
         </article>)}</div>
       </section>}
 

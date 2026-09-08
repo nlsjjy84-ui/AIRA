@@ -1,8 +1,10 @@
 package com.aira.api.delivery.service;
 
 import com.aira.api.delivery.dto.BriefingResponse;
+import com.aira.api.delivery.dto.BriefingResponse.EvidenceReference;
 import com.aira.api.delivery.dto.BriefingResponse.Item;
 import com.aira.api.delivery.dto.RelatedCompany;
+import com.aira.api.analysis.query.TerminalAssessmentSelector;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -10,7 +12,10 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
@@ -28,15 +33,22 @@ public class PersonalBriefingService {
             WHERE id=? AND user_id=?
             """;
     static final String ITEM_SQL = """
-            SELECT DISTINCT ON (bi.display_order) bi.display_order,ev.id,
-                   ev.event_type,ev.title,ev.occurred_at,a.id,a.summary,a.uncertainty,
-                   a.importance,a.confidence,s.name,e.external_id,e.original_url
+            SELECT bi.display_order,ev.id,ev.event_type,ev.title,ev.occurred_at,
+                   a.id,a.analysis_version,a.summary,a.uncertainty,a.importance,a.confidence,
+                   a.completed_at
             FROM briefing_item bi
             JOIN assessment a ON a.id=bi.assessment_id
             JOIN event ev ON ev.id=a.event_id
-            JOIN assessment_evidence ae ON ae.assessment_id=a.id
+            WHERE bi.briefing_id=?
+            ORDER BY bi.display_order
+            """;
+    static final String EVIDENCE_SQL = """
+            SELECT bi.assessment_id,e.id,e.external_id,e.original_url,s.name
+            FROM briefing_item bi
+            JOIN assessment_evidence ae ON ae.assessment_id=bi.assessment_id
             JOIN evidence e ON e.id=ae.evidence_id
-            JOIN source s ON s.id=e.source_id WHERE bi.briefing_id=?
+            JOIN source s ON s.id=e.source_id
+            WHERE bi.briefing_id=?
             ORDER BY bi.display_order,e.id
             """;
     static final String COMPANIES_SQL = """
@@ -46,17 +58,24 @@ public class PersonalBriefingService {
             ORDER BY en.id ASC
             """;
     static final String CANDIDATE_SQL = """
-            SELECT a.id,ev.occurred_at,a.completed_at
-            FROM user_interest ui
-            JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY'
-            JOIN event_entity ee ON ee.entity_id=ui.entity_id
-            JOIN event ev ON ev.id=ee.event_id AND ev.status='CONFIRMED'
-            JOIN assessment a ON a.event_id=ev.id AND a.status='COMPLETED'
-            WHERE ui.user_id=?
-              AND EXISTS (SELECT 1 FROM assessment_evidence ae WHERE ae.assessment_id=a.id)
-              AND a.completed_at>GREATEST(?,ui.created_at)
-              AND a.completed_at<=?
-            ORDER BY ev.occurred_at DESC NULLS LAST,a.id ASC
+            WITH interested_event AS (
+                SELECT ev.id AS event_id,MIN(ui.created_at) AS activated_at
+                FROM user_interest ui
+                JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY'
+                JOIN event_entity ee ON ee.entity_id=ui.entity_id
+                JOIN event ev ON ev.id=ee.event_id AND ev.status='CONFIRMED'
+                WHERE ui.user_id=?
+                GROUP BY ev.id
+            )
+            SELECT ie.event_id,a.id,a.supersedes_assessment_id,predecessor.event_id,
+                   ev.occurred_at,a.completed_at,GREATEST(?,ie.activated_at),
+                   EXISTS (SELECT 1 FROM assessment_evidence ae WHERE ae.assessment_id=a.id)
+            FROM interested_event ie
+            JOIN event ev ON ev.id=ie.event_id
+            JOIN assessment a ON a.event_id=ie.event_id AND a.status='COMPLETED'
+                             AND a.completed_at<=?
+            LEFT JOIN assessment predecessor ON predecessor.id=a.supersedes_assessment_id
+            ORDER BY ie.event_id,a.id
             """;
     static final Comparator<Candidate> CANDIDATE_ORDER =
             Comparator.comparing(Candidate::occurredAt,
@@ -83,17 +102,23 @@ public class PersonalBriefingService {
         OffsetDateTime periodStart = periodStart(userId, cutoff);
         if (periodStart == null) {
             return BriefingResponse.empty(
-                    BRIEFING_TYPE, null, cutoff, OffsetDateTime.now(clock));
+                    BRIEFING_TYPE, null, cutoff, OffsetDateTime.now(clock), "NO_INTERESTS");
         }
         if (!periodStart.isBefore(cutoff)) {
+            UUID existing = findAtPeriodEnd(userId, cutoff);
+            if (existing != null) return findOwned(userId, existing);
             return BriefingResponse.empty(
-                    BRIEFING_TYPE, periodStart, cutoff, OffsetDateTime.now(clock));
+                    BRIEFING_TYPE, periodStart, cutoff, OffsetDateTime.now(clock),
+                    "NO_ELIGIBLE_ASSESSMENTS");
         }
 
         List<Candidate> candidates = candidates(userId, periodStart, cutoff);
         if (candidates.isEmpty()) {
+            UUID existing = findLatestCompleted(userId, cutoff);
+            if (existing != null) return findOwned(userId, existing);
             return BriefingResponse.empty(
-                    BRIEFING_TYPE, periodStart, cutoff, OffsetDateTime.now(clock));
+                    BRIEFING_TYPE, periodStart, cutoff, OffsetDateTime.now(clock),
+                    "NO_ELIGIBLE_ASSESSMENTS");
         }
 
         byte[] dedupKey = digest(periodStart, cutoff,
@@ -118,16 +143,22 @@ public class PersonalBriefingService {
                 (rs, row) -> new RawItem(rs.getShort(1), rs.getObject(2, UUID.class),
                         rs.getString(3), rs.getString(4), rs.getObject(5, OffsetDateTime.class),
                         rs.getObject(6, UUID.class), rs.getString(7), rs.getString(8),
-                        rs.getString(9), rs.getString(10), rs.getString(11), rs.getString(12),
-                        rs.getString(13)), briefingId);
+                        rs.getString(9), rs.getString(10), rs.getString(11),
+                        rs.getObject(12, OffsetDateTime.class)), briefingId);
+        Map<UUID, List<EvidenceReference>> evidenceByAssessment = jdbc.query(EVIDENCE_SQL,
+                (rs, row) -> new AssessmentEvidence(rs.getObject(1, UUID.class),
+                        new EvidenceReference(rs.getObject(2, UUID.class), rs.getString(3),
+                                rs.getString(4), rs.getString(5))), briefingId).stream()
+                .collect(java.util.stream.Collectors.groupingBy(AssessmentEvidence::assessmentId,
+                        LinkedHashMap::new, java.util.stream.Collectors.mapping(
+                                AssessmentEvidence::evidence, java.util.stream.Collectors.toList())));
         List<Item> items = rawItems.stream().map(raw -> new Item(raw.displayOrder(),
                 companies(raw.eventId()), raw.eventId(), raw.eventType(), raw.eventTitle(),
-                raw.occurredAt(), raw.assessmentId(), raw.summary(), raw.uncertainty(),
-                raw.importance(), raw.confidence(), raw.sourceName(), raw.evidenceExternalId(),
-                raw.evidenceOriginalUrl())).toList();
+                raw.occurredAt(), raw.assessmentId(), raw.analysisVersion(), raw.summary(),
+                raw.uncertainty(), raw.importance(), raw.confidence(), raw.completedAt(),
+                evidenceByAssessment.getOrDefault(raw.assessmentId(), List.of()))).toList();
         return new BriefingResponse(header.id(), header.title(), header.status(), header.briefingType(),
-                header.periodStart(), header.periodEnd(), header.generatedAt(),
-                items.stream().distinct().toList());
+                header.periodStart(), header.periodEnd(), header.generatedAt(), null, items);
     }
 
     private List<RelatedCompany> companies(UUID eventId) {
@@ -164,10 +195,27 @@ public class PersonalBriefingService {
 
     private List<Candidate> candidates(UUID userId, OffsetDateTime periodStart,
             OffsetDateTime cutoff) {
-        return jdbc.query(CANDIDATE_SQL, (rs, row) -> new Candidate(rs.getObject(1, UUID.class),
-                        rs.getObject(2, OffsetDateTime.class), rs.getObject(3, OffsetDateTime.class)),
-                userId, Timestamp.from(periodStart.toInstant()), Timestamp.from(cutoff.toInstant()))
-                .stream().sorted(CANDIDATE_ORDER).toList();
+        List<AssessmentCandidate> graph = jdbc.query(CANDIDATE_SQL, (rs, row) ->
+                        new AssessmentCandidate(rs.getObject(1, UUID.class),
+                                rs.getObject(2, UUID.class), rs.getObject(3, UUID.class),
+                                rs.getObject(4, UUID.class), rs.getObject(5, OffsetDateTime.class),
+                                rs.getObject(6, OffsetDateTime.class),
+                                rs.getObject(7, OffsetDateTime.class), rs.getBoolean(8)),
+                userId, Timestamp.from(periodStart.toInstant()), Timestamp.from(cutoff.toInstant()));
+        return selectCandidates(graph).stream().sorted(CANDIDATE_ORDER).toList();
+    }
+
+    static List<Candidate> selectCandidates(List<AssessmentCandidate> assessments) {
+        Map<UUID, List<AssessmentCandidate>> byEvent = assessments.stream().distinct().collect(
+                java.util.stream.Collectors.groupingBy(AssessmentCandidate::eventId,
+                        LinkedHashMap::new, java.util.stream.Collectors.toList()));
+        return byEvent.values().stream().map(eventAssessments -> {
+            AssessmentCandidate terminal = TerminalAssessmentSelector.select(eventAssessments);
+            return terminal != null && terminal.evidenceBacked()
+                    && terminal.completedAt().isAfter(terminal.effectiveStart())
+                    ? new Candidate(terminal.assessmentId(), terminal.occurredAt(),
+                            terminal.completedAt()) : null;
+        }).filter(Objects::nonNull).distinct().toList();
     }
 
     private UUID create(UUID userId, OffsetDateTime periodStart, OffsetDateTime periodEnd,
@@ -204,6 +252,28 @@ public class PersonalBriefingService {
         return ids.isEmpty() ? null : ids.getFirst();
     }
 
+    private UUID findAtPeriodEnd(UUID userId, OffsetDateTime periodEnd) {
+        var ids = jdbc.query("""
+                SELECT id FROM briefing
+                WHERE user_id=? AND briefing_type=? AND period_end=?
+                  AND status IN ('READY','DELIVERED')
+                ORDER BY generated_at DESC,id ASC LIMIT 1
+                """, (rs, row) -> rs.getObject(1, UUID.class), userId, BRIEFING_TYPE,
+                Timestamp.from(periodEnd.toInstant()));
+        return ids.isEmpty() ? null : ids.getFirst();
+    }
+
+    private UUID findLatestCompleted(UUID userId, OffsetDateTime cutoff) {
+        var ids = jdbc.query("""
+                SELECT id FROM briefing
+                WHERE user_id=? AND briefing_type=? AND period_end<=?
+                  AND status IN ('READY','DELIVERED')
+                ORDER BY period_end DESC,generated_at DESC,id ASC LIMIT 1
+                """, (rs, row) -> rs.getObject(1, UUID.class), userId, BRIEFING_TYPE,
+                Timestamp.from(cutoff.toInstant()));
+        return ids.isEmpty() ? null : ids.getFirst();
+    }
+
     static byte[] digest(OffsetDateTime periodStart, OffsetDateTime periodEnd,
             List<String> assessmentIds) {
         try {
@@ -228,11 +298,15 @@ public class PersonalBriefingService {
         digest.update(bytes);
     }
 
+    record AssessmentCandidate(UUID eventId, UUID assessmentId, UUID supersedesAssessmentId,
+            UUID predecessorEventId, OffsetDateTime occurredAt, OffsetDateTime completedAt,
+            OffsetDateTime effectiveStart, boolean evidenceBacked)
+            implements TerminalAssessmentSelector.Candidate {}
     record Candidate(UUID assessmentId, OffsetDateTime occurredAt, OffsetDateTime completedAt) {}
     private record RawItem(short displayOrder, UUID eventId, String eventType, String eventTitle,
-            OffsetDateTime occurredAt, UUID assessmentId, String summary, String uncertainty,
-            String importance, String confidence, String sourceName, String evidenceExternalId,
-            String evidenceOriginalUrl) {}
+            OffsetDateTime occurredAt, UUID assessmentId, String analysisVersion, String summary,
+            String uncertainty, String importance, String confidence, OffsetDateTime completedAt) {}
+    private record AssessmentEvidence(UUID assessmentId, EvidenceReference evidence) {}
     private record Header(UUID id, String title, String status, String briefingType,
             OffsetDateTime periodStart, OffsetDateTime periodEnd, OffsetDateTime generatedAt) {}
 }

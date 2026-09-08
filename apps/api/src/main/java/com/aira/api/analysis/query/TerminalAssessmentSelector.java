@@ -9,9 +9,12 @@ public final class TerminalAssessmentSelector {
     private TerminalAssessmentSelector() {}
 
     public static <T extends Candidate> T select(List<T> candidates) {
+        Set<UUID> candidateIds = candidates.stream().map(Candidate::assessmentId)
+                .collect(Collectors.toSet());
         if (candidates.stream().anyMatch(candidate -> candidate.supersedesAssessmentId() != null
-                && candidate.predecessorEventId() != null
-                && !candidate.eventId().equals(candidate.predecessorEventId()))) {
+                && (!candidateIds.contains(candidate.supersedesAssessmentId())
+                        || candidate.predecessorEventId() == null
+                        || !candidate.eventId().equals(candidate.predecessorEventId())))) {
             return null;
         }
         Set<UUID> superseded = candidates.stream()

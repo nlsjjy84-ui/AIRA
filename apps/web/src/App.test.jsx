@@ -36,10 +36,12 @@ const officialEvidence = { evidenceId: 'event-evidence-1', evidenceType: 'DISCLO
 
 const briefingItem = { displayOrder: 1, companies: relatedCompanies,
   eventId: eventExperience.eventId, eventType: eventExperience.eventType, eventTitle: eventExperience.title,
-  occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
-  uncertainty: eventExperience.assessment.uncertainty, importance: 'MEDIUM', confidence: 'MEDIUM',
-  sourceName: 'OpenDART', evidenceExternalId: eventExperience.evidence.externalId,
-  evidenceOriginalUrl: eventExperience.evidence.originalUrl }
+  occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', analysisVersion: 'rule-v1',
+  summary: eventExperience.assessment.summary, uncertainty: eventExperience.assessment.uncertainty,
+  importance: 'MEDIUM', confidence: 'MEDIUM', completedAt: '2026-08-22T01:00:00Z',
+  evidence: [{ evidenceId: eventExperience.evidence.evidenceId,
+    externalId: eventExperience.evidence.externalId, originalUrl: eventExperience.evidence.originalUrl,
+    sourceName: 'OpenDART' }] }
 const alertItem = { alertId: 'alert-1', companies: relatedCompanies,
   eventId: eventExperience.eventId, eventTitle: eventExperience.title, eventType: eventExperience.eventType,
   occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
@@ -70,7 +72,7 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (key === 'POST /api/me/briefings/current') return json({ briefingId: state.interests.length ? 'briefing-1' : null,
       title: '내 브리핑', status: state.interests.length ? 'READY' : 'EMPTY',
       briefingType: 'ON_DEMAND', periodStart: '2026-08-22T00:00:00Z', periodEnd: '2026-08-23T00:00:00Z',
-      generatedAt: '2026-08-23T00:00:01Z',
+      generatedAt: '2026-08-23T00:00:01Z', emptyReason: state.interests.length ? null : 'NO_INTERESTS',
       items: state.interests.length ? [briefingItem] : [] })
     if (key === 'POST /api/me/alerts/reconcile') return json({ alerts: [] })
     if (key === 'POST /api/auth/signup') return json({ user: { id: 'new-user', nickname: 'ReturnUser' } }, 201)
@@ -525,7 +527,7 @@ describe('authenticated interest and return experience', () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
       'POST /api/me/briefings/current': () => json({ briefingId: null, title: '내 브리핑', status: 'EMPTY',
         briefingType: 'ON_DEMAND', periodStart: '2026-08-22T00:00:00Z', periodEnd: '2026-08-23T00:00:00Z',
-        generatedAt: '2026-08-23T00:00:01Z', items: [] }),
+        generatedAt: '2026-08-23T00:00:01Z', emptyReason: 'NO_ELIGIBLE_ASSESSMENTS', items: [] }),
     } })
     global.fetch = backend.fetch
     render(<App />)

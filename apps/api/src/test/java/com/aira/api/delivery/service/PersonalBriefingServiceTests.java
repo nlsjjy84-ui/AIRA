@@ -31,9 +31,11 @@ class PersonalBriefingServiceTests {
         assertFalse(sql.contains("CANDIDATE"));
         assertTrue(sql.contains("a.status='COMPLETED'"));
         assertTrue(sql.contains("EXISTS (SELECT 1 FROM assessment_evidence"));
-        assertTrue(sql.contains("a.completed_at>GREATEST(?,ui.created_at)"));
+        assertTrue(sql.contains("MIN(ui.created_at)"));
+        assertTrue(sql.contains("GREATEST(?,ie.activated_at)"));
         assertTrue(sql.contains("a.completed_at<=?"));
-        assertTrue(sql.contains("ev.occurred_at DESC NULLS LAST,a.id ASC"));
+        assertTrue(sql.contains("a.supersedes_assessment_id"));
+        assertTrue(sql.contains("predecessor.event_id"));
         assertFalse(sql.contains("alert_enabled"));
         assertFalse(sql.contains("importance"));
         assertFalse(sql.contains("confidence"));
@@ -84,22 +86,26 @@ class PersonalBriefingServiceTests {
 
     @Test
     void emptyResponseExposesAnHonestOnDemandWindowWithoutItems() {
-        BriefingResponse response = BriefingResponse.empty("ON_DEMAND", START, CUTOFF, CUTOFF);
+        BriefingResponse response = BriefingResponse.empty("ON_DEMAND", START, CUTOFF, CUTOFF,
+                "NO_ELIGIBLE_ASSESSMENTS");
 
         assertEquals("ON_DEMAND", response.briefingType());
         assertEquals(START, response.periodStart());
         assertEquals(CUTOFF, response.periodEnd());
         assertEquals(CUTOFF, response.generatedAt());
+        assertEquals("NO_ELIGIBLE_ASSESSMENTS", response.emptyReason());
         assertTrue(response.items().isEmpty());
     }
 
     @Test
     void noInterestEmptyResponseDoesNotInventACatchUpStart() {
-        BriefingResponse response = BriefingResponse.empty("ON_DEMAND", null, CUTOFF, CUTOFF);
+        BriefingResponse response = BriefingResponse.empty("ON_DEMAND", null, CUTOFF, CUTOFF,
+                "NO_INTERESTS");
 
         assertNull(response.periodStart());
         assertEquals(CUTOFF, response.periodEnd());
         assertEquals(CUTOFF, response.generatedAt());
+        assertEquals("NO_INTERESTS", response.emptyReason());
     }
 
     @Test
@@ -110,7 +116,10 @@ class PersonalBriefingServiceTests {
         assertTrue(PersonalBriefingService.ITEM_SQL.contains("ev.title"));
         assertTrue(PersonalBriefingService.ITEM_SQL.contains("ev.occurred_at"));
         assertTrue(PersonalBriefingService.ITEM_SQL.contains("a.summary"));
-        assertTrue(PersonalBriefingService.ITEM_SQL.contains("e.original_url"));
+        assertTrue(PersonalBriefingService.ITEM_SQL.contains("a.analysis_version"));
+        assertTrue(PersonalBriefingService.ITEM_SQL.contains("a.completed_at"));
+        assertTrue(PersonalBriefingService.EVIDENCE_SQL.contains("e.id"));
+        assertTrue(PersonalBriefingService.EVIDENCE_SQL.contains("e.original_url"));
         assertFalse(PersonalBriefingService.ITEM_SQL.contains("user_interest"));
         assertTrue(PersonalBriefingService.COMPANIES_SQL.contains("en.active=true"));
         assertTrue(PersonalBriefingService.COMPANIES_SQL.contains("ORDER BY en.id ASC"));
@@ -130,5 +139,62 @@ class PersonalBriefingServiceTests {
         Clock clock = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
 
         assertEquals(CUTOFF, OffsetDateTime.now(clock));
+    }
+
+    @Test
+    void selectsTheCutoffTerminalByGraphRatherThanTimestamp() {
+        UUID event = UUID.randomUUID();
+        UUID a1 = UUID.randomUUID();
+        UUID a2 = UUID.randomUUID();
+        UUID a3 = UUID.randomUUID();
+        OffsetDateTime eligible = START.plusHours(1);
+        var firstCutoff = List.of(
+                assessment(event, a1, null, null, eligible.plusDays(2), true),
+                assessment(event, a2, a1, event, eligible, true));
+
+        assertEquals(a2, PersonalBriefingService.selectCandidates(firstCutoff)
+                .getFirst().assessmentId());
+
+        var secondCutoff = new ArrayList<>(firstCutoff);
+        secondCutoff.add(assessment(event, a3, a2, event, eligible.plusDays(1), true));
+        assertEquals(a3, PersonalBriefingService.selectCandidates(secondCutoff)
+                .getFirst().assessmentId());
+    }
+
+    @Test
+    void rejectsAmbiguousCrossEventAndCycleGraphs() {
+        UUID event = UUID.randomUUID();
+        UUID otherEvent = UUID.randomUUID();
+        UUID a1 = UUID.randomUUID();
+        UUID a2 = UUID.randomUUID();
+
+        assertTrue(PersonalBriefingService.selectCandidates(List.of(
+                assessment(event, a1, null, null, START.plusHours(1), true),
+                assessment(event, a2, null, null, START.plusHours(2), true))).isEmpty());
+        assertTrue(PersonalBriefingService.selectCandidates(List.of(
+                assessment(event, a1, a2, otherEvent, START.plusHours(1), true))).isEmpty());
+        assertTrue(PersonalBriefingService.selectCandidates(List.of(
+                assessment(event, a1, a2, event, START.plusHours(1), true),
+                assessment(event, a2, a1, event, START.plusHours(2), true))).isEmpty());
+    }
+
+    @Test
+    void appliesExclusiveEffectiveStartAfterTerminalSelectionAndSuppressesJoinDuplicates() {
+        UUID event = UUID.randomUUID();
+        UUID a1 = UUID.randomUUID();
+        var boundary = assessment(event, a1, null, null, START, true);
+        assertTrue(PersonalBriefingService.selectCandidates(List.of(boundary, boundary)).isEmpty());
+
+        var eligible = assessment(event, a1, null, null, START.plusNanos(1), true);
+        assertEquals(1, PersonalBriefingService.selectCandidates(List.of(eligible, eligible)).size());
+        assertTrue(PersonalBriefingService.selectCandidates(List.of(
+                assessment(event, a1, null, null, START.plusNanos(1), false))).isEmpty());
+    }
+
+    private static PersonalBriefingService.AssessmentCandidate assessment(UUID eventId,
+            UUID assessmentId, UUID supersedesId, UUID predecessorEventId,
+            OffsetDateTime completedAt, boolean evidenceBacked) {
+        return new PersonalBriefingService.AssessmentCandidate(eventId, assessmentId,
+                supersedesId, predecessorEventId, completedAt, completedAt, START, evidenceBacked);
     }
 }
