@@ -27,6 +27,9 @@ public class UserInterest {
     @Column(name = "alert_enabled", nullable = false)
     private boolean alertEnabled;
 
+    @Column(name = "alert_enabled_at")
+    private OffsetDateTime alertEnabledAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -44,6 +47,7 @@ public class UserInterest {
         interest.marketEntity = marketEntity;
         interest.interestLevel = null;
         interest.alertEnabled = false;
+        interest.alertEnabledAt = null;
         interest.createdAt = now;
         interest.updatedAt = now;
         return interest;
@@ -54,12 +58,15 @@ public class UserInterest {
     public MarketEntity getMarketEntity() { return marketEntity; }
     public InterestLevel getInterestLevel() { return interestLevel; }
     public boolean isAlertEnabled() { return alertEnabled; }
+    public OffsetDateTime getAlertEnabledAt() { return alertEnabledAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 
     public void setAlertEnabled(boolean enabled, OffsetDateTime now) {
         if (now == null) throw new IllegalArgumentException("Alert setting time is required");
+        if (alertEnabled == enabled) return;
         alertEnabled = enabled;
+        alertEnabledAt = enabled ? now : null;
         updatedAt = now;
     }
 }

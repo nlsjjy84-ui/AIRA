@@ -6,45 +6,61 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.aira.api.delivery.dto.RelatedCompany;
+import java.time.OffsetDateTime;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class InAppAlertServiceTests {
+    private static final UUID USER_A = id(100);
+    private static final UUID USER_B = id(200);
     private static final UUID EVENT_A = id(10);
     private static final UUID EVENT_B = id(20);
     private static final UUID ASSESSMENT_A = id(1);
     private static final UUID ASSESSMENT_B = id(2);
+    private static final OffsetDateTime ACTIVATED =
+            OffsetDateTime.parse("2026-09-01T00:00:00Z");
+    private static final OffsetDateTime COMPLETED =
+            OffsetDateTime.parse("2026-09-01T00:00:01Z");
 
     @Test
-    void candidatesRequireExplicitOptInConfirmedCompletedAssessmentAndEvidence() {
+    void candidateQueryLoadsWholeCompletedGraphBeforeApplyingTerminalEligibility() {
         String sql = InAppAlertService.CANDIDATE_SQL;
 
         assertTrue(sql.contains("ev.status='CONFIRMED'"));
-        assertFalse(sql.contains("CANDIDATE"));
+        assertTrue(sql.contains("en.active=true"));
         assertTrue(sql.contains("a.status='COMPLETED'"));
         assertTrue(sql.contains("assessment_evidence"));
-        assertTrue(sql.contains(") AS evidence_backed"));
-        assertTrue(sql.contains("ui.alert_enabled=true"));
-        assertTrue(sql.contains("MIN(ui.updated_at) AS activated_at"));
-        assertTrue(sql.contains("a.completed_at>=ie.activated_at"));
-        assertTrue(sql.contains("existing.user_id=ui.user_id"));
-        assertTrue(sql.contains("existing_assessment.event_id=ev.id"));
-        assertFalse(sql.contains("INSERT INTO assessment"));
-        assertFalse(sql.contains("UPDATE alert"));
+        assertTrue(sql.contains("MIN(ui.alert_enabled_at) AS activated_at"));
+        assertTrue(sql.contains("existing.assessment_id=a.id"));
+        assertTrue(sql.contains("existing.policy_version=?"));
+        assertFalse(sql.contains("existing_assessment.event_id=ev.id"));
+        assertFalse(sql.contains("completed_at>"));
+        assertFalse(sql.contains("ORDER BY a.completed_at"));
     }
 
     @Test
-    void userVisibleHistoryIsOwnedSentOnlyAndDeterministicallyNewestFirst() {
-        String sql = InAppAlertService.USER_VISIBLE_SQL;
+    void insertAndLockUseAssessmentIdentityAndSameUserSerialization() {
+        assertTrue(InAppAlertService.USER_LOCK_SQL.endsWith("FOR UPDATE"));
+        assertTrue(InAppAlertService.INSERT_SQL.contains(
+                "ON CONFLICT (user_id,assessment_id,policy_version) DO NOTHING"));
+        assertTrue(InAppAlertService.INSERT_SQL.contains("'SENT'"));
+        assertTrue(InAppAlertService.INSERT_SQL.contains("CURRENT_TIMESTAMP"));
+    }
 
-        assertTrue(sql.contains("al.user_id=? AND al.status='SENT'"));
-        assertTrue(sql.contains("evidence_original_url,created_at,sent_at"));
-        assertTrue(sql.contains("ORDER BY sent_at DESC,alert_id ASC"));
-        assertFalse(sql.contains("status IN"));
-        assertFalse(sql.contains("ORDER BY alert_id DESC"));
-        assertTrue(InAppAlertService.COMPANIES_SQL.contains("en.active=true"));
-        assertTrue(InAppAlertService.COMPANIES_SQL.contains("ORDER BY en.id ASC"));
+    @Test
+    void historicalQueriesAreOwnedExactAndReturnEveryEvidenceReference() {
+        assertTrue(InAppAlertService.USER_VISIBLE_SQL.contains(
+                "al.user_id=? AND al.status='SENT'"));
+        assertTrue(InAppAlertService.OWNED_SQL.contains(
+                "al.id=? AND al.user_id=? AND al.status='SENT'"));
+        assertTrue(InAppAlertService.EVIDENCE_SQL.contains("WHERE ae.assessment_id=?"));
+        assertTrue(InAppAlertService.EVIDENCE_SQL.contains("ORDER BY e.id"));
+        assertFalse(InAppAlertService.USER_VISIBLE_SQL.contains("DISTINCT ON"));
+        assertFalse(InAppAlertService.OWNED_SQL.contains("user_interest"));
+        assertFalse(InAppAlertService.OWNED_SQL.contains("TerminalAssessmentSelector"));
+        assertFalse(InAppAlertService.COMPANIES_SQL.contains("en.active=true"));
     }
 
     @Test
@@ -79,37 +95,58 @@ class InAppAlertServiceTests {
     }
 
     @Test
-    void terminalAssessmentMustItselfBeNewlyAvailableAfterActivation() {
+    void graphOrderOverridesCompletedTimestampOrder() {
+        OffsetDateTime olderTimestamp = ACTIVATED.plusSeconds(1);
+        OffsetDateTime newerTimestamp = ACTIVATED.plusSeconds(20);
+        assertEquals(List.of(new InAppAlertService.Candidate(EVENT_A, ASSESSMENT_B)),
+                InAppAlertService.selectCandidates(List.of(
+                        candidate(EVENT_A, ASSESSMENT_A, null, null, newerTimestamp, true, false),
+                        candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A,
+                                olderTimestamp, true, false))));
+    }
+
+    @Test
+    void terminalMustBeStrictlyAfterActivation() {
         assertTrue(InAppAlertService.selectCandidates(List.of(
-                candidate(EVENT_A, ASSESSMENT_A, null, null),
-                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, false))).isEmpty());
+                candidate(EVENT_A, ASSESSMENT_A, null, null, ACTIVATED, true, false)))
+                .isEmpty());
+        assertTrue(InAppAlertService.selectCandidates(List.of(
+                candidate(EVENT_A, ASSESSMENT_A, null, null,
+                        ACTIVATED.minusSeconds(1), true, false))).isEmpty());
     }
 
     @Test
     void evidenceMissingSuccessorDoesNotReviveEvidenceBackedPredecessor() {
         assertTrue(InAppAlertService.selectCandidates(List.of(
-                candidate(EVENT_A, ASSESSMENT_A, null, null, true, true),
-                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, true, false)))
-                .isEmpty());
+                candidate(EVENT_A, ASSESSMENT_A, null, null, COMPLETED, true, false),
+                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A,
+                        COMPLETED.plusSeconds(1), false, false))).isEmpty());
     }
 
     @Test
-    void evidenceBackedTerminalSuccessorCreatesTheCandidate() {
+    void exactAlreadyAlertedTerminalDoesNotResendOrReviveItsPredecessor() {
+        assertTrue(InAppAlertService.selectCandidates(List.of(
+                candidate(EVENT_A, ASSESSMENT_A, null, null, COMPLETED, true, true),
+                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A,
+                        COMPLETED.plusSeconds(1), true, true))).isEmpty());
+    }
+
+    @Test
+    void unalertedSuccessorRemainsEligibleAfterPredecessorAlert() {
         assertEquals(List.of(new InAppAlertService.Candidate(EVENT_A, ASSESSMENT_B)),
                 InAppAlertService.selectCandidates(List.of(
-                        candidate(EVENT_A, ASSESSMENT_A, null, null, true, true),
-                        candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A, true, true))));
+                        candidate(EVENT_A, ASSESSMENT_A, null, null, COMPLETED, true, true),
+                        candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A,
+                                COMPLETED.plusSeconds(1), true, false))));
     }
 
     @Test
-    void legacyAlertExclusionIsEventBasedAndDoesNotRewriteHistoricalRows() {
-        String sql = InAppAlertService.CANDIDATE_SQL;
-
-        assertTrue(sql.contains("JOIN assessment existing_assessment"));
-        assertTrue(sql.contains("existing_assessment.event_id=ev.id"));
-        assertFalse(sql.contains("existing.policy_version"));
-        assertFalse(sql.contains("UPDATE alert"));
-        assertFalse(sql.contains("DELETE FROM alert"));
+    void crossEventCycleAndAmbiguousTerminalAreRejected() {
+        assertTrue(InAppAlertService.selectCandidates(List.of(
+                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_B))).isEmpty());
+        assertTrue(InAppAlertService.selectCandidates(List.of(
+                candidate(EVENT_A, ASSESSMENT_A, ASSESSMENT_B, EVENT_A),
+                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_A))).isEmpty());
     }
 
     @Test
@@ -123,38 +160,33 @@ class InAppAlertServiceTests {
     }
 
     @Test
-    void eventIdentityDefinesTheFinalV1PolicyAndDedupKey() {
+    void canonicalAssessmentIdentityProducesRawSha256DedupKeys() {
         assertEquals("interest-new-event-v1", InAppAlertService.POLICY);
-        assertEquals(java.util.HexFormat.of().formatHex(InAppAlertService.digest(EVENT_A)),
-                java.util.HexFormat.of().formatHex(InAppAlertService.digest(EVENT_A)));
-        assertNotEquals(java.util.HexFormat.of().formatHex(InAppAlertService.digest(EVENT_A)),
-                java.util.HexFormat.of().formatHex(InAppAlertService.digest(EVENT_B)));
-    }
-
-    @Test
-    void crossEventSupersessionDoesNotCreateAnAlertCandidate() {
-        assertTrue(InAppAlertService.selectCandidates(List.of(
-                candidate(EVENT_A, ASSESSMENT_B, ASSESSMENT_A, EVENT_B))).isEmpty());
+        byte[] baseline = InAppAlertService.digest(USER_A, ASSESSMENT_A,
+                InAppAlertService.POLICY);
+        assertEquals(32, baseline.length);
+        assertEquals(HexFormat.of().formatHex(baseline), HexFormat.of().formatHex(
+                InAppAlertService.digest(USER_A, ASSESSMENT_A, InAppAlertService.POLICY)));
+        assertNotEquals(HexFormat.of().formatHex(baseline), HexFormat.of().formatHex(
+                InAppAlertService.digest(USER_A, ASSESSMENT_B, InAppAlertService.POLICY)));
+        assertNotEquals(HexFormat.of().formatHex(baseline), HexFormat.of().formatHex(
+                InAppAlertService.digest(USER_B, ASSESSMENT_A, InAppAlertService.POLICY)));
+        assertNotEquals(HexFormat.of().formatHex(baseline), HexFormat.of().formatHex(
+                InAppAlertService.digest(USER_A, ASSESSMENT_A, "other-policy")));
     }
 
     private static InAppAlertService.AssessmentCandidate candidate(UUID eventId,
             UUID assessmentId, UUID supersedesAssessmentId, UUID predecessorEventId) {
-        return candidate(eventId, assessmentId, supersedesAssessmentId, predecessorEventId, true);
-    }
-
-    private static InAppAlertService.AssessmentCandidate candidate(UUID eventId,
-            UUID assessmentId, UUID supersedesAssessmentId, UUID predecessorEventId,
-            boolean eligibleAfterActivation) {
         return candidate(eventId, assessmentId, supersedesAssessmentId, predecessorEventId,
-                eligibleAfterActivation, true);
+                COMPLETED, true, false);
     }
 
     private static InAppAlertService.AssessmentCandidate candidate(UUID eventId,
             UUID assessmentId, UUID supersedesAssessmentId, UUID predecessorEventId,
-            boolean eligibleAfterActivation, boolean evidenceBacked) {
+            OffsetDateTime completedAt, boolean evidenceBacked, boolean alreadyAlerted) {
         return new InAppAlertService.AssessmentCandidate(eventId, assessmentId,
-                supersedesAssessmentId, predecessorEventId, eligibleAfterActivation,
-                evidenceBacked);
+                supersedesAssessmentId, predecessorEventId, ACTIVATED, completedAt,
+                evidenceBacked, alreadyAlerted);
     }
 
     private static UUID id(long value) {

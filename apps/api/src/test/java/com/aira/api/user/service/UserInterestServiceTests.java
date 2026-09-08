@@ -19,6 +19,7 @@ import com.aira.api.user.exception.DuplicateUserInterestException;
 import com.aira.api.user.exception.InvalidInterestEntityException;
 import com.aira.api.user.repository.AppUserRepository;
 import com.aira.api.user.repository.UserInterestRepository;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -110,6 +111,38 @@ class UserInterestServiceTests {
 
         assertTrue(service.setAlertEnabled(userId, entityId, true).alertEnabled());
         assertFalse(service.setAlertEnabled(userId, entityId, false).alertEnabled());
+    }
+
+    @Test
+    void alertActivationTransitionsHaveAnExplicitStableBaseline() {
+        OffsetDateTime created = OffsetDateTime.parse("2026-09-01T00:00:00Z");
+        OffsetDateTime enabled = created.plusSeconds(10);
+        OffsetDateTime retry = enabled.plusSeconds(10);
+        OffsetDateTime disabled = retry.plusSeconds(10);
+        OffsetDateTime reenabled = disabled.plusSeconds(10);
+        UserInterest interest = UserInterest.create(mock(AppUser.class),
+                activeEntity(EntityType.COMPANY), created);
+
+        assertFalse(interest.isAlertEnabled());
+        assertNull(interest.getAlertEnabledAt());
+        interest.setAlertEnabled(true, enabled);
+        assertTrue(interest.isAlertEnabled());
+        assertEquals(enabled, interest.getAlertEnabledAt());
+        assertEquals(enabled, interest.getUpdatedAt());
+
+        interest.setAlertEnabled(true, retry);
+        assertEquals(enabled, interest.getAlertEnabledAt());
+        assertEquals(enabled, interest.getUpdatedAt());
+
+        interest.setAlertEnabled(false, disabled);
+        assertFalse(interest.isAlertEnabled());
+        assertNull(interest.getAlertEnabledAt());
+        assertEquals(disabled, interest.getUpdatedAt());
+
+        interest.setAlertEnabled(true, reenabled);
+        assertTrue(interest.isAlertEnabled());
+        assertEquals(reenabled, interest.getAlertEnabledAt());
+        assertEquals(reenabled, interest.getUpdatedAt());
     }
 
     private MarketEntity activeEntity(EntityType type) {

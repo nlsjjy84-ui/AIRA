@@ -88,6 +88,6 @@ public class UserInterestService {
         return new UserInterestResponse(entity.getId(), entity.getEntityType(),
                 entity.getCanonicalName(), entity.getMarketCode(), entity.getSymbol(),
                 entity.getCountryCode(), interest.getInterestLevel(), interest.isAlertEnabled(),
-                interest.getCreatedAt());
+                interest.getAlertEnabledAt(), interest.getCreatedAt());
     }
 }

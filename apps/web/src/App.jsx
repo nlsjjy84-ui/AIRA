@@ -5,7 +5,7 @@ import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { alertEmptyMessage } from './alertEmptyState.js'
-import { reconcileAlerts } from './api/alertApi.js'
+import { getAlert, reconcileAlerts } from './api/alertApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
 
@@ -218,7 +218,8 @@ export default function App() {
   const [interestsState, setInterestsState] = useState({ loading: false, data: [], error: null })
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
   const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
-  const [alertsState, setAlertsState] = useState({ loading: false, data: [], error: null })
+  const [alertsState, setAlertsState] = useState({ loading: false, data: [], emptyReason: null, error: null })
+  const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
   const [pendingInsightTarget, setPendingInsightTarget] = useState(null)
   const [highlightedEventId, setHighlightedEventId] = useState(null)
 
@@ -226,7 +227,8 @@ export default function App() {
     setSession({ loading: false, user: null, error: null, notice })
     setInterestsState({ loading: false, data: [], error: null })
     setBriefingState({ loading: false, data: null, error: null })
-    setAlertsState({ loading: false, data: [], error: null })
+    setAlertsState({ loading: false, data: [], emptyReason: null, error: null })
+    setAlertDetailState({ loading: false, data: null, error: null, alertId: null })
   }, [])
 
   const loadSession = useCallback(() => {
@@ -279,6 +281,15 @@ export default function App() {
         && setOfficialEvidenceState({ loading: false, data: null, error, evidenceId }))
     return () => controller.abort()
   }, [])
+
+  const openAlertDetail = useCallback((alertId) => {
+    setAlertDetailState({ loading: true, data: null, error: null, alertId })
+    getAlert(alertId)
+      .then(data => setAlertDetailState({ loading: false, data, error: null, alertId }))
+      .catch(error => error.status === 401 || error.status === 403
+        ? becomeAnonymous()
+        : setAlertDetailState({ loading: false, data: null, error, alertId }))
+  }, [becomeAnonymous])
 
   const loadInterests = useCallback(() => {
     if (!session.user) return
@@ -354,9 +365,9 @@ export default function App() {
 
   const loadAlerts = useCallback(() => {
     if (!session.user) return
-    setAlertsState({ loading: true, data: [], error: null })
-    reconcileAlerts().then(body => setAlertsState({ loading: false, data: body.alerts ?? [], error: null }))
-      .catch(error => error.status === 401 || error.status === 403 ? becomeAnonymous() : setAlertsState({ loading: false, data: [], error }))
+    setAlertsState({ loading: true, data: [], emptyReason: null, error: null })
+    reconcileAlerts().then(body => setAlertsState({ loading: false, data: body.alerts ?? [], emptyReason: body.emptyReason ?? null, error: null }))
+      .catch(error => error.status === 401 || error.status === 403 ? becomeAnonymous() : setAlertsState({ loading: false, data: [], emptyReason: null, error }))
   }, [session.user, becomeAnonymous])
 
   useEffect(() => { if (session.user && !interestsState.loading) loadAlerts() }, [session.user, interestsState.loading, interestsState.data, loadAlerts])
@@ -441,16 +452,45 @@ export default function App() {
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
-        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data)}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
           <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
+          {item.occurredAt && <p className="insight-time">Event 발생 {formatDateTime(item.occurredAt)}</p>}
+          {item.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(item.completedAt)}</p>}
           {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
-          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
-            <a className="official-evidence-action" href={item.evidenceOriginalUrl} target="_blank" rel="noopener noreferrer">{item.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a></div>
-          <p className="evidence-reference">공시 접수번호 {item.evidenceExternalId}</p>
+          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAlertDetail(item.alertId)}>알림 상세 보기</button>
+            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 Event 보기</button></div>
         </article>)}</div>
+        {alertDetailState.loading && <Status busy>정확한 알림 기록을 불러오는 중입니다.</Status>}
+        {alertDetailState.error && <ErrorState error={alertDetailState.error} subject="알림 상세" retry={() => openAlertDetail(alertDetailState.alertId)} />}
+        {alertDetailState.data && <article className="event-detail" aria-labelledby="alert-detail-title">
+          <h3 id="alert-detail-title">정확한 알림 상세</h3>
+          <p className="eyebrow">관련 회사: {alertDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
+          <h4>{alertDetailState.data.eventTitle}</h4><p>{alertDetailState.data.summary}</p>
+          <dl className="fact-list">
+            <div className="fact-row"><dt>Assessment ID</dt><dd>{alertDetailState.data.assessmentId}</dd></div>
+            <div className="fact-row"><dt>분석 버전</dt><dd>{alertDetailState.data.analysisVersion}</dd></div>
+            <div className="fact-row"><dt>분석 방법</dt><dd>{alertDetailState.data.method}</dd></div>
+            <div className="fact-row"><dt>중요도</dt><dd>{alertDetailState.data.importance}</dd></div>
+            <div className="fact-row"><dt>신뢰도</dt><dd>{alertDetailState.data.confidence}</dd></div>
+            <div className="fact-row"><dt>아직 확인할 점</dt><dd>{alertDetailState.data.uncertainty}</dd></div>
+          </dl>
+          {alertDetailState.data.occurredAt && <p className="insight-time">Event 발생 {formatDateTime(alertDetailState.data.occurredAt)}</p>}
+          {alertDetailState.data.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(alertDetailState.data.completedAt)}</p>}
+          {alertDetailState.data.sentAt && <p className="insight-time">알림 전달 {formatDateTime(alertDetailState.data.sentAt)}</p>}
+          <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openEventDetail(alertDetailState.data.eventId, null)}>현재 Event 보기</button></div>
+          {alertDetailState.data.evidence.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
+            <strong>{reference.sourceName}</strong>
+            <span>Evidence ID {reference.evidenceId}</span>
+            <span>공시 접수번호 {reference.externalId}</span>
+            {reference.publishedAt && <span>Evidence 발행 {formatDateTime(reference.publishedAt)}</span>}
+            <span>Evidence revision {reference.revision}</span>
+            <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">공식 근거 원문 <span aria-hidden="true">↗</span></a>
+            <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
+          </div>)}
+        </article>}
       </section>}
 
       <section id="events" className="content-section event-section" aria-labelledby="explore-events-title">

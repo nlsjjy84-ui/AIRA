@@ -14,4 +14,5 @@ public record UserInterestResponse(
         String countryCode,
         InterestLevel interestLevel,
         boolean alertEnabled,
+        OffsetDateTime alertEnabledAt,
         OffsetDateTime createdAt) {}

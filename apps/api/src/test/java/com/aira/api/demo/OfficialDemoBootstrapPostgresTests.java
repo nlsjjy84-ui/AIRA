@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.aira.api.analysis.query.CompanyEventExperienceQuery;
 import com.aira.api.delivery.service.InAppAlertService;
 import com.aira.api.delivery.service.PersonalBriefingService;
-import com.aira.api.user.service.UserInterestService;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -31,7 +30,6 @@ class OfficialDemoBootstrapPostgresTests {
     @Autowired CompanyEventExperienceQuery companyEvents;
     @Autowired PersonalBriefingService briefings;
     @Autowired InAppAlertService alerts;
-    @Autowired UserInterestService interests;
 
     @Test
     void preparesFreshOfficialProductPathAndRerunsIdempotently() {
@@ -83,8 +81,10 @@ class OfficialDemoBootstrapPostgresTests {
                 """, userId);
         for (UUID companyId : companyIds(first)) {
             jdbc.update("""
-                    INSERT INTO user_interest(id,user_id,entity_id,interest_level,alert_enabled,created_at,updated_at)
-                    SELECT gen_random_uuid(),?,?, 'HIGH',false,
+                    INSERT INTO user_interest(id,user_id,entity_id,interest_level,alert_enabled,
+                                              alert_enabled_at,created_at,updated_at)
+                    SELECT gen_random_uuid(),?,?, 'HIGH',true,
+                           min(a.completed_at) - interval '1 second',
                            min(a.completed_at) - interval '1 second',
                            min(a.completed_at) - interval '1 second'
                     FROM assessment a
@@ -92,7 +92,6 @@ class OfficialDemoBootstrapPostgresTests {
                     JOIN event_entity ee ON ee.event_id=ev.id
                     WHERE ee.entity_id=? AND a.status='COMPLETED'
                     """, userId, companyId, companyId);
-            interests.setAlertEnabled(userId, companyId, true);
         }
 
         var briefing = briefings.getOrCreate(userId);
@@ -110,7 +109,8 @@ class OfficialDemoBootstrapPostgresTests {
                 .map(com.aira.api.delivery.dto.RelatedCompany::companyId)
                 .collect(Collectors.toUnmodifiableSet()));
         assertTrue(alertResult.alerts().stream()
-                .allMatch(alert -> "OpenDART".equals(alert.sourceName())));
+                .flatMap(alert -> alert.evidence().stream())
+                .allMatch(evidence -> "OpenDART".equals(evidence.sourceName())));
     }
 
     private int count(String sql, UUID companyId) {

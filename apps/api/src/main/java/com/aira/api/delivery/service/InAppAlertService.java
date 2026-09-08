@@ -1,14 +1,18 @@
 package com.aira.api.delivery.service;
 
+import com.aira.api.analysis.query.TerminalAssessmentSelector;
 import com.aira.api.delivery.dto.AlertResponse;
+import com.aira.api.delivery.dto.AlertResponse.EvidenceReference;
 import com.aira.api.delivery.dto.AlertResponse.Item;
 import com.aira.api.delivery.dto.RelatedCompany;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,79 +22,104 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class InAppAlertService {
     static final String POLICY = "interest-new-event-v1";
+    static final String USER_LOCK_SQL = "SELECT id FROM app_user WHERE id=? FOR UPDATE";
+    static final String INSERT_SQL = """
+            INSERT INTO alert(id,user_id,assessment_id,policy_version,reason_code,dedup_key,status,
+            sent_at,created_at,updated_at)
+            VALUES(?,?,?,?,'NEW_ASSESSMENT',?,'SENT',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id,assessment_id,policy_version) DO NOTHING
+            """;
     static final String CANDIDATE_SQL = """
             WITH interested_event AS (
-                SELECT ev.id AS event_id,MIN(ui.updated_at) AS activated_at
+                SELECT ev.id AS event_id,MIN(ui.alert_enabled_at) AS activated_at
                 FROM user_interest ui
+                JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY' AND en.active=true
                 JOIN event_entity ee ON ee.entity_id=ui.entity_id
                 JOIN event ev ON ev.id=ee.event_id AND ev.status='CONFIRMED'
                 WHERE ui.user_id=? AND ui.alert_enabled=true
-                  AND NOT EXISTS (
-                      SELECT 1 FROM alert existing
-                      JOIN assessment existing_assessment
-                        ON existing_assessment.id=existing.assessment_id
-                      WHERE existing.user_id=ui.user_id
-                        AND existing_assessment.event_id=ev.id
-                  )
                 GROUP BY ev.id
             )
             SELECT ie.event_id,a.id,a.supersedes_assessment_id,predecessor.event_id,
-                   a.completed_at>=ie.activated_at,
+                   ie.activated_at,a.completed_at,
                    EXISTS (
                        SELECT 1 FROM assessment_evidence ae
-                       JOIN evidence e ON e.id=ae.evidence_id
-                       JOIN source s ON s.id=e.source_id
                        WHERE ae.assessment_id=a.id
-                   ) AS evidence_backed
+                   ) AS evidence_backed,
+                   EXISTS (
+                       SELECT 1 FROM alert existing
+                       WHERE existing.user_id=? AND existing.assessment_id=a.id
+                         AND existing.policy_version=?
+                   ) AS already_alerted
             FROM interested_event ie
             JOIN assessment a ON a.event_id=ie.event_id AND a.status='COMPLETED'
             LEFT JOIN assessment predecessor ON predecessor.id=a.supersedes_assessment_id
             ORDER BY ie.event_id,a.id
             """;
     static final String USER_VISIBLE_SQL = """
-            SELECT alert_id,event_id,event_title,event_type,
-                   occurred_at,assessment_id,summary,uncertainty,source_name,evidence_external_id,
-                   evidence_original_url,created_at,sent_at
-            FROM (
-                SELECT DISTINCT ON (al.id) al.id AS alert_id,ev.id AS event_id,
-                       ev.title AS event_title,ev.event_type,ev.occurred_at,
-                       a.id AS assessment_id,a.summary,a.uncertainty,s.name AS source_name,
-                       e.external_id AS evidence_external_id,
-                       e.original_url AS evidence_original_url,al.created_at,al.sent_at,e.id AS evidence_id
-                FROM alert al JOIN assessment a ON a.id=al.assessment_id
-                JOIN event ev ON ev.id=a.event_id
-                JOIN assessment_evidence ae ON ae.assessment_id=a.id
-                JOIN evidence e ON e.id=ae.evidence_id JOIN source s ON s.id=e.source_id
-                WHERE al.user_id=? AND al.status='SENT'
-                ORDER BY al.id,e.id
-            ) visible
-            ORDER BY sent_at DESC,alert_id ASC
+            SELECT al.id,ev.id,ev.title,ev.event_type,ev.occurred_at,a.id,
+                   al.policy_version,al.reason_code,a.analysis_version,a.method,a.importance,
+                   a.summary,a.confidence,a.uncertainty,a.completed_at,al.created_at,al.sent_at
+            FROM alert al
+            JOIN assessment a ON a.id=al.assessment_id
+            JOIN event ev ON ev.id=a.event_id
+            WHERE al.user_id=? AND al.status='SENT'
+            ORDER BY al.sent_at DESC,al.id ASC
+            """;
+    static final String OWNED_SQL = """
+            SELECT al.id,ev.id,ev.title,ev.event_type,ev.occurred_at,a.id,
+                   al.policy_version,al.reason_code,a.analysis_version,a.method,a.importance,
+                   a.summary,a.confidence,a.uncertainty,a.completed_at,al.created_at,al.sent_at
+            FROM alert al
+            JOIN assessment a ON a.id=al.assessment_id
+            JOIN event ev ON ev.id=a.event_id
+            WHERE al.id=? AND al.user_id=? AND al.status='SENT'
+            """;
+    static final String EVIDENCE_SQL = """
+            SELECT e.id,e.external_id,e.original_url,s.name,e.published_at,e.revision
+            FROM assessment_evidence ae
+            JOIN evidence e ON e.id=ae.evidence_id
+            JOIN source s ON s.id=e.source_id
+            WHERE ae.assessment_id=?
+            ORDER BY e.id
             """;
     static final String COMPANIES_SQL = """
             SELECT en.id,en.canonical_name FROM event_entity ee
             JOIN entity en ON en.id=ee.entity_id
-            WHERE ee.event_id=? AND en.entity_type='COMPANY' AND en.active=true
+            WHERE ee.event_id=? AND en.entity_type='COMPANY'
             ORDER BY en.id ASC
+            """;
+    private static final String INTEREST_STATE_SQL = """
+            SELECT count(*),count(*) FILTER (WHERE alert_enabled)
+            FROM user_interest WHERE user_id=?
             """;
 
     private final JdbcTemplate jdbc;
-    public InAppAlertService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+
+    public InAppAlertService(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     @Transactional
     public AlertResponse reconcile(UUID userId) {
-        List<Candidate> candidates = selectCandidates(jdbc.query(CANDIDATE_SQL,
-                (rs,row)->new AssessmentCandidate(rs.getObject(1,UUID.class),
-                        rs.getObject(2,UUID.class),rs.getObject(3,UUID.class),
-                        rs.getObject(4,UUID.class),rs.getBoolean(5),rs.getBoolean(6)), userId));
+        lockUser(userId);
+        List<Candidate> candidates = candidates(userId);
         for (Candidate candidate : candidates) {
-            jdbc.update("""
-                    INSERT INTO alert(id,user_id,assessment_id,policy_version,reason_code,dedup_key,status,
-                    sent_at,created_at,updated_at) VALUES(?,?,?,?,'NEW_ASSESSMENT',?,'SENT',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
-                    ON CONFLICT (user_id,dedup_key) DO NOTHING
-                    """, UUID.randomUUID(), userId, candidate.assessmentId(), POLICY,
-                    digest(candidate.eventId()));
+            jdbc.update(INSERT_SQL, UUID.randomUUID(), userId, candidate.assessmentId(), POLICY,
+                    digest(userId, candidate.assessmentId(), POLICY));
         }
-        return findAll(userId);
+        return findAll(userId, candidates.isEmpty()
+                ? "NO_ELIGIBLE_ASSESSMENTS" : "NO_SENT_ALERTS");
+    }
+
+    private List<Candidate> candidates(UUID userId) {
+        List<AssessmentCandidate> graph = jdbc.query(CANDIDATE_SQL,
+                (rs, row) -> new AssessmentCandidate(
+                        rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
+                        rs.getObject(3, UUID.class), rs.getObject(4, UUID.class),
+                        rs.getObject(5, OffsetDateTime.class),
+                        rs.getObject(6, OffsetDateTime.class), rs.getBoolean(7),
+                        rs.getBoolean(8)), userId, userId, POLICY);
+        return selectCandidates(graph);
     }
 
     static List<Candidate> selectCandidates(List<AssessmentCandidate> assessments) {
@@ -98,27 +127,52 @@ public class InAppAlertService {
                 Collectors.groupingBy(AssessmentCandidate::eventId, LinkedHashMap::new,
                         Collectors.toList()));
         return byEvent.entrySet().stream().map(entry -> {
-            AssessmentCandidate terminal = com.aira.api.analysis.query.TerminalAssessmentSelector
-                    .select(entry.getValue());
-            return terminal != null && terminal.evidenceBacked()
-                    && terminal.eligibleAfterActivation()
+            AssessmentCandidate terminal = TerminalAssessmentSelector.select(entry.getValue());
+            return terminal != null && terminal.evidenceBacked() && !terminal.alreadyAlerted()
+                    && terminal.completedAt().isAfter(terminal.activatedAt())
                     ? new Candidate(entry.getKey(), terminal.assessmentId()) : null;
-        }).filter(java.util.Objects::nonNull).toList();
+        }).filter(Objects::nonNull).toList();
     }
 
-    @Transactional(readOnly=true)
+    @Transactional(readOnly = true)
     public AlertResponse findAll(UUID userId) {
-        List<RawItem> rawItems = jdbc.query(USER_VISIBLE_SQL, (rs,row)->new RawItem(
-                rs.getObject(1,UUID.class),rs.getObject(2,UUID.class),rs.getString(3),
-                rs.getString(4),rs.getObject(5,java.time.OffsetDateTime.class),
-                rs.getObject(6,UUID.class),rs.getString(7),rs.getString(8),rs.getString(9),
-                rs.getString(10),rs.getString(11),rs.getObject(12,java.time.OffsetDateTime.class),
-                rs.getObject(13,java.time.OffsetDateTime.class)), userId);
-        return new AlertResponse(rawItems.stream().map(raw -> new Item(raw.alertId(),
-                companies(raw.eventId()), raw.eventId(), raw.eventTitle(), raw.eventType(),
-                raw.occurredAt(), raw.assessmentId(), raw.summary(), raw.uncertainty(),
-                raw.sourceName(), raw.evidenceExternalId(), raw.evidenceOriginalUrl(),
-                raw.createdAt(), raw.sentAt())).toList());
+        return findAll(userId, "NO_SENT_ALERTS");
+    }
+
+    private AlertResponse findAll(UUID userId, String fallbackEmptyReason) {
+        List<RawItem> rawItems = jdbc.query(USER_VISIBLE_SQL, InAppAlertService::rawItem, userId);
+        String emptyReason = rawItems.isEmpty() ? emptyReason(userId, fallbackEmptyReason) : null;
+        return new AlertResponse(emptyReason, rawItems.stream().map(this::toItem).toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Item findOwned(UUID userId, UUID alertId) {
+        List<RawItem> matches = jdbc.query(OWNED_SQL, InAppAlertService::rawItem,
+                alertId, userId);
+        if (matches.size() != 1) throw new AlertNotFoundException();
+        return toItem(matches.getFirst());
+    }
+
+    private Item toItem(RawItem raw) {
+        List<EvidenceReference> evidence = jdbc.query(EVIDENCE_SQL,
+                (rs, row) -> new EvidenceReference(rs.getObject(1, UUID.class),
+                        rs.getString(2), rs.getString(3), rs.getString(4),
+                        rs.getObject(5, OffsetDateTime.class), rs.getInt(6)),
+                raw.assessmentId());
+        return new Item(raw.alertId(), companies(raw.eventId()), raw.eventId(),
+                raw.eventTitle(), raw.eventType(), raw.occurredAt(), raw.assessmentId(),
+                raw.policyVersion(), raw.reasonCode(), raw.analysisVersion(), raw.method(),
+                raw.importance(), raw.summary(), raw.confidence(), raw.uncertainty(),
+                raw.completedAt(), raw.createdAt(), raw.sentAt(), evidence);
+    }
+
+    private static RawItem rawItem(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
+        return new RawItem(rs.getObject(1, UUID.class), rs.getObject(2, UUID.class),
+                rs.getString(3), rs.getString(4), rs.getObject(5, OffsetDateTime.class),
+                rs.getObject(6, UUID.class), rs.getString(7), rs.getString(8),
+                rs.getString(9), rs.getString(10), rs.getString(11), rs.getString(12),
+                rs.getString(13), rs.getString(14), rs.getObject(15, OffsetDateTime.class),
+                rs.getObject(16, OffsetDateTime.class), rs.getObject(17, OffsetDateTime.class));
     }
 
     private List<RelatedCompany> companies(UUID eventId) {
@@ -126,25 +180,48 @@ public class InAppAlertService {
                 new RelatedCompany(rs.getObject(1, UUID.class), rs.getString(2)), eventId));
     }
 
-    @Transactional(readOnly=true)
-    public Item findOwned(UUID userId, UUID alertId) {
-        return findAll(userId).alerts().stream().filter(item->item.alertId().equals(alertId)).findFirst()
-                .orElseThrow(BriefingNotFoundException::new);
+    private String emptyReason(UUID userId, String fallback) {
+        InterestState state = jdbc.queryForObject(INTEREST_STATE_SQL,
+                (rs, row) -> new InterestState(rs.getInt(1), rs.getInt(2)), userId);
+        if (state == null || state.total() == 0) return "NO_INTERESTS";
+        if (state.enabled() == 0) return "NO_ALERT_ENABLED_INTERESTS";
+        return fallback;
     }
 
-    static byte[] digest(UUID eventId) {
-        try { return MessageDigest.getInstance("SHA-256").digest(
-                (POLICY+eventId).getBytes(StandardCharsets.UTF_8)); }
-        catch(NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
+    private void lockUser(UUID userId) {
+        jdbc.queryForObject(USER_LOCK_SQL, UUID.class, userId);
+    }
+
+    static byte[] digest(UUID userId, UUID assessmentId, String policyVersion) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            update(digest, userId.toString());
+            update(digest, assessmentId.toString());
+            update(digest, policyVersion);
+            return digest.digest();
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    private static void update(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        digest.update((byte) (bytes.length >>> 24));
+        digest.update((byte) (bytes.length >>> 16));
+        digest.update((byte) (bytes.length >>> 8));
+        digest.update((byte) bytes.length);
+        digest.update(bytes);
     }
 
     record AssessmentCandidate(UUID eventId, UUID assessmentId, UUID supersedesAssessmentId,
-            UUID predecessorEventId, boolean eligibleAfterActivation, boolean evidenceBacked)
-            implements com.aira.api.analysis.query.TerminalAssessmentSelector.Candidate {}
+            UUID predecessorEventId, OffsetDateTime activatedAt, OffsetDateTime completedAt,
+            boolean evidenceBacked, boolean alreadyAlerted)
+            implements TerminalAssessmentSelector.Candidate {}
     record Candidate(UUID eventId, UUID assessmentId) {}
     private record RawItem(UUID alertId, UUID eventId, String eventTitle, String eventType,
-            java.time.OffsetDateTime occurredAt, UUID assessmentId, String summary,
-            String uncertainty, String sourceName, String evidenceExternalId,
-            String evidenceOriginalUrl, java.time.OffsetDateTime createdAt,
-            java.time.OffsetDateTime sentAt) {}
+            OffsetDateTime occurredAt, UUID assessmentId, String policyVersion, String reasonCode,
+            String analysisVersion, String method, String importance, String summary,
+            String confidence, String uncertainty, OffsetDateTime completedAt,
+            OffsetDateTime createdAt, OffsetDateTime sentAt) {}
+    private record InterestState(int total, int enabled) {}
 }

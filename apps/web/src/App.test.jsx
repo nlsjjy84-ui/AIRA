@@ -44,9 +44,13 @@ const briefingItem = { displayOrder: 1, companies: relatedCompanies,
     sourceName: 'OpenDART' }] }
 const alertItem = { alertId: 'alert-1', companies: relatedCompanies,
   eventId: eventExperience.eventId, eventTitle: eventExperience.title, eventType: eventExperience.eventType,
-  occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', summary: eventExperience.assessment.summary,
-  uncertainty: eventExperience.assessment.uncertainty, sourceName: 'OpenDART',
-  evidenceExternalId: eventExperience.evidence.externalId, evidenceOriginalUrl: eventExperience.evidence.originalUrl,
+  occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', policyVersion: 'interest-new-event-v1',
+  reasonCode: 'NEW_ASSESSMENT', analysisVersion: 'rule-v1', method: 'RULE', importance: 'MEDIUM',
+  summary: eventExperience.assessment.summary, confidence: 'HIGH', uncertainty: eventExperience.assessment.uncertainty,
+  completedAt: '2026-08-23T03:00:00Z', evidence: [
+    { evidenceId: 'event-evidence-1', externalId: 'ALERT-E-1', originalUrl: 'https://official.example/alert-1', sourceName: 'OpenDART', publishedAt: '2026-08-23T02:00:00Z', revision: 1 },
+    { evidenceId: 'event-evidence-2', externalId: 'ALERT-E-2', originalUrl: 'https://official.example/alert-2', sourceName: 'OpenDART', publishedAt: '2026-08-23T02:30:00Z', revision: 2 },
+  ],
   createdAt: '2026-08-23T03:30:00Z', sentAt: '2026-08-24T04:45:00Z' }
 
 function json(body, status = 200) {
@@ -69,6 +73,7 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
     if (path.includes('/financial-facts')) return json({ companyId: company.companyId, facts })
     if (path.includes('/events')) return json({ companyId: company.companyId, events: [eventExperience] })
     if (key === 'GET /api/me/interests') return json(state.interests)
+    if (key === `GET /api/me/alerts/${alertItem.alertId}`) return json(alertItem)
     if (key === 'POST /api/me/briefings/current') return json({ briefingId: state.interests.length ? 'briefing-1' : null,
       title: '내 브리핑', status: state.interests.length ? 'READY' : 'EMPTY',
       briefingType: 'ON_DEMAND', periodStart: '2026-08-22T00:00:00Z', periodEnd: '2026-08-23T00:00:00Z',
@@ -536,7 +541,7 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByText(/정리 기간/)).toBeInTheDocument()
   })
 
-  it('renders semantic compatibility alert companies and navigates by event identity', async () => {
+  it('opens exact historical alert context and keeps current Event separate', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
       'POST /api/me/alerts/reconcile': () => json({ alerts: [alertItem] }),
     } })
@@ -546,10 +551,21 @@ describe('authenticated interest and return experience', () => {
     const alerts = (await screen.findByRole('heading', { name: '관심회사 알림' })).closest('section')
     expect(await within(alerts).findByText('관련 회사: 관련회사 A · 관련회사 B')).toBeInTheDocument()
     expect(await within(alerts).findByText('앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.')).toBeInTheDocument()
+    expect(within(alerts).getByText(/Event 발생/)).toBeInTheDocument()
+    expect(within(alerts).getByText(/Assessment 완료/)).toBeInTheDocument()
     expect(within(alerts).getByText(/알림 전달/)).toBeInTheDocument()
     expect(within(alerts).queryByText(/알림 생성/)).not.toBeInTheDocument()
-    expect(within(alerts).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', alertItem.evidenceOriginalUrl)
-    await user.click(within(alerts).getByRole('button', { name: 'Event 상세 보기' }))
+    await user.click(within(alerts).getByRole('button', { name: '알림 상세 보기' }))
+    const detail = (await screen.findByRole('heading', { name: '정확한 알림 상세' })).closest('article')
+    expect(within(detail).getByText(alertItem.assessmentId)).toBeInTheDocument()
+    expect(within(detail).getByText(alertItem.analysisVersion)).toBeInTheDocument()
+    expect(within(detail).getAllByText(/Evidence ID event-evidence-/)).toHaveLength(2)
+    expect(within(detail).getAllByRole('link', { name: /공식 근거 원문/ })).toHaveLength(2)
+    expect(backend.fetch).toHaveBeenCalledWith(`/api/me/alerts/${alertItem.alertId}`, expect.objectContaining({ method: 'GET' }))
+    await user.click(within(detail).getAllByRole('button', { name: '공식 자료 상세' })[0])
+    expect(await screen.findByRole('heading', { name: '공식 자료' })).toBeInTheDocument()
+    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/event-evidence-1', expect.anything())
+    await user.click(within(detail).getByRole('button', { name: '현재 Event 보기' }))
     expect(await screen.findByRole('heading', { name: 'Event 상세' })).toBeInTheDocument()
     expect(backend.fetch).toHaveBeenCalledWith(`/api/events/${eventExperience.eventId}`, expect.anything())
   })
