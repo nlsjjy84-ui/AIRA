@@ -81,10 +81,9 @@ public class OpenDartAnnualCfsAdapter {
         }
         OpenDartFinancialResponse response = client.fetch(context.corpCode(), context.businessYear());
         requireSuccess(response);
-        UUID entityId = identifiers.findEntity(
+        var company = identifiers.findEntity(
                         new ExternalIdentifierKey(NAMESPACE, IDENTIFIER_TYPE, context.corpCode()))
                 .filter(entity -> entity.getEntityType() == EntityType.COMPANY)
-                .map(entity -> entity.getId())
                 .orElseThrow(() -> new IllegalStateException(
                         "OpenDART corp code is not mapped to a company entity"));
 
@@ -101,7 +100,8 @@ public class OpenDartAnnualCfsAdapter {
         var receipts = new java.util.ArrayList<IngestionReceipt>();
         for (int index = 0; index < predicates.size(); index++) {
             receipts.add(boundary.ingest(toInput(
-                    context, predicates.get(index), entityId, selected.get(index), filingHash)));
+                    context, predicates.get(index), company.getId(), company.getCanonicalName(),
+                    selected.get(index), filingHash)));
         }
         return List.copyOf(receipts);
     }
@@ -135,7 +135,7 @@ public class OpenDartAnnualCfsAdapter {
 
     private SourceAwareEarningsIngestionInput toInput(
             OpenDartAnnualCfsContext context, FactPredicate predicate,
-            UUID entityId, OpenDartFinancialRow row,
+            UUID entityId, String companyName, OpenDartFinancialRow row,
             byte[] filingHash) {
         Period period = annualPeriod(context.businessYear(), context.fiscalYearEndMonth());
         BigDecimal amount = parseAmount(row.currentTermAmount());
@@ -152,8 +152,10 @@ public class OpenDartAnnualCfsAdapter {
                 null, null, collectedAt, 1);
         return new SourceAwareEarningsIngestionInput(
                 SOURCE, evidence, entityId, period.end(),
-                "Annual CFS " + predicate,
-                period.end().atStartOfDay().atOffset(ZoneOffset.UTC),
+                companyName + "가 " + period.end().getYear()
+                        + " 회계연도 연간 재무결과를 공식 공시했습니다.",
+                // This endpoint supplies reporting periods, not a reliable event timestamp.
+                null,
                 predicate, amount, currency, period.start(), period.end(), locator);
     }
 

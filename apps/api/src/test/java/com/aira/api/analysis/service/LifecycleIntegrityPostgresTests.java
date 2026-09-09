@@ -19,6 +19,8 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -135,6 +137,55 @@ class LifecycleIntegrityPostgresTests {
                     () -> assessmentService.assess(event.getId(), f.evidence(3)));
             status.setRollbackOnly();
         });
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void sameContentNewRevisionPreservesHistoricalExactIncludingLegacyReplay(boolean legacy) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            Fixture f = fixture(3);
+            jdbc.update("UPDATE evidence SET external_id='revision-test', content_hash=?, revision=2 WHERE id=?",
+                    new byte[] {1}, f.evidence(1));
+            jdbc.update("UPDATE evidence SET external_id='revision-test' WHERE id=?", f.evidence(0));
+            Event event = normalize(f, 0);
+            linkEvidence(event.getId(), f.evidence(1));
+            linkEvidence(event.getId(), f.evidence(2));
+            Assessment original = assessmentService.assess(event.getId(), f.evidence(0));
+            if (legacy) {
+                // Simulate an assessment persisted by the checkpoint's hash-only implementation.
+                jdbc.update("UPDATE assessment SET input_fingerprint=? WHERE id=?",
+                        legacyFingerprint(event.getId(), new byte[] {1}), original.getId());
+            }
+            entityManager.clear();
+            var before = historical.find(original.getId());
+            assertEquals(original.getId(), assessmentService.assess(event.getId(), f.evidence(0)).getId());
+
+            Assessment revised = assessmentService.assess(event.getId(), f.evidence(1));
+            assertNotEquals(original.getId(), revised.getId());
+            assertEquals(original.getId(), revised.getSupersedesAssessment().getId());
+            assertEquals(java.util.List.of(f.evidence(1)), historical.find(revised.getId()).evidenceIds());
+            assertEquals(revised.getId(), assessmentService.assess(event.getId(), f.evidence(1)).getId());
+            assertEquals(original.getId(), assessmentService.assess(event.getId(), f.evidence(0)).getId());
+            assertEquals(before, historical.find(original.getId()));
+            assertEquals(revised.getId(), terminal(event.getId()));
+
+            Assessment changedContent = assessmentService.assess(event.getId(), f.evidence(2));
+            assertEquals(revised.getId(), changedContent.getSupersedesAssessment().getId());
+            assertEquals(before, historical.find(original.getId()));
+            status.setRollbackOnly();
+        });
+    }
+
+    private static byte[] legacyFingerprint(UUID eventId, byte[] hash) {
+        try {
+            var digest = java.security.MessageDigest.getInstance("SHA-256");
+            digest.update(RuleBasedEarningsAssessmentService.VERSION.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest.update(java.nio.ByteBuffer.allocate(16).putLong(eventId.getMostSignificantBits())
+                    .putLong(eventId.getLeastSignificantBits()).array());
+            return digest.digest(hash);
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new AssertionError(impossible);
+        }
     }
 
     @Test

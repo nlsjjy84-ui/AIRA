@@ -74,10 +74,13 @@ public class PublicEventDetailQuery {
                         rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9),
                         rs.getString(10), rs.getString(11)), eventId);
         AssessmentCandidate current = TerminalAssessmentSelector.select(candidates);
-        return current == null ? null : new Assessment(current.assessmentId(), current.summary(),
+        if (current == null) return null;
+        List<Evidence> usedEvidence = evidence(ASSESSMENT_EVIDENCE_SQL, current.assessmentId());
+        if (usedEvidence.isEmpty()) return null;
+        return new Assessment(current.assessmentId(), current.summary(),
                 current.uncertainty(), current.confidence(), current.importance(),
                 current.timeHorizon(), current.method(), current.analysisVersion(),
-                evidence(ASSESSMENT_EVIDENCE_SQL, current.assessmentId()));
+                usedEvidence);
     }
 
     private List<Evidence> evidence(String sql, UUID ownerId) {

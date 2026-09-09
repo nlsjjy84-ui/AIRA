@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -79,6 +81,75 @@ class SourceAwareIngestionPostgresE2ETests {
 
         assertEquals(0, count("SELECT count(*) FROM source WHERE external_key IN (?, ?)",
                 firstSourceKey, secondSourceKey));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void sameRevisionRecollectionPreservesOriginalProvenanceAndNewRevisionGetsNewId(boolean nullable) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            String suffix = UUID.randomUUID().toString();
+            UUID subject = UUID.randomUUID();
+            insertCompany(subject, "COMPANY:REVISION:" + suffix);
+            var input = input("revision-" + suffix, suffix, subject);
+            if (nullable) {
+                var base = input.evidence();
+                input = withEvidence(input, new EvidenceRegistration(base.evidenceType(), base.externalId(),
+                        base.originalUrl(), null, base.contentHash(), null, null, NOW, 1));
+            }
+            var e = input.evidence();
+            var first = ingestion.ingest(input);
+            var recollected = new EvidenceRegistration(e.evidenceType(), e.externalId(),
+                    e.originalUrl(), e.title(), e.contentHash(), e.locator(),
+                    e.publishedAt() == null ? null : e.publishedAt().withOffsetSameInstant(java.time.ZoneOffset.ofHours(9)),
+                    NOW.plusDays(1), 1);
+            assertEquals(first.evidenceId(), ingestion.ingest(withEvidence(input, recollected)).evidenceId());
+            assertEquals(NOW.toInstant(), jdbc.queryForObject("SELECT collected_at FROM evidence WHERE id=?",
+                    OffsetDateTime.class, first.evidenceId()).toInstant());
+            var revision = new EvidenceRegistration(e.evidenceType(), e.externalId(),
+                    e.originalUrl(), e.title(), e.contentHash(), e.locator(), e.publishedAt(), NOW.plusDays(1), 2);
+            var second = ingestion.ingest(withEvidence(input, revision));
+            assertNotEquals(first.evidenceId(), second.evidenceId());
+            assertEquals(second.evidenceId(), ingestion.ingest(withEvidence(input, revision)).evidenceId());
+            status.setRollbackOnly();
+        });
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"type", "url", "title", "hash", "locator", "publishedAt",
+            "nullTitle", "nullLocator", "nullPublishedAt"})
+    void sameRevisionProvenanceConflictIsRejectedBeforeDownstreamWrites(String field) {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            String suffix = UUID.randomUUID().toString();
+            UUID subject = UUID.randomUUID();
+            insertCompany(subject, "COMPANY:CONFLICT:" + suffix);
+            var input = input("conflict-" + suffix, suffix, subject);
+            var first = ingestion.ingest(input);
+            entityManager.flush();
+            String before = jdbc.queryForObject("SELECT row_to_json(e)::text FROM evidence e WHERE id=?",
+                    String.class, first.evidenceId());
+            var e = input.evidence();
+            var conflict = new EvidenceRegistration(
+                    field.equals("type") ? EvidenceType.OTHER : e.evidenceType(), e.externalId(),
+                    field.equals("url") ? "https://different.test" : e.originalUrl(),
+                    field.equals("nullTitle") ? null : field.equals("title") ? "different" : e.title(),
+                    field.equals("hash") ? new byte[] {9} : e.contentHash(),
+                    field.equals("nullLocator") ? null : field.equals("locator") ? "different" : e.locator(),
+                    field.equals("nullPublishedAt") ? null : field.equals("publishedAt") ? NOW.plusDays(1) : e.publishedAt(),
+                    NOW.plusDays(1), 1);
+            assertThrows(IllegalStateException.class, () -> ingestion.ingest(withEvidence(input, conflict)));
+            assertEquals(1, count("SELECT count(*) FROM evidence WHERE external_id=?", suffix));
+            assertEquals(1, count("SELECT count(*) FROM fact_assertion WHERE evidence_id=?", first.evidenceId()));
+            assertEquals(before, jdbc.queryForObject("SELECT row_to_json(e)::text FROM evidence e WHERE id=?",
+                    String.class, first.evidenceId()));
+            status.setRollbackOnly();
+        });
+    }
+
+    private SourceAwareEarningsIngestionInput withEvidence(
+            SourceAwareEarningsIngestionInput input, EvidenceRegistration evidence) {
+        return new SourceAwareEarningsIngestionInput(input.source(), evidence, input.subjectEntityId(),
+                input.reportingPeriodEnd(), input.neutralTitle(), input.occurredAt(), input.predicate(),
+                input.numberValue(), input.currencyCode(), input.periodStart(), input.periodEnd(), input.assertionLocator());
     }
 
     @Test

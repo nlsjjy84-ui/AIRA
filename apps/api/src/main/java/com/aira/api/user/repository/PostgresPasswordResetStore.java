@@ -59,6 +59,10 @@ public class PostgresPasswordResetStore implements PasswordResetStore {
     @Transactional
     public boolean create(byte[] emailLookupHash, byte[] tokenHash,
             OffsetDateTime requestedAt, OffsetDateTime expiresAt) {
+        jdbc.query("""
+                SELECT u.id FROM app_user u JOIN recovery_email e ON e.user_id=u.id
+                WHERE e.email_lookup_hash=? AND e.deleted_at IS NULL FOR UPDATE OF u
+                """, (rs, row) -> rs.getObject(1), emailLookupHash.clone());
         jdbc.update(INVALIDATE_ACTIVE, requestedAt, emailLookupHash.clone());
         return jdbc.update(CREATE, tokenHash.clone(), requestedAt, expiresAt,
                 emailLookupHash.clone()) == 1;
@@ -67,6 +71,15 @@ public class PostgresPasswordResetStore implements PasswordResetStore {
     @Override
     @Transactional
     public boolean consumeAndReset(byte[] tokenHash, String passwordHash, OffsetDateTime usedAt) {
+        // Serialize with session issuance before taking the snapshot used to revoke sessions.
+        jdbc.query("""
+                SELECT u.id FROM app_user u
+                JOIN recovery_email e ON e.user_id=u.id AND e.deleted_at IS NULL
+                JOIN password_reset_token t ON t.recovery_email_id=e.id
+                WHERE t.token_hash=?
+                FOR UPDATE OF u
+                """, (rs, row) -> rs.getObject(1), tokenHash.clone());
+        usedAt = jdbc.queryForObject("SELECT clock_timestamp()", OffsetDateTime.class);
         Integer changed = jdbc.queryForObject(CONSUME_AND_RESET, Integer.class,
                 usedAt, tokenHash.clone(), usedAt, passwordHash,
                 usedAt, usedAt, usedAt);

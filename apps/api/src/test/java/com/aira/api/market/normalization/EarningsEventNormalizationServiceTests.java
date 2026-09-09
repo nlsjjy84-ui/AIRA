@@ -21,8 +21,9 @@ class EarningsEventNormalizationServiceTests {
         EventEvidenceRepository eventEvidence = mock(EventEvidenceRepository.class);
         MarketEntityRepository entities = mock(MarketEntityRepository.class);
         EvidenceRepository evidenceRepository = mock(EvidenceRepository.class);
+        EventRegistrationStore registrations = mock(EventRegistrationStore.class);
         var service = new EarningsEventNormalizationService(events, eventEntities, eventEvidence,
-                entities, evidenceRepository);
+                entities, evidenceRepository, registrations);
         MarketEntity company = instance(MarketEntity.class);
         set(company, "id", UUID.randomUUID());
         set(company, "entityType", EntityType.COMPANY);
@@ -32,12 +33,12 @@ class EarningsEventNormalizationServiceTests {
         set(evidence, "collectedAt", OffsetDateTime.parse("2026-01-02T00:00:00Z"));
         when(entities.findById(company.getId())).thenReturn(Optional.of(company));
         when(evidenceRepository.findById(evidence.getId())).thenReturn(Optional.of(evidence));
-        when(events.findByDedupKey(any())).thenReturn(Optional.empty());
-        when(events.saveAndFlush(any())).thenAnswer(invocation -> {
+        when(registrations.registerOrGetLocked(any())).thenAnswer(invocation -> {
             Event event = invocation.getArgument(0);
             if (event.getId() == null) set(event, "id", UUID.randomUUID());
             return event;
         });
+        when(events.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(eventEntities.findById(any())).thenReturn(Optional.empty());
         when(eventEvidence.findById(any())).thenReturn(Optional.empty());
 
@@ -46,8 +47,8 @@ class EarningsEventNormalizationServiceTests {
                 OffsetDateTime.parse("2025-12-31T00:00:00Z")));
 
         assertEquals(EventStatus.CONFIRMED, result.getStatus());
-        var order = inOrder(eventEntities, eventEvidence, events);
-        order.verify(events).saveAndFlush(any(Event.class));
+        var order = inOrder(registrations, eventEntities, eventEvidence, events);
+        order.verify(registrations).registerOrGetLocked(any(Event.class));
         order.verify(eventEntities).saveAndFlush(any(EventEntity.class));
         order.verify(eventEvidence).saveAndFlush(any(EventEvidence.class));
         order.verify(events).saveAndFlush(any(Event.class));

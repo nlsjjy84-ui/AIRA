@@ -40,6 +40,7 @@ class UserInterestServiceTests {
     @BeforeEach
     void setUp() {
         service = new UserInterestService(interests, entities, users);
+        when(users.findByIdForInterest(userId)).thenReturn(Optional.of(mock(AppUser.class)));
     }
 
     @Test
@@ -85,14 +86,14 @@ class UserInterestServiceTests {
     }
 
     @Test
-    void convertsConcurrentUniqueViolationToDuplicateInterest() {
+    void returnsExistingInterestWithoutChangingItsActivationBaseline() {
         MarketEntity entity = activeEntity(EntityType.COMPANY);
-        when(entities.findById(entityId)).thenReturn(Optional.of(entity));
-        when(users.getReferenceById(userId)).thenReturn(mock(AppUser.class));
-        when(interests.saveAndFlush(any(UserInterest.class)))
-                .thenThrow(new DataIntegrityViolationException("uq_user_interest_user_entity"));
-
-        assertThrows(DuplicateUserInterestException.class, () -> service.add(userId, entityId));
+        UserInterest existing = UserInterest.create(mock(AppUser.class), entity, OffsetDateTime.now());
+        OffsetDateTime baseline = OffsetDateTime.now();
+        existing.setAlertEnabled(true, baseline);
+        when(interests.findByUser_IdAndMarketEntity_Id(userId, entityId)).thenReturn(Optional.of(existing));
+        assertEquals(baseline, service.add(userId, entityId).alertEnabledAt());
+        org.mockito.Mockito.verify(interests, org.mockito.Mockito.never()).saveAndFlush(any());
     }
 
     @Test

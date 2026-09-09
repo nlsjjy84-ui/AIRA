@@ -14,6 +14,15 @@ class EventTests {
             OffsetDateTime.parse("2026-01-01T01:00:00Z");
 
     @Test
+    void unknownOccurrenceIsNotReplacedByObservationTime() {
+        Event event = Event.createEarnings("2025 fiscal year", null,
+                INITIAL_OBSERVED_AT, new byte[32], INITIAL_UPDATED_AT);
+        org.junit.jupiter.api.Assertions.assertNull(event.getOccurredAt());
+        event.confirm(true, true, INITIAL_UPDATED_AT);
+        assertEquals(EventStatus.CONFIRMED, event.getStatus());
+    }
+
+    @Test
     void laterObservationUpdatesObservationAndProcessingTimes() {
         Event event = event();
         OffsetDateTime observedAt = INITIAL_OBSERVED_AT.plusDays(1);

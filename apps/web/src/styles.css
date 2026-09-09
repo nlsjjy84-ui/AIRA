@@ -142,3 +142,19 @@ footer p { margin: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* Responsibility navigation reuses the existing palette and components. */
+.workflow-sidebar { padding: 1rem; border-bottom: 1px solid currentColor; display: flex; gap: 1rem; align-items: stretch; }
+.workflow-sidebar nav { display: flex; flex-wrap: wrap; gap: 1rem; flex: 1; }
+.workflow-sidebar .settings-action { align-self: flex-end; }
+.site-header form[role="search"] { display: flex; align-items: center; gap: .5rem; }
+.site-header input[type="search"] { width: min(24vw, 15rem); }
+@media (max-width: 40rem) {
+  .site-header { flex-wrap: wrap; }
+  .site-header .account-nav { width: 100%; }
+}
+@media (min-width: 1000px) {
+  .workflow-sidebar { position: fixed; left: 0; top: 8rem; bottom: 1rem; width: 8rem; flex-direction: column; border-bottom: 0; }
+  .workflow-sidebar nav { flex-direction: column; justify-content: flex-start; }
+  .workflow-sidebar .settings-action { margin-top: auto; align-self: stretch; }
+  main { padding-left: 8rem; }
+}

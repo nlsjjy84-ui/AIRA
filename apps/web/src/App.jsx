@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import HistoricalAssessment from './HistoricalAssessment.jsx'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { getEventDetail, getRecentEvents } from './api/eventApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
@@ -203,6 +204,16 @@ function initialRecoveryEntry() {
 }
 
 export default function App() {
+  const [search, setSearch] = useState('')
+  const [perspective, setPerspective] = useState('evidence')
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [historicalId, setHistoricalId] = useState(null)
+  const requestVersions = useRef({})
+  const beginRequest = useCallback(key => {
+    const version = (requestVersions.current[key] ?? 0) + 1
+    requestVersions.current[key] = version
+    return () => requestVersions.current[key] === version
+  }, [])
   const [recoveryEntry, setRecoveryEntry] = useState(initialRecoveryEntry)
   const [session, setSession] = useState({ loading: true, user: null, error: null, notice: null })
   const [authMode, setAuthMode] = useState(recoveryEntry.mode)
@@ -224,6 +235,8 @@ export default function App() {
   const [highlightedEventId, setHighlightedEventId] = useState(null)
 
   const becomeAnonymous = useCallback((notice = null) => {
+    for (const key of ['session', 'interests', 'briefing', 'alerts', 'alertDetail']) requestVersions.current[key] = (requestVersions.current[key] ?? 0) + 1
+    setSettingsOpen(false)
     setSession({ loading: false, user: null, error: null, notice })
     setInterestsState({ loading: false, data: [], error: null })
     setBriefingState({ loading: false, data: null, error: null })
@@ -232,12 +245,13 @@ export default function App() {
   }, [])
 
   const loadSession = useCallback(() => {
+    const current = beginRequest('session')
     setSession(current => ({ ...current, loading: true, error: null }))
-    getCurrentUser().then(user => setSession({ loading: false, user, error: null, notice: null }))
-      .catch(error => error.status === 401 || error.status === 403
+    getCurrentUser().then(user => current() && setSession({ loading: false, user, error: null, notice: null }))
+      .catch(error => current() && (error.status === 401 || error.status === 403
         ? becomeAnonymous()
-        : setSession({ loading: false, user: null, error, notice: null }))
-  }, [becomeAnonymous])
+        : setSession({ loading: false, user: null, error, notice: null })))
+  }, [becomeAnonymous, beginRequest])
 
   const loadCompanies = useCallback(() => {
     const controller = new AbortController()
@@ -263,59 +277,65 @@ export default function App() {
   useEffect(loadExploreEvents, [loadExploreEvents])
 
   const openEventDetail = useCallback((eventId, contextCompanyId) => {
+    const current = beginRequest('event')
     const controller = new AbortController()
     setEventDetailState({ loading: true, data: null, error: null, eventId, contextCompanyId })
     getEventDetail(eventId, controller.signal)
-      .then(data => setEventDetailState({ loading: false, data, error: null, eventId, contextCompanyId }))
-      .catch(error => error.name !== 'AbortError'
+      .then(data => current() && setEventDetailState({ loading: false, data, error: null, eventId, contextCompanyId }))
+      .catch(error => current() && error.name !== 'AbortError'
         && setEventDetailState({ loading: false, data: null, error, eventId, contextCompanyId }))
     return () => controller.abort()
-  }, [])
+  }, [beginRequest])
 
   const openOfficialEvidence = useCallback((evidenceId) => {
+    const current = beginRequest('evidence')
     const controller = new AbortController()
     setOfficialEvidenceState({ loading: true, data: null, error: null, evidenceId })
     getOfficialEvidence(evidenceId, controller.signal)
-      .then(data => setOfficialEvidenceState({ loading: false, data, error: null, evidenceId }))
-      .catch(error => error.name !== 'AbortError'
+      .then(data => current() && setOfficialEvidenceState({ loading: false, data, error: null, evidenceId }))
+      .catch(error => current() && error.name !== 'AbortError'
         && setOfficialEvidenceState({ loading: false, data: null, error, evidenceId }))
     return () => controller.abort()
-  }, [])
+  }, [beginRequest])
 
   const openAlertDetail = useCallback((alertId) => {
+    const current = beginRequest('alertDetail')
     setAlertDetailState({ loading: true, data: null, error: null, alertId })
     getAlert(alertId)
-      .then(data => setAlertDetailState({ loading: false, data, error: null, alertId }))
-      .catch(error => error.status === 401 || error.status === 403
+      .then(data => current() && setAlertDetailState({ loading: false, data, error: null, alertId }))
+      .catch(error => current() && (error.status === 401 || error.status === 403
         ? becomeAnonymous()
-        : setAlertDetailState({ loading: false, data: null, error, alertId }))
-  }, [becomeAnonymous])
+        : setAlertDetailState({ loading: false, data: null, error, alertId })))
+  }, [becomeAnonymous, beginRequest])
 
   const loadInterests = useCallback(() => {
     if (!session.user) return
+    const current = beginRequest('interests')
     setInterestsState({ loading: true, data: [], error: null })
-    getInterests().then(data => setInterestsState({ loading: false, data: data ?? [], error: null }))
-      .catch(error => error.status === 401 || error.status === 403
+    getInterests().then(data => current() && setInterestsState({ loading: false, data: data ?? [], error: null }))
+      .catch(error => current() && (error.status === 401 || error.status === 403
         ? becomeAnonymous('세션이 만료되었습니다. 공개 정보는 계속 볼 수 있습니다.')
-        : setInterestsState({ loading: false, data: [], error }))
-  }, [session.user, becomeAnonymous])
+        : setInterestsState({ loading: false, data: [], error })))
+  }, [session.user, becomeAnonymous, beginRequest])
 
   useEffect(loadInterests, [loadInterests])
 
   const loadBriefing = useCallback(() => {
     if (!session.user) return
+    const current = beginRequest('briefing')
     setBriefingState({ loading: true, data: null, error: null })
-    getOrCreateBriefing().then(data => setBriefingState({ loading: false, data, error: null }))
-      .catch(error => error.status === 401 || error.status === 403
+    getOrCreateBriefing().then(data => current() && setBriefingState({ loading: false, data, error: null }))
+      .catch(error => current() && (error.status === 401 || error.status === 403
         ? becomeAnonymous('세션이 만료되었습니다. 공개 정보는 계속 볼 수 있습니다.')
-        : setBriefingState({ loading: false, data: null, error }))
-  }, [session.user, becomeAnonymous])
+        : setBriefingState({ loading: false, data: null, error })))
+  }, [session.user, becomeAnonymous, beginRequest])
 
   useEffect(() => {
     if (session.user && !interestsState.loading && !interestsState.error) loadBriefing()
   }, [session.user, interestsState.loading, interestsState.error, interestsState.data, loadBriefing])
 
   const selectCompany = useCallback((company, eventId = null) => {
+    const current = beginRequest('company')
     setSelectedCompany(company)
     setHighlightedEventId(eventId)
     setPendingInsightTarget(eventId ? { companyId: company.companyId, eventId } : null)
@@ -324,14 +344,15 @@ export default function App() {
     setEventsState({ loading: true, data: [], error: null })
     setPeriodsState({ loading: true, data: [], error: null })
     getFinancialPeriods(company.companyId).then(body => {
+      if (!current()) return
       const periods = body.periods ?? []
       setPeriodsState({ loading: false, data: periods, error: null })
       if (periods.length === 1) setSelectedPeriod(periods[0])
-    }).catch(error => setPeriodsState({ loading: false, data: [], error }))
+    }).catch(error => current() && setPeriodsState({ loading: false, data: [], error }))
     getCompanyEvents(company.companyId)
-      .then(body => setEventsState({ loading: false, data: body.events ?? [], error: null }))
-      .catch(error => setEventsState({ loading: false, data: [], error }))
-  }, [])
+      .then(body => current() && setEventsState({ loading: false, data: body.events ?? [], error: null }))
+      .catch(error => current() && setEventsState({ loading: false, data: [], error }))
+  }, [beginRequest])
 
   useEffect(() => {
     if (!pendingInsightTarget || eventsState.loading || selectedCompany?.companyId !== pendingInsightTarget.companyId) return
@@ -365,10 +386,11 @@ export default function App() {
 
   const loadAlerts = useCallback(() => {
     if (!session.user) return
+    const current = beginRequest('alerts')
     setAlertsState({ loading: true, data: [], emptyReason: null, error: null })
-    reconcileAlerts().then(body => setAlertsState({ loading: false, data: body.alerts ?? [], emptyReason: body.emptyReason ?? null, error: null }))
-      .catch(error => error.status === 401 || error.status === 403 ? becomeAnonymous() : setAlertsState({ loading: false, data: [], emptyReason: null, error }))
-  }, [session.user, becomeAnonymous])
+    reconcileAlerts().then(body => current() && setAlertsState({ loading: false, data: body.alerts ?? [], emptyReason: body.emptyReason ?? null, error: null }))
+      .catch(error => current() && (error.status === 401 || error.status === 403 ? becomeAnonymous() : setAlertsState({ loading: false, data: [], emptyReason: null, error })))
+  }, [session.user, becomeAnonymous, beginRequest])
 
   useEffect(() => { if (session.user && !interestsState.loading) loadAlerts() }, [session.user, interestsState.loading, interestsState.data, loadAlerts])
 
@@ -393,7 +415,10 @@ export default function App() {
       if (enabled) await enableInterestAlert(selectedCompany.companyId)
       else await disableInterestAlert(selectedCompany.companyId)
       setInterestAction({ loading: false, error: null, retry: null }); loadInterests()
-    } catch (error) { setInterestAction({ loading: false, error, retry: () => changeAlertSetting(enabled) }) }
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) becomeAnonymous('세션이 만료되었습니다. 다시 로그인해 주세요.')
+      else setInterestAction({ loading: false, error, retry: () => changeAlertSetting(enabled) })
+    }
   }
 
   async function performLogout() {
@@ -404,15 +429,29 @@ export default function App() {
 
   return <>
     <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈">AIRA</a>
+      <form role="search" onSubmit={event => { event.preventDefault(); document.getElementById('companies')?.scrollIntoView?.() }}>
+        <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="회사 이름" />
+      </form>
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
-        {!session.loading && !session.user && <><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href="#my-interests">관심회사</a><a href="#my-briefing">브리핑</a><a href="#my-alerts">알림</a><span className="session-label">{session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
+        {!session.loading && session.user && <><a href="#my-interests">관심회사</a><a href="#my-briefing">브리핑</a><a href="#my-alerts">알림</a><a href="#user">사용자 {session.user.nickname}</a><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
+    <aside className="workflow-sidebar" aria-label="탐색 단계">
+      <nav aria-label="AIRA 흐름"><a href="#main">MAIN</a><a href="#ask">Ask</a><a href="#companies">Inspect</a><a href="#events">Relate</a><a href="#event-detail">Assess</a></nav>
+      <button className="settings-action" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>Settings</button>
+    </aside>
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
-    <main>
+    <main id="main">
+      <section id="ask" className="content-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
+        <fieldset><legend>선택한 회사에서 무엇을 확인할까요?</legend>
+          <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
+          <label><input type="radio" name="perspective" checked={perspective === 'event'} onChange={() => setPerspective('event')} />사건과 관련 회사</label>
+        </fieldset><a href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인</a>
+      </section>
+      {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
       <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="#companies">기업 둘러보기</a></section>
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">
@@ -423,7 +462,8 @@ export default function App() {
         <div className="interest-list">{interestsState.data.map(item => <button type="button" key={item.entityId} onClick={() => selectCompany({ companyId: item.entityId, canonicalName: item.canonicalName, countryCode: item.countryCode })}><strong>{item.canonicalName}</strong><span>재무정보 다시 보기 →</span></button>)}</div>
       </section>}
 
-      {session.user && <RecoveryEmailSettings />}
+      {session.user && <section id="user" className="content-section" aria-label="사용자"><h2>{session.user.nickname}</h2><button onClick={() => setSettingsOpen(true)}>계정 설정 열기</button></section>}
+      {session.user && settingsOpen && <><button onClick={() => setSettingsOpen(false)}>설정 닫기</button><RecoveryEmailSettings /></>}
 
       {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
         <div className="section-heading"><span>BRIEFING</span><h2 id="briefing-title">내 브리핑</h2></div>
@@ -436,10 +476,12 @@ export default function App() {
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
           <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
           <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+          <p>당시 분석 · Assessment ID {item.assessmentId} · {item.analysisVersion}</p>
+          <button onClick={() => setHistoricalId(item.assessmentId)}>당시 Assessment 보기</button>
           <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
             <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button></div>
+          <p>Event 상세는 현재 상태와 Current 분석을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button></div>
           {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
             <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
             <span>공시 접수번호 {reference.externalId}</span>
@@ -456,7 +498,7 @@ export default function App() {
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
           <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
-          {item.occurredAt && <p className="insight-time">Event 발생 {formatDateTime(item.occurredAt)}</p>}
+          <p className="insight-time">Event 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>
           {item.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(item.completedAt)}</p>}
           {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
@@ -469,6 +511,7 @@ export default function App() {
           <h3 id="alert-detail-title">정확한 알림 상세</h3>
           <p className="eyebrow">관련 회사: {alertDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
           <h4>{alertDetailState.data.eventTitle}</h4><p>{alertDetailState.data.summary}</p>
+          <p>알림 전달 당시 분석 (Historical Exact)</p><button onClick={() => setHistoricalId(alertDetailState.data.assessmentId)}>당시 Assessment 보기</button>
           <dl className="fact-list">
             <div className="fact-row"><dt>Assessment ID</dt><dd>{alertDetailState.data.assessmentId}</dd></div>
             <div className="fact-row"><dt>분석 버전</dt><dd>{alertDetailState.data.analysisVersion}</dd></div>
@@ -477,7 +520,7 @@ export default function App() {
             <div className="fact-row"><dt>신뢰도</dt><dd>{alertDetailState.data.confidence}</dd></div>
             <div className="fact-row"><dt>아직 확인할 점</dt><dd>{alertDetailState.data.uncertainty}</dd></div>
           </dl>
-          {alertDetailState.data.occurredAt && <p className="insight-time">Event 발생 {formatDateTime(alertDetailState.data.occurredAt)}</p>}
+          <p className="insight-time">Event 발생 {formatDateTime(alertDetailState.data.occurredAt) ?? '발생시각 미상'}</p>
           {alertDetailState.data.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(alertDetailState.data.completedAt)}</p>}
           {alertDetailState.data.sentAt && <p className="insight-time">알림 전달 {formatDateTime(alertDetailState.data.sentAt)}</p>}
           <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openEventDetail(alertDetailState.data.eventId, null)}>현재 Event 보기</button></div>
@@ -494,23 +537,23 @@ export default function App() {
       </section>}
 
       <section id="events" className="content-section event-section" aria-labelledby="explore-events-title">
-        <div className="section-heading"><span>EXPLORE</span><h2 id="explore-events-title">최근 확인된 Event</h2></div>
+        <div className="section-heading"><span>RELATE</span><h2 id="explore-events-title">최근 확인된 Event</h2></div>
         {exploreEventsState.loading && <Status busy>확인된 Event를 불러오는 중입니다.</Status>}
         {exploreEventsState.error && <ErrorState error={exploreEventsState.error} subject="Event" retry={loadExploreEvents} />}
         {!exploreEventsState.loading && !exploreEventsState.error && exploreEventsState.data.length === 0
           && <Status>현재 AIRA에서 확인해 보여줄 수 있는 Event가 없습니다.</Status>}
-        <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={`${item.eventId}-${item.companyId}`}>
-          <p className="eyebrow">{item.companyName}</p><h3>{item.title}</h3>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+        <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={item.eventId}>
+          <p className="eyebrow">{item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.title}</h3>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
           <button type="button" className="secondary-action"
-            onClick={() => openEventDetail(item.eventId, item.companyId)}>Event 상세 보기</button>
+            onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
         </article>)}</div>
       </section>
 
-      {(eventDetailState.loading || eventDetailState.error || eventDetailState.data) &&
+      {
         <section id="event-detail" className="content-section event-section" aria-labelledby="event-detail-title">
-          <div className="section-heading"><span>EVENT DETAIL</span><h2 id="event-detail-title">Event 상세</h2></div>
-          {eventDetailState.loading && <Status busy>Event 상세를 불러오는 중입니다.</Status>}
+          <div className="section-heading"><span>ASSESS · CURRENT EVENT</span><h2 id="event-detail-title">Event 상세</h2></div>
+          {!eventDetailState.loading && !eventDetailState.error && !eventDetailState.data && <Status>Event를 선택하면 Current 분석과 근거를 확인할 수 있습니다.</Status>}{eventDetailState.loading && <Status busy>Event 상세를 불러오는 중입니다.</Status>}
           {eventDetailState.error?.status === 404 &&
             <Status>이 Event는 현재 공개 상세로 제공되지 않습니다.</Status>}
           {eventDetailState.error && eventDetailState.error.status !== 404 &&
@@ -520,7 +563,7 @@ export default function App() {
             <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT</p>
               <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
               <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
-              <p className="event-meta">{eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10)}</p>
+              <p className="event-meta">{eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
             </section>
             <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
               {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
@@ -529,9 +572,10 @@ export default function App() {
                 <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
               </div>)}
             </section>
-            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 해석</h3>
+            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 해석</h3><p>Current — 현재 분석</p>
               {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
               {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
+                <p>Assessment ID {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
                 <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
                 <p className="assessment-meta">중요도 {eventDetailState.data.assessment.importance} · 확신 {eventDetailState.data.assessment.confidence} · {eventDetailState.data.assessment.method}</p>
               </div>}
@@ -574,9 +618,10 @@ export default function App() {
           </article>}
         </section>}
 
-      <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>01</span><h2 id="companies-title">기업 선택</h2></div>
+      <section id="companies" className="content-section" aria-labelledby="companies-title"><div className="section-heading"><span>INSPECT</span><h2 id="companies-title">기업 선택</h2></div>
+        {!companiesState.loading && !companiesState.error && search.trim() && !companiesState.data.some(company => company.canonicalName.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) && <Status>이름이 일치하는 회사가 없습니다.</Status>}
         {companiesState.loading && <Status busy>기업을 불러오는 중입니다.</Status>}{companiesState.error && <ErrorState error={companiesState.error} subject="기업" retry={loadCompanies} />}{!companiesState.loading && !companiesState.error && companiesState.data.length === 0 && <Status>현재 확인할 수 있는 기업이 없습니다. 데이터가 준비되면 이곳에 표시됩니다.</Status>}
-        <div className="company-list">{companiesState.data.map(company => <button key={company.companyId} type="button" className={`company-option ${selectedCompany?.companyId === company.companyId ? 'selected' : ''}`} aria-pressed={selectedCompany?.companyId === company.companyId} onClick={() => selectCompany(company)}><span className="company-name">{company.canonicalName}</span><span className="company-meta">{company.countryCode === 'KR' ? '대한민국' : company.countryCode ?? '국가 미상'}</span><span aria-hidden="true">→</span></button>)}</div>
+        <div className="company-list">{companiesState.data.filter(company => company.canonicalName.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())).map(company => <button key={company.companyId} type="button" className={`company-option ${selectedCompany?.companyId === company.companyId ? 'selected' : ''}`} aria-pressed={selectedCompany?.companyId === company.companyId} onClick={() => selectCompany(company)}><span className="company-name">{company.canonicalName}</span><span className="company-meta">{company.countryCode === 'KR' ? '대한민국' : company.countryCode ?? '국가 미상'}</span><span aria-hidden="true">→</span></button>)}</div>
       </section>
 
       {selectedCompany && <section className="content-section" aria-labelledby="period-title">
@@ -600,14 +645,15 @@ export default function App() {
         {!eventsState.loading && !eventsState.error && eventsState.data.length === 0 && <Status>현재 근거와 함께 확인할 사건이 없습니다.</Status>}
         <div className="event-list">{eventsState.data.map(item => <article id={`event-${item.eventId}`} tabIndex="-1" key={item.eventId} className={`event-card ${highlightedEventId === item.eventId ? 'insight-target' : ''}`}>
           <p className="eyebrow">WHAT HAPPENED</p><h3>{item.title}</h3>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10)}</p>
+          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
           {item.assessment
-            ? <div className="assessment"><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
+            ? <div className="assessment"><p>Current — 현재 분석</p><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
               <h4>아직 확인할 점</h4><p>{item.assessment.uncertainty}</p>
               <p className="assessment-meta">중요도 {item.assessment.importance} · 확신 {item.assessment.confidence} · 규칙 기반 분석</p></div>
             : <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
-          <div className="event-evidence"><strong>{item.evidence.sourceName}</strong><span>공시 식별자 {item.evidence.externalId}</span>
-            <a href={item.evidence.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>
+          <button onClick={() => openEventDetail(item.eventId, selectedCompany.companyId)}>현재 Event와 분석 근거 보기</button>
+          {item.evidence.map(reference => <div className="event-evidence" key={reference.evidenceId}><strong>{reference.sourceName}</strong><span>공시 식별자 {reference.externalId} · revision {reference.revision}</span>
+            <a href={reference.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>)}
         </article>)}</div>
       </section>}
     </main>

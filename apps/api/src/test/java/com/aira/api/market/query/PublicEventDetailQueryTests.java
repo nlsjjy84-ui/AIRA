@@ -102,6 +102,12 @@ class PublicEventDetailQueryTests {
     }
 
     @Test
+    void completedTerminalWithoutAssessmentEvidenceIsNotPublishedAsCurrent() {
+        addAssessment(id(60), EVENT, null, "invalid completed assessment");
+        assertNull(query.find(EVENT).assessment());
+    }
+
+    @Test
     void leavesAssessmentAbsentForMultipleTerminalsWithoutChoosingByUuid() {
         addAssessment(id(60), EVENT, null, "first");
         addAssessment(id(61), EVENT, null, "second");

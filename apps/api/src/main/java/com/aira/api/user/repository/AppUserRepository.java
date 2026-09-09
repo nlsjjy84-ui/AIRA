@@ -13,6 +13,10 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     boolean existsByNicknameNormalized(String nicknameNormalized);
     Optional<AppUser> findByNicknameNormalized(String nicknameNormalized);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select appUser from AppUser appUser where appUser.id = :id")
+    Optional<AppUser> findByIdForInterest(@Param("id") UUID id);
+
     @Lock(LockModeType.PESSIMISTIC_READ)
     @Query("select appUser from AppUser appUser where appUser.id = :id")
     Optional<AppUser> findByIdForSession(@Param("id") UUID id);

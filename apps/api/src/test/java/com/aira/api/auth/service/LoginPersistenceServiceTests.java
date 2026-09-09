@@ -55,6 +55,16 @@ class LoginPersistenceServiceTests {
     }
 
     @Test
+    void passwordChangedAfterVerificationCreatesNoSessionEvenWithCachedCredential() {
+        Account account = account("ChangedUser", "changeduser");
+        jdbc.update("update authentication_credential set password_hash = '$argon2id$changed' where id = ?",
+                account.credential().getId());
+        assertThrows(AuthenticationFailedException.class,
+                () -> persistence.save(account.user(), account.credential(), new byte[32]));
+        assertEquals(0, sessions.count());
+    }
+
+    @Test
     void revokedCredentialAfterPasswordVerificationCreatesNoSession() {
         Account account = account("RevokedUser", "revokeduser");
         jdbc.update("update authentication_credential set status = 'REVOKED' where id = ?",

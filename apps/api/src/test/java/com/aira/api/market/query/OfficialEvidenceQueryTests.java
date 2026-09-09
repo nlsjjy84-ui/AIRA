@@ -68,7 +68,7 @@ class OfficialEvidenceQueryTests {
     }
 
     @Test
-    void returnsOnlyEvidenceUsedByUniqueCurrentAssessmentOfPublicEvent() {
+    void historicalAssessmentEvidenceRemainsReachableAfterSupersession() {
         UUID directEventEvidence = addEvidence(id(12), "EVENT-12", "stored://event/12");
         UUID assessmentEvidence = addEvidence(id(13), "ASSESS-13", "stored://assessment/13");
         UUID predecessorEvidence = addEvidence(id(14), "OLD-14", "stored://assessment/14");
@@ -80,12 +80,11 @@ class OfficialEvidenceQueryTests {
         jdbc.update("INSERT INTO assessment_evidence VALUES(?,?)", terminal, assessmentEvidence);
 
         assertEquals(assessmentEvidence, query.find(assessmentEvidence).evidenceId());
-        assertThrows(OfficialEvidenceNotFoundException.class,
-                () -> query.find(predecessorEvidence));
+        assertEquals(predecessorEvidence, query.find(predecessorEvidence).evidenceId());
     }
 
     @Test
-    void ambiguousAssessmentTerminalsDoNotCreatePublicReachability() {
+    void historicalEvidenceReachabilityDoesNotChooseACurrentAssessment() {
         UUID direct = addEvidence(id(15), "EVENT-15", "stored://event/15");
         UUID internal = addEvidence(id(16), "AMBIG-16", "stored://assessment/16");
         UUID event = publicEvent(id(32));
@@ -93,7 +92,7 @@ class OfficialEvidenceQueryTests {
         UUID first = addAssessment(id(42), event, null);
         addAssessment(id(43), event, null);
         jdbc.update("INSERT INTO assessment_evidence VALUES(?,?)", first, internal);
-        assertThrows(OfficialEvidenceNotFoundException.class, () -> query.find(internal));
+        assertEquals(internal, query.find(internal).evidenceId());
     }
 
     @Test

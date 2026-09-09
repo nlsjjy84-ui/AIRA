@@ -40,6 +40,11 @@ public class RecoveryEmailVerificationService {
 
     public boolean confirm(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) return false;
-        return store.confirm(tokenHasher.hash(rawToken), OffsetDateTime.now(clock));
+        try {
+            return store.confirm(tokenHasher.hash(rawToken), OffsetDateTime.now(clock));
+        } catch (org.springframework.dao.DuplicateKeyException conflict) {
+            // The store transaction has rolled back; never reveal another account's email.
+            return false;
+        }
     }
 }

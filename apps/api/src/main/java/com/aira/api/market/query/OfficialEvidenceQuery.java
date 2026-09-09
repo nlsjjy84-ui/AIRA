@@ -1,6 +1,5 @@
 package com.aira.api.market.query;
 
-import com.aira.api.analysis.query.TerminalAssessmentSelector;
 import com.aira.api.market.dto.OfficialEvidenceResponse;
 import com.aira.api.market.dto.OfficialEvidenceResponse.Source;
 import java.time.OffsetDateTime;
@@ -31,22 +30,14 @@ public class OfficialEvidenceQuery {
               AND EXISTS (SELECT 1 FROM event_entity ee JOIN entity en ON en.id=ee.entity_id
                           WHERE ee.event_id=ev.id AND en.entity_type='COMPANY' AND en.active=true)
             """;
-    static final String ASSESSMENT_EVENT_SQL = """
-            SELECT DISTINCT a.event_id FROM assessment_evidence ae
+    static final String HISTORICAL_ASSESSMENT_REACHABLE_SQL = """
+            SELECT count(*) FROM assessment_evidence ae
             JOIN assessment a ON a.id=ae.assessment_id
             JOIN event ev ON ev.id=a.event_id
             WHERE ae.evidence_id=? AND a.status='COMPLETED' AND ev.status='CONFIRMED'
               AND EXISTS (SELECT 1 FROM event_evidence eve WHERE eve.event_id=ev.id)
               AND EXISTS (SELECT 1 FROM event_entity ee JOIN entity en ON en.id=ee.entity_id
                           WHERE ee.event_id=ev.id AND en.entity_type='COMPANY' AND en.active=true)
-            """;
-    static final String ASSESSMENT_SQL = """
-            SELECT a.id,a.event_id,a.supersedes_assessment_id,predecessor.event_id
-            FROM assessment a LEFT JOIN assessment predecessor ON predecessor.id=a.supersedes_assessment_id
-            WHERE a.event_id=? AND a.status='COMPLETED'
-            """;
-    static final String ASSESSMENT_USES_EVIDENCE_SQL = """
-            SELECT count(*) FROM assessment_evidence WHERE assessment_id=? AND evidence_id=?
             """;
 
     private final JdbcTemplate jdbc;
@@ -73,20 +64,9 @@ public class OfficialEvidenceQuery {
         if (count(FACT_REACHABLE_SQL, evidenceId) > 0 || count(EVENT_REACHABLE_SQL, evidenceId) > 0) {
             return true;
         }
-        List<UUID> events = jdbc.query(ASSESSMENT_EVENT_SQL,
-                (rs, row) -> rs.getObject(1, UUID.class), evidenceId);
-        for (UUID eventId : events) {
-            List<AssessmentCandidate> candidates = jdbc.query(ASSESSMENT_SQL, (rs, row) ->
-                    new AssessmentCandidate(rs.getObject(1, UUID.class),
-                            rs.getObject(2, UUID.class), rs.getObject(3, UUID.class),
-                            rs.getObject(4, UUID.class)), eventId);
-            AssessmentCandidate current = TerminalAssessmentSelector.select(candidates);
-            if (current != null
-                    && count(ASSESSMENT_USES_EVIDENCE_SQL, current.assessmentId(), evidenceId) > 0) {
-                return true;
-            }
-        }
-        return false;
+        // HistoricalAssessmentQuery exposes these exact IDs even after supersession.
+        // Their original evidence must remain inspectable without selecting Current.
+        return count(HISTORICAL_ASSESSMENT_REACHABLE_SQL, evidenceId) > 0;
     }
 
     private int count(String sql, Object... arguments) {
@@ -94,6 +74,4 @@ public class OfficialEvidenceQuery {
         return count == null ? 0 : count;
     }
 
-    record AssessmentCandidate(UUID assessmentId, UUID eventId, UUID supersedesAssessmentId,
-            UUID predecessorEventId) implements TerminalAssessmentSelector.Candidate {}
 }

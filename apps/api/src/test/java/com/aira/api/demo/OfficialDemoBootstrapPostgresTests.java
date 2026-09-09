@@ -71,7 +71,7 @@ class OfficialDemoBootstrapPostgresTests {
                     """, companyId));
             var experience = companyEvents.find(companyId);
             assertEquals(1, experience.events().size());
-            assertEquals("OpenDART", experience.events().getFirst().evidence().sourceName());
+            assertEquals("OpenDART", experience.events().getFirst().evidence().getFirst().sourceName());
         }
 
         UUID userId = UUID.randomUUID();

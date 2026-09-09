@@ -17,6 +17,31 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 class RuleBasedEarningsAssessmentServiceTests {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = AssessmentStatus.class, names = {"COMPLETED", "DRAFT"})
+    void replayRejectsIncompleteOrEvidenceLessAssessmentWithoutMutatingLinks(AssessmentStatus state) throws Exception {
+        var events = mock(EventRepository.class);
+        var evidence = mock(EvidenceRepository.class);
+        var eventEvidence = mock(EventEvidenceRepository.class);
+        var assessments = mock(AssessmentRepository.class);
+        var links = mock(AssessmentEvidenceRepository.class);
+        var service = new RuleBasedEarningsAssessmentService(events,evidence,eventEvidence,assessments,links);
+        Event event = confirmedEvent();
+        Evidence source = evidence(new byte[] {1});
+        Assessment existing = assessment(event,null);
+        set(existing,"id",UUID.randomUUID());
+        set(existing,"status",state);
+        when(events.findLockedById(event.getId())).thenReturn(Optional.of(event));
+        when(evidence.findById(source.getId())).thenReturn(Optional.of(source));
+        when(eventEvidence.findById(any())).thenReturn(Optional.of(EventEvidence.supports(event,source,now())));
+        when(assessments.findByEvent_IdAndAnalysisVersionAndInputFingerprint(any(),any(),any()))
+                .thenReturn(Optional.of(existing));
+        lenient().when(links.existsById(any())).thenReturn(state == AssessmentStatus.DRAFT);
+        assertThrows(IllegalStateException.class, () -> service.assess(event.getId(),source.getId()));
+        verify(links,never()).saveAndFlush(any());
+        verify(assessments,never()).saveAndFlush(any());
+    }
+
     @Test
     void newAssessmentSupersedesTheUniqueCurrentAssessmentForTheLockedEvent() throws Exception {
         EventRepository events = mock(EventRepository.class);

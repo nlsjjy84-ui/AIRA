@@ -60,6 +60,25 @@ class OpenDartAnnualCfsAdapterTests {
     }
 
     @Test
+    void separatesFiscalPeriodUnknownOccurrenceAndCollectionForMarchYearEnd() {
+        var context = new OpenDartAnnualCfsContext("00126380", 2025, "11011", "CFS", 3);
+        var row = new OpenDartFinancialRow("20260601000123", "2025", "11011", "CFS", "IS",
+                "ifrs_Revenue", "Revenue", "2024.04.01 ~ 2025.03.31", "10", "KRW");
+        when(client.fetch("00126380", 2025)).thenReturn(success(row));
+        adapter.ingest(new OpenDartAnnualCfsRequest(context, FactPredicate.REVENUE));
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary).ingest(captor.capture());
+        var input = captor.getValue();
+        assertEquals("2024-04-01", input.periodStart().toString());
+        assertEquals("2025-03-31", input.reportingPeriodEnd().toString());
+        org.junit.jupiter.api.Assertions.assertNull(input.occurredAt());
+        org.junit.jupiter.api.Assertions.assertNull(input.evidence().publishedAt());
+        assertEquals(Instant.parse("2026-03-31T01:02:03Z"), input.evidence().collectedAt().toInstant());
+        assertTrue(input.neutralTitle().contains("2025"));
+        assertFalse(input.neutralTitle().contains("2026"));
+    }
+
+    @Test
     void ingestsAnnualCfsRevenueThroughBoundary() {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,234.50")));
 
@@ -77,6 +96,8 @@ class OpenDartAnnualCfsAdapterTests {
         assertEquals("KRW", input.currencyCode());
         assertEquals("2025-01-01", input.periodStart().toString());
         assertEquals("2025-12-31", input.periodEnd().toString());
+        org.junit.jupiter.api.Assertions.assertNull(input.occurredAt());
+        assertTrue(input.neutralTitle().contains("2025"));
         assertEquals(SourceType.REGULATOR, input.source().sourceType());
         assertEquals("opendart", input.source().externalKey());
         assertEquals("20260331000123", input.evidence().externalId());
@@ -284,6 +305,7 @@ class OpenDartAnnualCfsAdapterTests {
         var entity = constructor.newInstance();
         set(entity, "id", id);
         set(entity, "entityType", EntityType.COMPANY);
+        set(entity, "canonicalName", "Test Company");
         return entity;
     }
 

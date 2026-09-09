@@ -48,8 +48,8 @@ class PublicEventFeedQueryTests {
 
         assertEquals(1, events.size());
         assertEquals(included, events.getFirst().eventId());
-        assertEquals(COMPANY, events.getFirst().companyId());
-        assertEquals("삼성전자", events.getFirst().companyName());
+        assertEquals(COMPANY, events.getFirst().companies().getFirst().companyId());
+        assertEquals("삼성전자", events.getFirst().companies().getFirst().companyName());
         assertEquals("공식 사실 제목", events.getFirst().title());
         assertFalse(PublicEventFeedQuery.EVENT_FEED_SQL.contains("assessment"));
     }

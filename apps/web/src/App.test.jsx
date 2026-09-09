@@ -14,9 +14,9 @@ const facts = [
   { predicate: 'OPERATING_INCOME', value: 43601051000000, currency: 'KRW', evidenceId: 'evidence-1', sourceName: 'OpenDART', evidenceExternalId: '20260310002820', evidenceOriginalUrl: 'https://dart.fss.or.kr/report/viewer.do?rcept_no=20260310002820' },
 ]
 const interest = { entityId: company.companyId, entityType: 'COMPANY', canonicalName: '삼성전자', countryCode: 'KR', interestLevel: null, alertEnabled: true }
-const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CONFIRMED', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: { sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' } }
-const exploreEvent = { eventId: eventExperience.eventId, companyId: company.companyId,
-  companyName: company.canonicalName, eventType: eventExperience.eventType,
+const eventExperience = { eventId: 'event-1', eventType: 'EARNINGS', title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', occurredAt: '2025-12-31T00:00:00Z', status: 'CONFIRMED', assessment: { importance: 'MEDIUM', summary: '공식 연간 연결재무제표 공시는 해당 회계연도의 재무 결과를 확인하는 기준점입니다.', confidence: 'MEDIUM', uncertainty: '이 공시만으로 향후 실적이나 시장 영향을 판단할 수 없으며, 전기 비교와 후속 공시를 함께 확인해야 합니다.', timeHorizon: 'UNSPECIFIED', method: 'RULE' }, evidence: [{ evidenceId: 'evidence-1', revision: 1, sourceName: 'OpenDART', externalId: '20260310002820', originalUrl: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=20260310002820', title: 'OpenDART annual CFS filing' }] }
+const exploreEvent = { eventId: eventExperience.eventId,
+  companies: [{ companyId: company.companyId, companyName: company.canonicalName }], eventType: eventExperience.eventType,
   title: eventExperience.title, occurredAt: eventExperience.occurredAt }
 const eventDetail = { eventId: exploreEvent.eventId, eventType: exploreEvent.eventType,
   title: exploreEvent.title, occurredAt: exploreEvent.occurredAt,
@@ -39,8 +39,8 @@ const briefingItem = { displayOrder: 1, companies: relatedCompanies,
   occurredAt: eventExperience.occurredAt, assessmentId: 'assessment-1', analysisVersion: 'rule-v1',
   summary: eventExperience.assessment.summary, uncertainty: eventExperience.assessment.uncertainty,
   importance: 'MEDIUM', confidence: 'MEDIUM', completedAt: '2026-08-22T01:00:00Z',
-  evidence: [{ evidenceId: eventExperience.evidence.evidenceId,
-    externalId: eventExperience.evidence.externalId, originalUrl: eventExperience.evidence.originalUrl,
+  evidence: [{ evidenceId: eventExperience.evidence[0].evidenceId,
+    externalId: eventExperience.evidence[0].externalId, originalUrl: eventExperience.evidence[0].originalUrl,
     sourceName: 'OpenDART' }] }
 const alertItem = { alertId: 'alert-1', companies: relatedCompanies,
   eventId: eventExperience.eventId, eventTitle: eventExperience.title, eventType: eventExperience.eventType,
@@ -101,6 +101,103 @@ beforeEach(() => { document.cookie = 'XSRF-TOKEN=test-csrf; path=/' })
 afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'; window.history.replaceState({}, '', '/') })
 
 describe('authenticated interest and return experience', () => {
+  it('separates perspective selection, header search, workflow and user settings', async () => {
+    global.fetch = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } }).fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
+    expect(within(flow).getAllByRole('link').map(link => link.textContent)).toEqual(['MAIN', 'Ask', 'Inspect', 'Relate', 'Assess'])
+    const ask = screen.getByRole('region', { name: 'Ask — 확인할 관점' })
+    expect(within(ask).queryByRole('textbox')).not.toBeInTheDocument()
+    await user.click(within(ask).getByRole('radio', { name: '사건과 관련 회사' }))
+    expect(within(ask).getByRole('link')).toHaveAttribute('href', '#events')
+    expect(screen.queryByRole('heading', { name: '계정 복구 이메일' })).not.toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '계정 설정 열기' }))
+    expect(screen.getByRole('heading', { name: '계정 복구 이메일' })).toBeInTheDocument()
+    await user.type(screen.getByRole('searchbox', { name: '검색' }), '없는회사')
+    const picker = screen.getByRole('region', { name: '기업 선택' })
+    expect(within(picker).queryByRole('button')).not.toBeInTheDocument()
+    await user.clear(screen.getByRole('searchbox', { name: '검색' }))
+    expect(await within(picker).findByRole('button', { name: /삼성전자/ })).toBeInTheDocument()
+  })
+
+  it('opens the briefing assessment by exact identity without substituting Current', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
+      'GET /api/assessments/assessment-1': () => json({ assessmentId: 'assessment-1', eventId: 'event-1', analysisVersion: 'old-v1', method: 'RULE', confidence: 'LOW', uncertainty: 'Old uncertainty', completedAt: '2026-08-22T01:00:00Z', evidenceIds: ['old-evidence'] }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '당시 Assessment 보기' }))
+    const historical = screen.getByRole('region', { name: 'Historical Exact Assessment' })
+    expect(await within(historical).findByText(/old-v1/)).toBeInTheDocument()
+    expect(within(historical).queryByText('Current AIRA context')).not.toBeInTheDocument()
+    await user.click(within(historical).getByRole('button', { name: '당시 근거 old-evidence' }))
+    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/old-evidence', expect.anything())
+  })
+
+  it('ignores a slower Event response after a different Event was selected', async () => {
+    let completeFirst
+    global.fetch = server({ overrides: {
+      'GET /api/events': () => json({ events: [exploreEvent, { ...exploreEvent, eventId: 'event-2', title: 'Second event' }] }),
+      'GET /api/events/event-1': () => new Promise(resolve => { completeFirst = resolve }),
+      'GET /api/events/event-2': () => json({ ...eventDetail, eventId: 'event-2', title: 'Second detail' }),
+    } }).fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const feed = screen.getByRole('region', { name: '최근 확인된 Event' })
+    const buttons = await within(feed).findAllByRole('button', { name: 'Event 상세 보기' })
+    await user.click(buttons[0]); await user.click(buttons[1])
+    expect(await screen.findByRole('heading', { name: 'Second detail' })).toBeInTheDocument()
+    completeFirst(await json(eventDetail))
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Event 상세' })).not.toHaveTextContent(eventDetail.title))
+  })
+
+  it('does not restore a previous users alert detail after logout and login', async () => {
+    let completeDetail
+    const backend = server({ user: { userId: 'old-user', nickname: 'OldUser' }, interests: [interest], overrides: {
+      'POST /api/me/alerts/reconcile': () => json({ alerts: [alertItem] }),
+      'GET /api/me/alerts/alert-1': () => new Promise(resolve => { completeDetail = resolve }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: '알림 상세 보기' }))
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    await user.click(await screen.findByRole('button', { name: '로그인', exact: true }))
+    const dialog = screen.getByRole('dialog')
+    await user.type(within(dialog).getByLabelText('닉네임'), 'ReturnUser')
+    await user.type(dialog.querySelector('#password'), 'correct-password-value')
+    await user.click(within(dialog).getByRole('button', { name: '로그인', exact: true }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    completeDetail(await json({ ...alertItem, summary: 'Previous user private detail' }))
+    await waitFor(() => expect(screen.queryByText('Previous user private detail')).not.toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: '정확한 알림 상세' })).not.toBeInTheDocument()
+  })
+  it('renders one event with all companies and all evidence revisions and an unknown occurrence', async () => {
+    const references = [
+      { evidenceId: 'revision-1', revision: 1, sourceName: 'Registry', externalId: 'FILING', originalUrl: 'https://official.test/1', title: 'First' },
+      { evidenceId: 'revision-2', revision: 2, sourceName: 'Registry', externalId: 'FILING', originalUrl: 'https://official.test/2', title: 'Second' },
+    ]
+    const backend = server({ overrides: {
+      'GET /api/events': () => json({ events: [{ ...exploreEvent, companies: relatedCompanies, occurredAt: null }] }),
+      [`GET /api/companies/${company.companyId}/events`]: () => json({ companyId: company.companyId,
+        events: [{ ...eventExperience, occurredAt: null, evidence: references }] }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const explore = (await screen.findByRole('heading', { name: '최근 확인된 Event' })).closest('section')
+    await within(explore).findByText('관련회사 A · 관련회사 B')
+    expect(within(explore).getAllByRole('article')).toHaveLength(1)
+    expect(within(explore).getByText(/발생시각 미상/)).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /삼성전자.*대한민국/ }))
+    const companySection = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
+    await within(companySection).findByText(/revision 2/)
+    expect(within(companySection).getAllByRole('article')).toHaveLength(1)
+    expect(within(companySection).getAllByRole('link', { name: /근거 원문 확인/ })).toHaveLength(2)
+  })
+
   it('opens event detail from explore and separates factual event, event evidence, assessment, and assessment evidence', async () => {
     const backend = server()
     global.fetch = backend.fetch
@@ -272,7 +369,7 @@ describe('authenticated interest and return experience', () => {
     expect(within(events).getByRole('heading', { name: eventExperience.title })).toBeInTheDocument()
     expect(within(events).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
     expect(within(events).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
-    expect(within(events).getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
+    expect(within(events).getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence[0].originalUrl)
     expect(within(events).queryByText(/매수|매도|추천/)).not.toBeInTheDocument()
   })
 
@@ -477,6 +574,7 @@ describe('authenticated interest and return experience', () => {
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
+    await user.click(await screen.findByRole('button', { name: '계정 설정 열기' }))
     const section = (await screen.findByRole('heading', { name: '계정 복구 이메일' })).closest('section')
     await user.type(within(section).getByLabelText('복구 이메일'), 'private@example.com')
     await user.click(within(section).getByRole('button', { name: '확인 메일 보내기' }))
@@ -510,7 +608,7 @@ describe('authenticated interest and return experience', () => {
     expect(within(briefing).getByText('관심회사로 저장한 회사의 AIRA 분석입니다.')).toBeInTheDocument()
     expect(within(briefing).getByText(/정리 기간/)).toBeInTheDocument()
     expect(within(briefing).getByText(/브리핑 생성/)).toBeInTheDocument()
-    expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence.originalUrl)
+    expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence[0].originalUrl)
     expect(within(briefing).queryByText(/매수|매도|추천|알림/)).not.toBeInTheDocument()
     await userEvent.setup().click(within(briefing).getByRole('button', { name: 'Event 상세 보기' }))
     expect(await screen.findByRole('heading', { name: 'Event 상세' })).toBeInTheDocument()

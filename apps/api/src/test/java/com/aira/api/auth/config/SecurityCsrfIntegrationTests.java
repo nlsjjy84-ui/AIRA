@@ -86,13 +86,11 @@ class SecurityCsrfIntegrationTests {
     @Test
     void userInterestEndpointsRequireAuthentication() throws Exception {
         mvc.perform(get("/api/me"))
-                .andExpect(result -> assertTrue(
-                        result.getResponse().getStatus() == 401
-                                || result.getResponse().getStatus() == 403));
+                .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/me/interests"))
-                .andExpect(result -> assertTrue(
-                        result.getResponse().getStatus() == 401
-                                || result.getResponse().getStatus() == 403));
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/me/interests/00000000-0000-0000-0000-000000000099").with(csrf()))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

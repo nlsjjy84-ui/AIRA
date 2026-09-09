@@ -13,7 +13,7 @@ public record EarningsNormalizationInput(
 
     public EarningsNormalizationInput {
         if (subjectEntityId == null || evidenceId == null || reportingPeriodEnd == null
-                || neutralTitle == null || neutralTitle.isBlank() || occurredAt == null) {
+                || neutralTitle == null || neutralTitle.isBlank()) {
             throw new IllegalArgumentException("Earnings normalization input values are required");
         }
     }

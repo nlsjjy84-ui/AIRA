@@ -11,6 +11,7 @@ import com.aira.api.market.domain.MarketEntity;
 import com.aira.api.market.repository.EventEntityRepository;
 import com.aira.api.market.repository.EventEvidenceRepository;
 import com.aira.api.market.repository.EventRepository;
+import com.aira.api.market.repository.EventRegistrationStore;
 import com.aira.api.market.repository.EvidenceRepository;
 import com.aira.api.market.repository.MarketEntityRepository;
 import java.time.OffsetDateTime;
@@ -25,15 +26,18 @@ public class EarningsEventNormalizationService {
     private final EventEvidenceRepository eventEvidence;
     private final MarketEntityRepository entities;
     private final EvidenceRepository evidence;
+    private final EventRegistrationStore registrations;
 
     public EarningsEventNormalizationService(EventRepository events,
             EventEntityRepository eventEntities, EventEvidenceRepository eventEvidence,
-            MarketEntityRepository entities, EvidenceRepository evidence) {
+            MarketEntityRepository entities, EvidenceRepository evidence,
+            EventRegistrationStore registrations) {
         this.events = events;
         this.eventEntities = eventEntities;
         this.eventEvidence = eventEvidence;
         this.entities = entities;
         this.evidence = evidence;
+        this.registrations = registrations;
     }
 
     @Transactional
@@ -52,13 +56,10 @@ public class EarningsEventNormalizationService {
         byte[] dedupKey = EarningsEventDedupKey.create(
                 subject.getCanonicalKey(), input.reportingPeriodEnd());
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-        Event event = events.findByDedupKey(dedupKey).orElse(null);
-        if (event == null) {
-            event = events.saveAndFlush(Event.createEarnings(input.neutralTitle(),
-                    input.occurredAt(), supportingEvidence.getCollectedAt(), dedupKey, now));
-        } else {
-            event.observeAt(supportingEvidence.getCollectedAt(), now);
-        }
+        Event event = registrations.registerOrGetLocked(Event.createEarnings(input.neutralTitle(),
+                input.occurredAt(), supportingEvidence.getCollectedAt(), dedupKey, now));
+        // Compare against the refreshed, locked row; older observations never move it back.
+        event.observeAt(supportingEvidence.getCollectedAt(), now);
 
         EventEntityId entityLinkId = new EventEntityId(event.getId(), subject.getId());
         var existingEntityLink = eventEntities.findById(entityLinkId);

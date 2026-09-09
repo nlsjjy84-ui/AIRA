@@ -2,9 +2,6 @@ package com.aira.api.analysis.service;
 
 import java.util.List;
 import java.util.UUID;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import com.aira.api.market.repository.EventRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,13 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class OfficialEventAssessmentPreparationOperation {
     private final JdbcTemplate jdbc;
     private final RuleBasedEarningsAssessmentService assessments;
-    private final EventRepository events;
 
     public OfficialEventAssessmentPreparationOperation(JdbcTemplate jdbc,
-            RuleBasedEarningsAssessmentService assessments, EventRepository events) {
+            RuleBasedEarningsAssessmentService assessments) {
         this.jdbc = jdbc;
         this.assessments = assessments;
-        this.events = events;
     }
 
     @Transactional
@@ -40,8 +35,6 @@ public class OfficialEventAssessmentPreparationOperation {
                 """, (rs, row) -> new EventEvidencePair(rs.getObject(1, UUID.class),
                         rs.getObject(2, UUID.class), rs.getObject(3, UUID.class), rs.getString(4)));
         return pairs.stream().map(pair -> {
-            events.findById(pair.eventId()).orElseThrow().describeOfficialAnnualFiling(
-                    pair.companyName(), OffsetDateTime.now(ZoneOffset.UTC));
             return new PreparedAssessment(
                     assessments.assess(pair.eventId(), pair.evidenceId()).getId(),
                     pair.eventId(), pair.evidenceId(), pair.companyId(), pair.companyName());

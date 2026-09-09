@@ -59,21 +59,28 @@ public class RuleBasedEarningsAssessmentService {
             throw new IllegalArgumentException("Evidence does not support the event");
         }
         var supportingEvidence = evidence.findById(evidenceId).orElseThrow();
-        byte[] fingerprint = fingerprint(eventId, supportingEvidence.getContentHash());
+        byte[] fingerprint = fingerprint(eventId, supportingEvidence.getContentHash(), evidenceId);
         var existing = assessments.findByEvent_IdAndAnalysisVersionAndInputFingerprint(
                 eventId, VERSION, fingerprint);
-        Assessment assessment = existing.orElseGet(() -> {
-            Assessment current = currentAssessment(eventId);
-            return assessments.saveAndFlush(Assessment.completedRule(event, VERSION,
+        if (existing.isPresent()) {
+            requireReusable(existing.get(), evidenceId);
+            return existing.get();
+        }
+        // Preserve pre-integrity replay only when that exact evidence was already used.
+        var legacy = assessments.findByEvent_IdAndAnalysisVersionAndInputFingerprint(
+                eventId, VERSION, fingerprint(eventId, supportingEvidence.getContentHash(), null));
+        if (legacy.isPresent() && assessmentEvidence.existsById(
+                new AssessmentEvidenceId(legacy.get().getId(), evidenceId))) {
+            requireReusable(legacy.get(), evidenceId);
+            return legacy.get();
+        }
+        Assessment current = currentAssessment(eventId);
+        Assessment assessment = assessments.saveAndFlush(Assessment.completedRule(event, VERSION,
                     Importance.MEDIUM, SUMMARY, Confidence.MEDIUM, UNCERTAINTY,
                     TimeHorizon.UNSPECIFIED, fingerprint, current,
                     OffsetDateTime.now(ZoneOffset.UTC)));
-        });
-        var linkId = new AssessmentEvidenceId(assessment.getId(), evidenceId);
-        if (!assessmentEvidence.existsById(linkId)) {
-            assessmentEvidence.saveAndFlush(AssessmentEvidence.supports(assessment, supportingEvidence,
-                    OffsetDateTime.now(ZoneOffset.UTC)));
-        }
+        assessmentEvidence.saveAndFlush(AssessmentEvidence.supports(assessment, supportingEvidence,
+                OffsetDateTime.now(ZoneOffset.UTC)));
         return assessment;
     }
 
@@ -90,6 +97,13 @@ public class RuleBasedEarningsAssessmentService {
         return current == null ? null : current.assessment();
     }
 
+    private void requireReusable(Assessment assessment, UUID evidenceId) {
+        if (assessment.getStatus() != AssessmentStatus.COMPLETED
+                || !assessmentEvidence.existsById(new AssessmentEvidenceId(assessment.getId(), evidenceId))) {
+            throw new IllegalStateException("Existing assessment is incomplete or lacks its exact evidence");
+        }
+    }
+
     private record AssessmentCandidate(Assessment assessment, Assessment predecessor)
             implements TerminalAssessmentSelector.Candidate {
         @Override public UUID assessmentId() { return assessment.getId(); }
@@ -102,13 +116,17 @@ public class RuleBasedEarningsAssessmentService {
         }
     }
 
-    private static byte[] fingerprint(UUID eventId, byte[] evidenceHash) {
+    private static byte[] fingerprint(UUID eventId, byte[] evidenceHash, UUID evidenceId) {
         try {
             var digest = MessageDigest.getInstance("SHA-256");
             digest.update(VERSION.getBytes(StandardCharsets.UTF_8));
             digest.update(ByteBuffer.allocate(16).putLong(eventId.getMostSignificantBits())
                     .putLong(eventId.getLeastSignificantBits()).array());
             digest.update(evidenceHash);
+            if (evidenceId != null) {
+                digest.update(ByteBuffer.allocate(16).putLong(evidenceId.getMostSignificantBits())
+                        .putLong(evidenceId.getLeastSignificantBits()).array());
+            }
             return digest.digest();
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("SHA-256 is unavailable", impossible);

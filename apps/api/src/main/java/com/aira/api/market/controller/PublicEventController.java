@@ -19,8 +19,8 @@ public class PublicEventController {
     @GetMapping
     public PublicEventsResponse findRecentEvents() {
         return new PublicEventsResponse(query.findRecentEvents().stream()
-                .map(event -> new PublicEventResponse(event.eventId(), event.companyId(),
-                        event.companyName(), event.eventType(), event.title(), event.occurredAt()))
+                .map(event -> new PublicEventResponse(event.eventId(), event.companies(),
+                        event.eventType(), event.title(), event.occurredAt()))
                 .toList());
     }
 }

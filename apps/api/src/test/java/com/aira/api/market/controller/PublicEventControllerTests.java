@@ -30,15 +30,16 @@ class PublicEventControllerTests {
     void exposesFactualEventAndNavigationIdentityWithoutAssessmentFields() throws Exception {
         UUID eventId = UUID.randomUUID();
         UUID companyId = UUID.randomUUID();
-        when(query.findRecentEvents()).thenReturn(List.of(new PublicEventView(eventId, companyId,
-                "삼성전자", "EARNINGS", "공식 사실 제목",
+        when(query.findRecentEvents()).thenReturn(List.of(new PublicEventView(eventId,
+                List.of(new com.aira.api.market.dto.PublicEventResponse.Company(companyId, "삼성전자")),
+                "EARNINGS", "공식 사실 제목",
                 OffsetDateTime.parse("2026-08-25T00:00:00Z"))));
 
         mvc.perform(get("/api/events"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.events[0].eventId").value(eventId.toString()))
-                .andExpect(jsonPath("$.events[0].companyId").value(companyId.toString()))
-                .andExpect(jsonPath("$.events[0].companyName").value("삼성전자"))
+                .andExpect(jsonPath("$.events[0].companies[0].companyId").value(companyId.toString()))
+                .andExpect(jsonPath("$.events[0].companies[0].companyName").value("삼성전자"))
                 .andExpect(jsonPath("$.events[0].eventType").value("EARNINGS"))
                 .andExpect(jsonPath("$.events[0].title").value("공식 사실 제목"))
                 .andExpect(jsonPath("$.events[0].occurredAt").value("2026-08-25T00:00:00Z"))

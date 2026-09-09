@@ -5,7 +5,6 @@ import com.aira.api.market.domain.MarketEntity;
 import com.aira.api.market.repository.MarketEntityRepository;
 import com.aira.api.user.domain.UserInterest;
 import com.aira.api.user.dto.UserInterestResponse;
-import com.aira.api.user.exception.DuplicateUserInterestException;
 import com.aira.api.user.exception.InterestEntityNotFoundException;
 import com.aira.api.user.exception.InvalidInterestEntityException;
 import com.aira.api.user.repository.AppUserRepository;
@@ -16,7 +15,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,32 +43,30 @@ public class UserInterestService {
 
     @Transactional
     public UserInterestResponse add(UUID userId, UUID entityId) {
+        users.findByIdForInterest(userId).orElseThrow();
+        var existing = interests.findByUser_IdAndMarketEntity_Id(userId, entityId);
+        if (existing.isPresent()) return toResponse(existing.get());
         MarketEntity entity = entities.findById(entityId)
                 .orElseThrow(InterestEntityNotFoundException::new);
         validate(entity);
-        if (interests.existsByUser_IdAndMarketEntity_Id(userId, entityId)) {
-            throw new DuplicateUserInterestException();
-        }
 
         UserInterest interest = UserInterest.create(
-                users.getReferenceById(userId), entity, OffsetDateTime.now(ZoneOffset.UTC));
-        try {
-            return toResponse(interests.saveAndFlush(interest));
-        } catch (DataIntegrityViolationException exception) {
-            throw new DuplicateUserInterestException();
-        }
+                users.getReferenceById(userId), entity, OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        return toResponse(interests.saveAndFlush(interest));
     }
 
     @Transactional
     public void remove(UUID userId, UUID entityId) {
+        users.findByIdForInterest(userId).orElseThrow();
         interests.deleteByUser_IdAndMarketEntity_Id(userId, entityId);
     }
 
     @Transactional
     public UserInterestResponse setAlertEnabled(UUID userId, UUID entityId, boolean enabled) {
+        users.findByIdForInterest(userId).orElseThrow();
         UserInterest interest = interests.findByUser_IdAndMarketEntity_Id(userId, entityId)
                 .orElseThrow(InterestEntityNotFoundException::new);
-        interest.setAlertEnabled(enabled, OffsetDateTime.now(ZoneOffset.UTC));
+        interest.setAlertEnabled(enabled, OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(java.time.temporal.ChronoUnit.MICROS));
         return toResponse(interests.saveAndFlush(interest));
     }
 

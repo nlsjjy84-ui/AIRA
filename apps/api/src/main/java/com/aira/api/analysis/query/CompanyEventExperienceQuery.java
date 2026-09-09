@@ -13,15 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CompanyEventExperienceQuery {
     static final String EVENT_SQL = """
-            SELECT ev.id, ev.event_type, ev.title, ev.occurred_at, ev.status,
-                   e.id, s.name, e.external_id, e.original_url, e.title
+            SELECT ev.id, ev.event_type, ev.title, ev.occurred_at, ev.status
             FROM event ev
-            JOIN event_entity ee ON ee.event_id = ev.id AND ee.entity_id = ?
-            JOIN event_evidence eve ON eve.event_id = ev.id
-            JOIN evidence e ON e.id = eve.evidence_id
-            JOIN source s ON s.id = e.source_id
             WHERE ev.status = 'CONFIRMED'
-            ORDER BY ev.occurred_at DESC, ev.id, e.id
+              AND EXISTS (SELECT 1 FROM event_entity ee WHERE ee.event_id=ev.id AND ee.entity_id=?)
+              AND EXISTS (SELECT 1 FROM event_evidence eve JOIN evidence e ON e.id=eve.evidence_id
+                          JOIN source s ON s.id=e.source_id WHERE eve.event_id=ev.id)
+            ORDER BY ev.occurred_at DESC NULLS LAST, ev.id
             """;
     static final String CURRENT_ASSESSMENT_SQL = """
             SELECT a.id, a.event_id, a.supersedes_assessment_id, predecessor.event_id,
@@ -56,8 +54,12 @@ public class CompanyEventExperienceQuery {
                                     assessmentRs.getBoolean(11)), eventId));
             return new EventExperience(eventId, rs.getString(2), rs.getString(3),
                     rs.getObject(4, java.time.OffsetDateTime.class), rs.getString(5), assessment,
-                    new EvidenceExperience(rs.getString(7), rs.getString(8),
-                            rs.getString(9), rs.getString(10)));
+                    jdbc.query("""
+                            SELECT e.id,s.name,e.external_id,e.original_url,e.title,e.revision
+                            FROM event_evidence eve JOIN evidence e ON e.id=eve.evidence_id
+                            JOIN source s ON s.id=e.source_id WHERE eve.event_id=? ORDER BY e.id
+                            """, (e, index) -> new EvidenceExperience(e.getObject(1, UUID.class),
+                            e.getString(2), e.getString(3), e.getString(4), e.getString(5), e.getInt(6)), eventId));
         }, companyId);
         return new CompanyEventExperienceResponse(companyId, events);
     }

@@ -28,6 +28,8 @@ public class SecurityConfig {
                 .formLogin(login -> login.disable())
                 .httpBasic(basic -> basic.disable())
                 .logout(logout -> logout.disable())
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(
+                        (request, response, failure) -> response.setStatus(401)))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications/confirm",

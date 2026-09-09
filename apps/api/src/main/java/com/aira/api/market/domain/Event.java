@@ -65,7 +65,7 @@ public class Event {
 
     public static Event createEarnings(String title, OffsetDateTime occurredAt,
             OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now) {
-        if (title == null || title.isBlank() || occurredAt == null || observedAt == null
+        if (title == null || title.isBlank() || observedAt == null
                 || dedupKey == null || dedupKey.length == 0 || now == null) {
             throw new IllegalArgumentException("Earnings event creation values are required");
         }
@@ -111,16 +111,6 @@ public class Event {
             throw new IllegalStateException("Only candidate events can be confirmed");
         }
         status = EventStatus.CONFIRMED;
-        updatedAt = now;
-    }
-
-    public void describeOfficialAnnualFiling(String companyName, OffsetDateTime now) {
-        if (companyName == null || companyName.isBlank() || now == null
-                || eventType != EventType.EARNINGS || occurredAt == null) {
-            throw new IllegalArgumentException("Official annual filing description values are required");
-        }
-        title = companyName.trim() + "가 " + occurredAt.getYear()
-                + " 회계연도 연간 재무결과를 공식 공시했습니다.";
         updatedAt = now;
     }
 
