@@ -54,4 +54,13 @@ class PublicEventDetailControllerTests {
         when(query.find(eventId)).thenThrow(new PublicEventNotFoundException());
         mvc.perform(get("/api/events/{eventId}", eventId)).andExpect(status().isNotFound());
     }
+
+    @Test
+    void materialEventWithoutAssessmentKeepsAssessmentAbsent() throws Exception {
+        UUID eventId = UUID.randomUUID();
+        when(query.find(eventId)).thenReturn(new PublicEventDetailResponse(eventId, "DISCLOSURE",
+                "유상증자 결정", null, List.of(), List.of(), null));
+        mvc.perform(get("/api/events/{eventId}", eventId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assessment").doesNotExist());
+    }
 }

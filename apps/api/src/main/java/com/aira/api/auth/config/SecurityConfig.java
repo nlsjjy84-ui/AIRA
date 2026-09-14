@@ -37,8 +37,17 @@ public class SecurityConfig {
                                 "/api/auth/password-reset/confirm").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications").authenticated()
+                        // Private ownership is checked behind this authenticated boundary, never by public read routes.
                         .requestMatchers("/api/me", "/api/me/**").authenticated()
                         .requestMatchers(HttpMethod.GET,
+                                "/api/search",
+                                "/api/assessments/current",
+                                "/api/securities/*/market-current",
+                                "/api/securities/*/market-series",
+                                "/api/securities/*/market-previous",
+                                "/api/companies/*/financial-facts/exact",
+                                "/api/companies/*/financial-facts/compare",
+                                "/api/companies/*/financial-facts/current",
                                 "/api/events",
                                 "/api/events/*",
                                 "/api/assessments/*",

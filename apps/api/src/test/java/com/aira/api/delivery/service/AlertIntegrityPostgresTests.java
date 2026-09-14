@@ -33,6 +33,72 @@ class AlertIntegrityPostgresTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired InAppAlertService alerts;
     @Autowired UserInterestService interests;
+    @Autowired com.aira.api.analysis.query.CurrentAssessmentQuery currentAssessments;
+    @Autowired com.aira.api.analysis.query.HistoricalAssessmentQuery historicalAssessments;
+
+    @Test void existingSecurityInterestRetainsExactPrivateDelivery() {
+        Fixture f = createFixture();
+        try {
+            jdbc.update("UPDATE entity SET entity_type='SECURITY',market_code='KOSPI',symbol='000001' WHERE id=?", f.entity());
+            OffsetDateTime enabled = interests.setAlertEnabled(f.user(), f.entity(), true).alertEnabledAt();
+            insertAssessment(f.a1(), f.event(), f.a0(), "security-a1", enabled.plusSeconds(1));
+            linkEvidence(f.a1(), f.evidence1());
+            var delivered = alerts.reconcile(f.user()).alerts();
+            assertEquals(1, delivered.size());
+            assertEquals(f.a1(), delivered.getFirst().assessmentId());
+            interests.remove(f.user(), f.entity());
+            assertEquals(f.a1(), alerts.findOwned(f.user(), delivered.getFirst().alertId()).assessmentId());
+        } finally { cleanup(f); }
+    }
+
+    @Test void oneSharedAssessmentSupportsTwoPrivateUsersAndOneDeletionDoesNotRetargetTruth() {
+        Fixture f = createFixture();
+        try {
+            OffsetDateTime firstEnabled = interests.setAlertEnabled(f.user(), f.entity(), true).alertEnabledAt();
+            jdbc.update("""
+                    INSERT INTO user_interest(id,user_id,entity_id,alert_enabled,alert_enabled_at,created_at,updated_at)
+                    VALUES(gen_random_uuid(),?,?,true,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                    """, f.otherUser(), f.entity(), firstEnabled);
+            insertAssessment(f.a1(), f.event(), f.a0(), "shared-a1", firstEnabled.plusSeconds(1));
+            linkEvidence(f.a1(), f.evidence1());
+            var first = alerts.reconcile(f.user()).alerts();
+            var second = alerts.reconcile(f.otherUser()).alerts();
+            assertEquals(1, first.size());
+            assertEquals(1, second.size());
+            assertEquals(f.a1(), first.getFirst().assessmentId());
+            assertEquals(f.a1(), second.getFirst().assessmentId());
+            assertThrows(AlertNotFoundException.class,
+                    () -> alerts.findOwned(f.otherUser(), first.getFirst().alertId()));
+            interests.remove(f.user(), f.entity());
+            assertEquals(1, alerts.reconcile(f.otherUser()).alerts().size());
+            assertEquals(1, count("SELECT count(*) FROM assessment WHERE id=?", f.a1()));
+            assertEquals(2, count("SELECT count(*) FROM alert WHERE assessment_id=?", f.a1()));
+            insertAssessment(f.a2(), f.event(), f.a1(), "shared-a2", firstEnabled.plusSeconds(2));
+            linkEvidence(f.a2(), f.evidence2());
+            assertEquals(f.a2(), currentAssessments.find(f.event()).assessmentId());
+            assertEquals(f.a1(), historicalAssessments.find(f.a1()).assessmentId());
+            assertEquals(2, alerts.reconcile(f.otherUser()).alerts().size());
+            assertEquals(1, count("SELECT count(*) FROM alert WHERE user_id=? AND assessment_id=?",
+                    f.otherUser(), f.a2()));
+        } finally { cleanup(f); }
+    }
+
+    @Test void onlyLiveOriginCanCreateAlertAndRetryReusesIt() {
+        Fixture f = createFixture();
+        try {
+            OffsetDateTime enabledAt = interests.setAlertEnabled(f.user(), f.entity(), true).alertEnabledAt();
+            insertAssessment(f.a1(), f.event(), f.a0(), "origin-v1", enabledAt.plusSeconds(1));
+            linkEvidence(f.a1(), f.evidence1());
+            jdbc.update("UPDATE event SET ingestion_origin='BACKFILL' WHERE id=?", f.event());
+            assertTrue(alerts.reconcile(f.user()).alerts().isEmpty());
+            jdbc.update("UPDATE event SET ingestion_origin='LEGACY_UNKNOWN' WHERE id=?", f.event());
+            assertTrue(alerts.reconcile(f.user()).alerts().isEmpty());
+            jdbc.update("UPDATE event SET ingestion_origin='LIVE' WHERE id=?", f.event());
+            assertEquals(1, alerts.reconcile(f.user()).alerts().size());
+            assertEquals(1, alerts.reconcile(f.user()).alerts().size());
+            assertEquals(1, count("SELECT count(*) FROM alert WHERE user_id=?", f.user()));
+        } finally { cleanup(f); }
+    }
 
     @Test
     void activationTerminalSuccessorsDedupConcurrencyHistoricalAndConstraints() throws Exception {
@@ -276,8 +342,8 @@ class AlertIntegrityPostgresTests {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         jdbc.update("""
                 INSERT INTO event(id,event_type,title,occurred_at,first_observed_at,last_observed_at,
-                                  status,created_at,updated_at)
-                VALUES(?,'EARNINGS',?,?,?,?, 'CONFIRMED',?,?)
+                                  status,created_at,updated_at,ingestion_origin)
+                VALUES(?,'EARNINGS',?,?,?,?, 'CONFIRMED',?,?,'LIVE')
                 """, event, title, now, now, now, now, now);
         jdbc.update("""
                 INSERT INTO event_entity(event_id,entity_id,relation_type,relevance)

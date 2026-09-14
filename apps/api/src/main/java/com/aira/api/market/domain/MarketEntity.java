@@ -78,6 +78,27 @@ public class MarketEntity {
         return entity;
     }
 
+    public static MarketEntity security(String officialName, String marketCode, String symbol,
+            UUID opaqueIdentity, OffsetDateTime now) {
+        if (officialName == null || officialName.isBlank() || officialName.trim().length() > 300
+                || !("KOSPI".equals(marketCode) || "KOSDAQ".equals(marketCode))
+                || symbol == null || symbol.isBlank() || symbol.length() > 64
+                || opaqueIdentity == null || now == null) {
+            throw new IllegalArgumentException("Official security identity metadata is required");
+        }
+        MarketEntity entity = new MarketEntity();
+        entity.entityType = EntityType.SECURITY;
+        entity.canonicalName = officialName.trim();
+        entity.canonicalKey = "SECURITY:" + opaqueIdentity;
+        entity.marketCode = marketCode;
+        entity.symbol = symbol;
+        entity.countryCode = "KR";
+        entity.active = true;
+        entity.createdAt = now;
+        entity.updatedAt = now;
+        return entity;
+    }
+
     private static String optionalCountryCode(String countryCode) {
         if (countryCode == null) {
             return null;

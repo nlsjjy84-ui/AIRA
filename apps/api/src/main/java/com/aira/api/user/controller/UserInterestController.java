@@ -2,6 +2,7 @@ package com.aira.api.user.controller;
 
 import com.aira.api.auth.security.AiraPrincipal;
 import com.aira.api.user.dto.UserInterestResponse;
+import com.aira.api.user.dto.InterestEligibilityResponse;
 import com.aira.api.user.service.UserInterestService;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,12 @@ public class UserInterestController {
     @GetMapping
     public List<UserInterestResponse> findAll(@AuthenticationPrincipal AiraPrincipal principal) {
         return service.findAll(principal.userId());
+    }
+
+    @GetMapping("/{entityId}/eligibility")
+    public InterestEligibilityResponse eligibility(@AuthenticationPrincipal AiraPrincipal principal,
+            @PathVariable UUID entityId) {
+        return service.eligibility(principal.userId(), entityId);
     }
 
     @PostMapping("/{entityId}")

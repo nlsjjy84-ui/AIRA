@@ -57,7 +57,7 @@ public class EarningsEventNormalizationService {
                 subject.getCanonicalKey(), input.reportingPeriodEnd());
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         Event event = registrations.registerOrGetLocked(Event.createEarnings(input.neutralTitle(),
-                input.occurredAt(), supportingEvidence.getCollectedAt(), dedupKey, now));
+                input.occurredAt(), supportingEvidence.getCollectedAt(), dedupKey, now, input.origin()));
         // Compare against the refreshed, locked row; older observations never move it back.
         event.observeAt(supportingEvidence.getCollectedAt(), now);
 

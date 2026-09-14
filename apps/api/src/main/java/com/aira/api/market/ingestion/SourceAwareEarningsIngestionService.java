@@ -51,7 +51,7 @@ public class SourceAwareEarningsIngestionService {
 
         Event event = events.normalize(new EarningsNormalizationInput(input.subjectEntityId(),
                 savedEvidence.getId(), input.reportingPeriodEnd(), input.neutralTitle(),
-                input.occurredAt()));
+                input.occurredAt(), input.origin()));
         Fact fact = facts.normalize(new EarningsFactNormalizationInput(event.getId(),
                 input.subjectEntityId(), savedEvidence.getId(), input.predicate(),
                 input.numberValue(), input.currencyCode(), input.periodStart(),

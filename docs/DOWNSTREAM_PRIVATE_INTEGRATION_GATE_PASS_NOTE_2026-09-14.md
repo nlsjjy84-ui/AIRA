@@ -1,0 +1,7 @@
+# Downstream/private integration gate PASS NOTE — 2026-09-14
+
+Shared `Event`, `Assessment`, and `Evidence` remain independent of user-owned `Interest`, `Briefing`, and `Alert`. Delivery candidates match an Interest to the exact Event subject entity ID. Both COMPANY and SECURITY targets can qualify when the Event has that same canonical subject; no COMPANY↔SECURITY propagation or identity rewrite occurs. One shared COMPLETED, Evidence-backed Assessment can produce separate private records for different users. Removing one Interest leaves shared rows and the other user's delivery unchanged; owned reads reject a different user.
+
+The PostgreSQL gate exercises A1→A2 supersession: Current selects A2 by the unique graph terminal while Historical A1 returns A1. P7 registration with no Assessment leaves zero Briefing items and Alerts. Briefing/Alert dedup and BACKFILL/LEGACY_UNKNOWN gates continue to prevent repeat or historical automatic delivery. A restricted SECURITY Interest remains readable until explicitly removed; a restricted re-add fails and an eligible re-add succeeds. Existing private delivery remains readable after Interest removal.
+
+Targeted verification: Briefing PostgreSQL 5, Alert PostgreSQL 5, Interest PostgreSQL 2, P7 PostgreSQL 6, Current Assessment query 2, Alert controller API 2, Interest controller API 3 passed (23 total). Flyway version 17 remains successful in the disposable PostgreSQL database. No migration changed.

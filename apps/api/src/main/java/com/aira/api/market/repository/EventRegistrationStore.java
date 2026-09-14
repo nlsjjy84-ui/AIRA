@@ -21,20 +21,43 @@ public class EventRegistrationStore {
     @Transactional(propagation = Propagation.MANDATORY)
     public Event registerOrGetLocked(Event candidate) {
         entityManager.flush();
-        // The existing unique index arbitrates first creation. The no-op update holds the
-        // event row lock through observation, relation creation and the caller's commit.
+        // The unique index arbitrates first creation. The no-op conflict update locks the winner
+        // without replacing its original LIVE/BACKFILL classification on retry.
         UUID id = jdbc.queryForObject("""
                 INSERT INTO event(event_type,title,occurred_at,first_observed_at,last_observed_at,
-                                  status,dedup_key,created_at,updated_at)
-                VALUES ('EARNINGS',?,?,?,?,'CANDIDATE',?,?,?)
+                                  status,dedup_key,created_at,updated_at,ingestion_origin)
+                VALUES ('EARNINGS',?,?,?,?,'CANDIDATE',?,?,?,?)
                 ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL
                 DO UPDATE SET dedup_key=EXCLUDED.dedup_key
                 RETURNING id
                 """, UUID.class, candidate.getTitle(), candidate.getOccurredAt(),
                 candidate.getFirstObservedAt(), candidate.getLastObservedAt(), candidate.getDedupKey(),
-                candidate.getCreatedAt(), candidate.getUpdatedAt());
+                candidate.getCreatedAt(), candidate.getUpdatedAt(), candidate.getIngestionOrigin().name());
         Event event = entityManager.find(Event.class, id);
         // A caller may have loaded this event before waiting on the database lock.
+        entityManager.refresh(event);
+        return event;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Event registerGenericOrGetLocked(Event candidate) {
+        if (candidate == null || candidate.getEventType() == null
+                || candidate.getEventType() == com.aira.api.market.domain.EventType.EARNINGS) {
+            throw new IllegalArgumentException("Non-earnings event candidate is required");
+        }
+        entityManager.flush();
+        // The unique-key upsert locks the winner without promoting an old BACKFILL to LIVE.
+        UUID id = jdbc.queryForObject("""
+                INSERT INTO event(event_type,title,occurred_at,first_observed_at,last_observed_at,
+                                  status,dedup_key,created_at,updated_at,ingestion_origin)
+                VALUES (?,?,?,?,?,'CANDIDATE',?,?,?,?)
+                ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL
+                DO UPDATE SET dedup_key=EXCLUDED.dedup_key
+                RETURNING id
+                """, UUID.class, candidate.getEventType().name(), candidate.getTitle(), candidate.getOccurredAt(),
+                candidate.getFirstObservedAt(), candidate.getLastObservedAt(), candidate.getDedupKey(),
+                candidate.getCreatedAt(), candidate.getUpdatedAt(), candidate.getIngestionOrigin().name());
+        Event event = entityManager.find(Event.class, id);
         entityManager.refresh(event);
         return event;
     }

@@ -429,8 +429,8 @@ export default function App() {
 
   return <>
     <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈">AIRA</a>
-      <form role="search" onSubmit={event => { event.preventDefault(); document.getElementById('companies')?.scrollIntoView?.() }}>
-        <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="회사 이름" />
+      <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
+        <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
@@ -452,7 +452,7 @@ export default function App() {
         </fieldset><a href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인</a>
       </section>
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
-      <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="#companies">기업 둘러보기</a></section>
+      <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">
         <div className="section-heading"><span>MY</span><h2 id="interests-title">내 관심회사</h2></div>

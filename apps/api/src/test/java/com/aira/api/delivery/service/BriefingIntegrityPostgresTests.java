@@ -31,6 +31,57 @@ class BriefingIntegrityPostgresTests {
 
     @Autowired JdbcTemplate jdbc;
 
+    @Test void exactSecurityInterestCanRetainBriefingWithoutCompanyPropagation() {
+        Fixture f = createFixture();
+        try {
+            jdbc.update("DELETE FROM user_interest WHERE user_id=? AND entity_id=?", f.user(), f.entity2());
+            jdbc.update("UPDATE entity SET entity_type='SECURITY',market_code='KOSPI',symbol='000001' WHERE id=?", f.entity1());
+            var briefing = serviceAt(DAY_2).getOrCreate(f.user());
+            assertEquals(f.a1(), briefing.items().getFirst().assessmentId());
+            assertEquals(1, count("SELECT count(*) FROM user_interest WHERE user_id=?", f.user()));
+            jdbc.update("DELETE FROM user_interest WHERE user_id=?", f.user());
+            assertEquals(f.a1(), serviceAt(DAY_2).findOwned(f.user(), briefing.briefingId())
+                    .items().getFirst().assessmentId());
+        } finally { cleanup(f); }
+    }
+
+    @Test void sharedAssessmentProducesPrivateBriefingsForTwoUsers() {
+        Fixture f = createFixture();
+        try {
+            jdbc.update("""
+                    INSERT INTO user_interest(id,user_id,entity_id,created_at,updated_at)
+                    VALUES(gen_random_uuid(),?,?,?,?)
+                    """, f.otherUser(), f.entity1(), utc(DAY_2.minusSeconds(1_000)),
+                    utc(DAY_2.minusSeconds(1_000)));
+            var service = serviceAt(DAY_2);
+            var first = service.getOrCreate(f.user());
+            var second = service.getOrCreate(f.otherUser());
+            assertEquals(f.a1(), first.items().getFirst().assessmentId());
+            assertEquals(f.a1(), second.items().getFirst().assessmentId());
+            assertTrue(!first.briefingId().equals(second.briefingId()));
+            assertThrows(BriefingNotFoundException.class,
+                    () -> service.findOwned(f.otherUser(), first.briefingId()));
+            jdbc.update("DELETE FROM user_interest WHERE user_id=?", f.user());
+            assertEquals(second.briefingId(), service.getOrCreate(f.otherUser()).briefingId());
+            assertEquals(1, count("SELECT count(*) FROM assessment WHERE id=?", f.a1()));
+        } finally { cleanup(f); }
+    }
+
+    @Test void onlyLiveOriginCanCreateBriefingAndRetryReusesIt() {
+        Fixture f = createFixture();
+        try {
+            jdbc.update("UPDATE event SET ingestion_origin='BACKFILL' WHERE id=?", f.event());
+            assertEquals("NO_ELIGIBLE_ASSESSMENTS", serviceAt(DAY_2).getOrCreate(f.user()).emptyReason());
+            jdbc.update("UPDATE event SET ingestion_origin='LEGACY_UNKNOWN' WHERE id=?", f.event());
+            assertEquals("NO_ELIGIBLE_ASSESSMENTS", serviceAt(DAY_2).getOrCreate(f.user()).emptyReason());
+            jdbc.update("UPDATE event SET ingestion_origin='LIVE' WHERE id=?", f.event());
+            var first = serviceAt(DAY_2).getOrCreate(f.user());
+            assertEquals(f.a1(), first.items().getFirst().assessmentId());
+            assertEquals(first.briefingId(), serviceAt(DAY_2.plusSeconds(1)).getOrCreate(f.user()).briefingId());
+            assertEquals(1, count("SELECT count(*) FROM briefing WHERE user_id=?", f.user()));
+        } finally { cleanup(f); }
+    }
+
     @Test
     void cutoffTerminalMultiInterestEvidenceHistoricalOwnershipAndConcurrency() throws Exception {
         Fixture f = createFixture();
@@ -133,8 +184,8 @@ class BriefingIntegrityPostgresTests {
             jdbc.update("INSERT INTO source(id,source_type,name) VALUES(?,'REGULATOR','Briefing test')", source);
             jdbc.update("""
                 INSERT INTO event(id,event_type,title,occurred_at,first_observed_at,last_observed_at,
-                                  status,created_at,updated_at)
-                VALUES(?,'EARNINGS','Briefing integrity',?, ?,?,'CONFIRMED',?,?)
+                                  status,created_at,updated_at,ingestion_origin)
+                VALUES(?,'EARNINGS','Briefing integrity',?, ?,?,'CONFIRMED',?,?,'LIVE')
                     """, event, utc(DAY_2.minusSeconds(100)), utc(DAY_2.minusSeconds(100)),
                     utc(DAY_2.minusSeconds(100)), utc(DAY_2.minusSeconds(100)),
                     utc(DAY_2.minusSeconds(100)));

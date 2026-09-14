@@ -1,0 +1,174 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import CanonicalExplorer from './CanonicalExplorer.jsx'
+
+beforeEach(() => { window.history.replaceState({}, '', '/explore'); vi.restoreAllMocks() })
+
+describe('canonical explorer', () => {
+  it('runs a header search query on entry', async () => {
+    window.history.replaceState({}, '', '/explore?q=005930')
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200,
+      json: async () => ({ state: 'NO_DATA', entities: [] }) }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    expect(await screen.findByText('정확히 일치하는 자료가 없습니다.')).toBeInTheDocument()
+    expect(fetchMock.mock.calls[0][0]).toContain('query=005930')
+  })
+
+  it('searches for typed identities and restores selected context on browser back', async () => {
+    vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, status: 200, json: async () => path.startsWith('/api/search')
+      ? { state: 'AVAILABLE', entities: [
+        { entityId: '00000000-0000-0000-0000-000000000001', entityType: 'COMPANY', canonicalName: '삼성', canonicalKey: 'COMPANY:1' },
+        { entityId: '00000000-0000-0000-0000-000000000002', entityType: 'SECURITY', canonicalName: '삼성', canonicalKey: 'SECURITY:2', symbol: '005930' },
+      ] } : {} })))
+    render(<CanonicalExplorer />)
+    expect(screen.getByPlaceholderText('기업명·종목명·종목코드 검색')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '삼성' } })
+    fireEvent.click(screen.getByRole('button', { name: '검색' }))
+    expect(await screen.findByText(/종목 · 005930/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /삼성 종목/ }))
+    expect(screen.getByRole('heading', { name: /Ask · 확인할 관점/ })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '현재 탐색 경로' })).toHaveTextContent('SECURITY')
+    fireEvent.click(screen.getByRole('button', { name: '공식 사실과 근거' }))
+    expect(screen.getByRole('heading', { name: /Inspect · 자료 분류/ })).toBeInTheDocument()
+    window.history.back()
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Ask · 확인할 관점/ })).toBeInTheDocument())
+  })
+
+  it('uses exact company selection and displays the server state without inventing a value', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '공식 사실과 근거', category: '재무', detail: 'Historical Exact',
+      periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260101000001',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ state: 'NO_DATA', selection: 'HISTORICAL_EXACT', value: null }) }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    expect(await screen.findByText(/NO_DATA:/)).toBeInTheDocument()
+    expect(fetchMock.mock.calls[0][0]).toContain('periodStart=2025-01-01')
+    expect(fetchMock.mock.calls[0][0]).toContain('receipt=20260101000001')
+  })
+
+  it('opens B only on demand and keeps exact periods and Evidence IDs separate', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '공식 사실과 근거', category: '재무', detail: 'Historical Exact',
+      periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260101000001',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/compare?')
+      ? { state: 'AVAILABLE', a: { periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260101000001' },
+        b: { periodStart: '2024-01-01', periodEnd: '2024-12-31', receipt: '20250101000001' },
+        metrics: [{ predicate: 'REVENUE', a: { value: '100', currency: 'KRW', evidenceIds: ['E-A'] },
+          b: { value: '80', currency: 'KRW', evidenceIds: ['E-B'] }, changeAmountBMinusA: '-20',
+          changePercentBOverA: '-20.0000', percentReason: null }] }
+      : { state: 'AVAILABLE', selection: 'HISTORICAL_EXACT', periodStart: '2025-01-01', periodEnd: '2025-12-31',
+        receipt: '20260101000001', value: { facts: [{ predicate: 'REVENUE', value: '100',
+          currency: 'KRW', evidenceId: 'E-A', periodStart: '2025-01-01', periodEnd: '2025-12-31' }] } } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    expect(await screen.findByText(/공시 20260101000001/)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'A ↔ B 비교 열기' }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    fireEvent.change(screen.getByLabelText('B 기간 시작'), { target: { value: '2024-01-01' } })
+    fireEvent.change(screen.getByLabelText('B 기간 종료'), { target: { value: '2024-12-31' } })
+    fireEvent.change(screen.getByLabelText('B 공시 접수번호'), { target: { value: '20250101000001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'B 관측값 확인' }))
+    expect(await screen.findByRole('button', { name: 'B Evidence ID E-B' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'A Evidence ID E-A' })).toBeInTheDocument()
+    expect(screen.getByText(/증감액 -20원 · 증감률 -20%/)).toBeInTheDocument()
+    expect(fetchMock.mock.calls[1][0]).toContain('bReceipt=20250101000001')
+    expect(fetchMock.mock.calls[1][0]).toContain('aReceipt=20260101000001')
+  })
+
+  it('keeps an unavailable exact B as comparison unavailable without another period request', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '공식 사실과 근거', category: '재무', detail: 'Historical Exact',
+      periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260101000001',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/compare?')
+      ? { state: 'NO_DATA', reason: 'B_FACTS_NOT_FOUND', metrics: [] }
+      : { state: 'AVAILABLE', periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260101000001',
+        value: { facts: [{ predicate: 'REVENUE', value: '0', currency: 'KRW', evidenceId: 'E-A',
+          periodStart: '2025-01-01', periodEnd: '2025-12-31' }] } } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    await screen.findByText(/공시 20260101000001/)
+    fireEvent.click(screen.getByRole('button', { name: 'A ↔ B 비교 열기' }))
+    fireEvent.change(screen.getByLabelText('B 기간 시작'), { target: { value: '2024-01-01' } })
+    fireEvent.change(screen.getByLabelText('B 기간 종료'), { target: { value: '2024-12-31' } })
+    fireEvent.change(screen.getByLabelText('B 공시 접수번호'), { target: { value: '20250101000001' } })
+    fireEvent.click(screen.getByRole('button', { name: 'B 관측값 확인' }))
+    expect(await screen.findByText(/B_FACTS_NOT_FOUND/)).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'A와 B 분할 비교' })).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('uses official series dates and exact D fact for previous comparison', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'security-1', entityType: 'SECURITY', canonicalName: '종목' },
+      perspective: '공식 사실과 근거', category: '시장', detail: 'KRX Current',
+      periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: '',
+      comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const first = { tradingDate: '2026-09-10', factId: 'F1', value: '1000', evidenceIds: ['E1'], evidenceExternalId: 'KRX:10' }
+    const current = { tradingDate: '2026-09-14', factId: 'F2', value: '1200', evidenceIds: ['E2'], evidenceExternalId: 'KRX:14' }
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/api/evidence/')
+      ? { evidenceId: 'E2', title: 'KRX 공식 자료', source: { sourceName: 'KRX', sourceType: 'EXCHANGE' } }
+      : path.includes('/market-series?')
+      ? { state: 'AVAILABLE', predicate: 'CLOSE_PRICE', from: '2026-09-10', to: '2026-09-14', points: [first, current] }
+      : path.includes('/market-previous?')
+        ? { state: 'AVAILABLE', predicate: 'CLOSE_PRICE', current, previous: first, changeAmount: '200', changePercent: '20.0000' }
+        : { state: 'AVAILABLE', periodStart: '2026-09-14', periodEnd: '2026-09-14', value: current } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    await screen.findByText(/KRX 공식 거래일 2026-09-14/)
+    fireEvent.click(screen.getByRole('button', { name: '공식 관측 흐름 열기' }))
+    fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-09-10' } })
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-14' } })
+    fireEvent.click(screen.getByRole('button', { name: '공식 시계열 확인' }))
+    expect(await screen.findByRole('region', { name: '공식 시장 관측 흐름' })).toBeInTheDocument()
+    expect(screen.queryByText('2026-09-11')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /2026-09-14.*1,200원/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Evidence ID E2' }))
+    expect(await screen.findByRole('region', { name: '근거 연결' })).toHaveTextContent('KRX 공식 자료')
+    expect(fetchMock.mock.calls.find(([path]) => path.includes('/api/evidence/'))[0]).toBe('/api/evidence/E2')
+    fireEvent.click(screen.getByRole('button', { name: 'D와 직전 실제 관측일 비교' }))
+    expect(await screen.findByRole('region', { name: 'D와 직전 공식 관측 비교' })).toHaveTextContent('2026-09-10')
+    expect(fetchMock.mock.calls.find(([path]) => path.includes('/market-previous?'))[0]).toContain('currentFactId=F2')
+  })
+
+  it('does not turn historical series into Current when the exact D fact is absent', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'security-1', entityType: 'SECURITY', canonicalName: '종목' },
+      perspective: '공식 사실과 근거', category: '시장', detail: 'KRX Current',
+      periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: '',
+      comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/market-series?')
+      ? { state: 'AVAILABLE', predicate: 'CLOSE_PRICE', from: '2026-09-10', to: '2026-09-14',
+        points: [{ tradingDate: '2026-09-10', factId: 'OLD', value: '1000', evidenceIds: ['E1'], evidenceExternalId: 'KRX:10' }] }
+      : { state: 'NO_DATA', selection: 'LATEST_OFFICIAL_MARKET_D', periodStart: '2026-09-14', periodEnd: '2026-09-14', value: null } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    await screen.findByText(/NO_DATA:/)
+    expect(screen.queryByRole('button', { name: 'D와 직전 실제 관측일 비교' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '공식 관측 흐름 열기' }))
+    fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-09-10' } })
+    fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-14' } })
+    fireEvent.click(screen.getByRole('button', { name: '공식 시계열 확인' }))
+    expect(await screen.findByRole('region', { name: '공식 시장 관측 흐름' })).toHaveTextContent('2026-09-10')
+    expect(screen.queryByRole('region', { name: '시장 한눈에 보기' })).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([path]) => path.includes('/market-previous?'))).toBe(false)
+  })
+})

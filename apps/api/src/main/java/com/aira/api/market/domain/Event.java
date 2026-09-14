@@ -36,6 +36,10 @@ public class Event {
     @Column(nullable = false, length = 24)
     private EventStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ingestion_origin", nullable = false, length = 24, updatable = false)
+    private EventOrigin ingestionOrigin;
+
     @Column(name = "dedup_key")
     private byte[] dedupKey;
 
@@ -65,8 +69,13 @@ public class Event {
 
     public static Event createEarnings(String title, OffsetDateTime occurredAt,
             OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now) {
+        return createEarnings(title, occurredAt, observedAt, dedupKey, now, EventOrigin.LEGACY_UNKNOWN);
+    }
+
+    public static Event createEarnings(String title, OffsetDateTime occurredAt,
+            OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now, EventOrigin origin) {
         if (title == null || title.isBlank() || observedAt == null
-                || dedupKey == null || dedupKey.length == 0 || now == null) {
+                || dedupKey == null || dedupKey.length == 0 || now == null || origin == null) {
             throw new IllegalArgumentException("Earnings event creation values are required");
         }
         Event event = new Event();
@@ -77,6 +86,32 @@ public class Event {
         event.firstObservedAt = observedAt;
         event.lastObservedAt = observedAt;
         event.status = EventStatus.CANDIDATE;
+        event.ingestionOrigin = origin;
+        event.dedupKey = dedupKey.clone();
+        event.createdAt = now;
+        event.updatedAt = now;
+        return event;
+    }
+
+    public static Event createGeneric(EventType eventType, String title, OffsetDateTime occurredAt,
+            OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now) {
+        return createGeneric(eventType, title, occurredAt, observedAt, dedupKey, now, EventOrigin.LEGACY_UNKNOWN);
+    }
+
+    public static Event createGeneric(EventType eventType, String title, OffsetDateTime occurredAt,
+            OffsetDateTime observedAt, byte[] dedupKey, OffsetDateTime now, EventOrigin origin) {
+        if (eventType == null || eventType == EventType.EARNINGS || title == null || title.isBlank()
+                || observedAt == null || dedupKey == null || dedupKey.length == 0 || now == null || origin == null) {
+            throw new IllegalArgumentException("Generic event creation values are required");
+        }
+        Event event = new Event();
+        event.eventType = eventType;
+        event.title = title;
+        event.occurredAt = occurredAt;
+        event.firstObservedAt = observedAt;
+        event.lastObservedAt = observedAt;
+        event.status = EventStatus.CANDIDATE;
+        event.ingestionOrigin = origin;
         event.dedupKey = dedupKey.clone();
         event.createdAt = now;
         event.updatedAt = now;
@@ -122,6 +157,7 @@ public class Event {
     public OffsetDateTime getFirstObservedAt() { return firstObservedAt; }
     public OffsetDateTime getLastObservedAt() { return lastObservedAt; }
     public EventStatus getStatus() { return status; }
+    public EventOrigin getIngestionOrigin() { return ingestionOrigin; }
     public byte[] getDedupKey() { return dedupKey == null ? null : dedupKey.clone(); }
     public Event getSupersededByEvent() { return supersededByEvent; }
     public String getMergeReason() { return mergeReason; }

@@ -29,18 +29,20 @@ public class InAppAlertService {
             VALUES(?,?,?,?,'NEW_ASSESSMENT',?,'SENT',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
             ON CONFLICT (user_id,assessment_id,policy_version) DO NOTHING
             """;
+    // Match the user's exact canonical target. A COMPANY Event never inherits a SECURITY interest.
     static final String CANDIDATE_SQL = """
             WITH interested_event AS (
                 SELECT ev.id AS event_id,MIN(ui.alert_enabled_at) AS activated_at
                 FROM user_interest ui
-                JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY' AND en.active=true
+                JOIN entity en ON en.id=ui.entity_id AND en.entity_type IN ('COMPANY','SECURITY') AND en.active=true
                 JOIN event_entity ee ON ee.entity_id=ui.entity_id
                 JOIN event ev ON ev.id=ee.event_id AND ev.status='CONFIRMED'
+                             AND ev.ingestion_origin='LIVE'
                 WHERE ui.user_id=? AND ui.alert_enabled=true
                 GROUP BY ev.id
             )
             SELECT ie.event_id,a.id,a.supersedes_assessment_id,predecessor.event_id,
-                   ie.activated_at,a.completed_at,
+                   ie.activated_at,a.created_at,
                    EXISTS (
                        SELECT 1 FROM assessment_evidence ae
                        WHERE ae.assessment_id=a.id
@@ -128,8 +130,9 @@ public class InAppAlertService {
                         Collectors.toList()));
         return byEvent.entrySet().stream().map(entry -> {
             AssessmentCandidate terminal = TerminalAssessmentSelector.select(entry.getValue());
+            // Origin excludes historical ingestion; Assessment creation, not completion, crosses opt-in.
             return terminal != null && terminal.evidenceBacked() && !terminal.alreadyAlerted()
-                    && terminal.completedAt().isAfter(terminal.activatedAt())
+                    && terminal.assessmentCreatedAt().isAfter(terminal.activatedAt())
                     ? new Candidate(entry.getKey(), terminal.assessmentId()) : null;
         }).filter(Objects::nonNull).toList();
     }
@@ -214,7 +217,7 @@ public class InAppAlertService {
     }
 
     record AssessmentCandidate(UUID eventId, UUID assessmentId, UUID supersedesAssessmentId,
-            UUID predecessorEventId, OffsetDateTime activatedAt, OffsetDateTime completedAt,
+        UUID predecessorEventId, OffsetDateTime activatedAt, OffsetDateTime assessmentCreatedAt,
             boolean evidenceBacked, boolean alreadyAlerted)
             implements TerminalAssessmentSelector.Candidate {}
     record Candidate(UUID eventId, UUID assessmentId) {}

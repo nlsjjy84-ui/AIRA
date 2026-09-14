@@ -57,18 +57,20 @@ public class PersonalBriefingService {
             WHERE ee.event_id=? AND en.entity_type='COMPANY' AND en.active=true
             ORDER BY en.id ASC
             """;
+    // Interest targets join only by the exact entity ID; no issuer/security propagation is implied.
     static final String CANDIDATE_SQL = """
             WITH interested_event AS (
                 SELECT ev.id AS event_id,MIN(ui.created_at) AS activated_at
                 FROM user_interest ui
-                JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY'
+                JOIN entity en ON en.id=ui.entity_id AND en.entity_type IN ('COMPANY','SECURITY')
                 JOIN event_entity ee ON ee.entity_id=ui.entity_id
                 JOIN event ev ON ev.id=ee.event_id AND ev.status='CONFIRMED'
+                             AND ev.ingestion_origin='LIVE'
                 WHERE ui.user_id=?
                 GROUP BY ev.id
             )
             SELECT ie.event_id,a.id,a.supersedes_assessment_id,predecessor.event_id,
-                   ev.occurred_at,a.completed_at,GREATEST(?,ie.activated_at),
+                   ev.occurred_at,a.created_at,GREATEST(?,ie.activated_at),
                    EXISTS (SELECT 1 FROM assessment_evidence ae WHERE ae.assessment_id=a.id)
             FROM interested_event ie
             JOIN event ev ON ev.id=ie.event_id
@@ -180,7 +182,7 @@ public class PersonalBriefingService {
                 Timestamp.from(cutoff.toInstant()));
         List<OffsetDateTime> earliestInterest = jdbc.query("""
                 SELECT min(ui.created_at) FROM user_interest ui
-                JOIN entity en ON en.id=ui.entity_id AND en.entity_type='COMPANY'
+                JOIN entity en ON en.id=ui.entity_id AND en.entity_type IN ('COMPANY','SECURITY')
                 WHERE ui.user_id=?
                 HAVING count(*)>0
                 """, (rs, row) -> rs.getObject(1, OffsetDateTime.class), userId);
@@ -211,10 +213,11 @@ public class PersonalBriefingService {
                         LinkedHashMap::new, java.util.stream.Collectors.toList()));
         return byEvent.values().stream().map(eventAssessments -> {
             AssessmentCandidate terminal = TerminalAssessmentSelector.select(eventAssessments);
+            // Event origin excludes historical ingestion; completion time is only a cutoff, not newness.
             return terminal != null && terminal.evidenceBacked()
-                    && terminal.completedAt().isAfter(terminal.effectiveStart())
+                    && terminal.assessmentCreatedAt().isAfter(terminal.effectiveStart())
                     ? new Candidate(terminal.assessmentId(), terminal.occurredAt(),
-                            terminal.completedAt()) : null;
+                            terminal.assessmentCreatedAt()) : null;
         }).filter(Objects::nonNull).distinct().toList();
     }
 
@@ -299,7 +302,7 @@ public class PersonalBriefingService {
     }
 
     record AssessmentCandidate(UUID eventId, UUID assessmentId, UUID supersedesAssessmentId,
-            UUID predecessorEventId, OffsetDateTime occurredAt, OffsetDateTime completedAt,
+            UUID predecessorEventId, OffsetDateTime occurredAt, OffsetDateTime assessmentCreatedAt,
             OffsetDateTime effectiveStart, boolean evidenceBacked)
             implements TerminalAssessmentSelector.Candidate {}
     record Candidate(UUID assessmentId, OffsetDateTime occurredAt, OffsetDateTime completedAt) {}

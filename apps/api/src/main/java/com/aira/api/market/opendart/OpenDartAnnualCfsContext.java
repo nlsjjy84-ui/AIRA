@@ -4,8 +4,7 @@ public record OpenDartAnnualCfsContext(
         String corpCode,
         int businessYear,
         String reportCode,
-        String financialStatementDivision,
-        int fiscalYearEndMonth) {
+        String financialStatementDivision) {
 
     public OpenDartAnnualCfsContext {
         if (corpCode == null || !corpCode.matches("[0-9]{8}")) {
@@ -16,9 +15,6 @@ public record OpenDartAnnualCfsContext(
         }
         if (!"11011".equals(reportCode) || !"CFS".equals(financialStatementDivision)) {
             throw new IllegalArgumentException("Only OpenDART annual CFS context is supported");
-        }
-        if (fiscalYearEndMonth < 1 || fiscalYearEndMonth > 12) {
-            throw new IllegalArgumentException("Fiscal year end month is invalid");
         }
     }
 }

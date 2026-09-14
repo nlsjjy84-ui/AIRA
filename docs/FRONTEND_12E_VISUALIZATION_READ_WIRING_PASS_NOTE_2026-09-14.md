@@ -1,0 +1,7 @@
+# 12E Frontend visualization read wiring — PASS
+
+- `/explore` A↔B now calls the 12D exact comparison endpoint with the user's selected A/B periods and receipts and the predicates present in A. It renders only the backend's verified `metrics`, `changeAmountBMinusA`, `changePercentBOverA`, `percentReason`, and per-side Evidence IDs. A missing/blocked B produces a comparison-unavailable state with the backend reason and no alternate-period request.
+- The SECURITY flow now opens an explicit date range and renders only the returned official `points` in API order. Each point can be selected for its exact trading date, raw value, Fact ID, and official Evidence IDs. Gaps are neither filled nor drawn as zero.
+- D versus previous comparison sends the D date and Fact ID from the existing Current response to 12D. It displays the backend's previous actual observation date, both exact values/Evidence IDs, and backend change amount/percent. If Current has no exact D Fact, the previous-comparison action is absent while separately requested historical series remains clearly historical.
+- The basic view stays small; A/B, range flow, OHLC, detailed values, and Evidence open on demand. Bars are neutral visual projections only; the frontend does not calculate financial or market change values. Existing Event, Assessment, private UI, and migration were unchanged.
+- Targeted visualization/navigation and existing App tests: 53 passed, 0 failures. Vite production build passed.

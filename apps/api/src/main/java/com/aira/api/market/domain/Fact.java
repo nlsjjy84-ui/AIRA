@@ -93,7 +93,7 @@ public class Fact {
             LocalDate periodStart, LocalDate periodEnd, byte[] dedupKey,
             OffsetDateTime now) {
         if (subjectEntity == null || subjectEntity.getId() == null
-                || (event != null && event.getId() == null) || predicate == null || value == null
+                || (event != null && event.getId() == null) || !isEarningsPredicate(predicate) || value == null
                 || !isCurrencyCode(currencyCode) || periodStart == null || periodEnd == null
                 || periodStart.isAfter(periodEnd) || dedupKey == null || dedupKey.length != 32
                 || now == null) {
@@ -115,6 +115,58 @@ public class Fact {
         return fact;
     }
 
+    public static Fact supportedStatisticalNumber(MarketEntity subjectEntity,
+            FactPredicate predicate, BigDecimal value,
+            LocalDate periodStart, LocalDate periodEnd, byte[] dedupKey,
+            OffsetDateTime now) {
+        if (subjectEntity == null || subjectEntity.getId() == null
+                || subjectEntity.getEntityType() != EntityType.COUNTRY
+                || predicate != FactPredicate.REAL_GDP || value == null
+                || periodStart == null || periodEnd == null || !isCalendarQuarter(periodStart, periodEnd)
+                || dedupKey == null || dedupKey.length != 32 || now == null) {
+            throw new IllegalArgumentException("Supported statistical number fact values are required");
+        }
+        Fact fact = new Fact();
+        fact.subjectEntity = subjectEntity;
+        fact.predicate = predicate;
+        fact.status = FactStatus.SUPPORTED;
+        fact.valueType = FactValueType.NUMBER;
+        fact.valueNumber = value;
+        fact.periodStart = periodStart;
+        fact.periodEnd = periodEnd;
+        fact.dedupKey = dedupKey.clone();
+        fact.createdAt = now;
+        fact.updatedAt = now;
+        return fact;
+    }
+
+    public static Fact supportedMarketNumber(MarketEntity subjectEntity, FactPredicate predicate,
+            BigDecimal value, LocalDate tradingDate, byte[] dedupKey, OffsetDateTime now) {
+        boolean shares = predicate == FactPredicate.TRADING_VOLUME || predicate == FactPredicate.LISTED_SHARES;
+        boolean monetary = predicate == FactPredicate.OPEN_PRICE || predicate == FactPredicate.HIGH_PRICE
+                || predicate == FactPredicate.LOW_PRICE || predicate == FactPredicate.CLOSE_PRICE
+                || predicate == FactPredicate.TRADING_VALUE || predicate == FactPredicate.MARKET_CAP;
+        if (subjectEntity == null || subjectEntity.getId() == null
+                || subjectEntity.getEntityType() != EntityType.SECURITY || (!shares && !monetary)
+                || value == null || value.signum() < 0 || (shares && value.stripTrailingZeros().scale() > 0)
+                || tradingDate == null || dedupKey == null || dedupKey.length != 32 || now == null) {
+            throw new IllegalArgumentException("Supported daily market fact values are required");
+        }
+        Fact fact = new Fact();
+        fact.subjectEntity = subjectEntity;
+        fact.predicate = predicate;
+        fact.status = FactStatus.SUPPORTED;
+        fact.valueType = FactValueType.NUMBER;
+        fact.valueNumber = value;
+        fact.currencyCode = monetary ? "KRW" : null;
+        fact.periodStart = tradingDate;
+        fact.periodEnd = tradingDate;
+        fact.dedupKey = dedupKey.clone();
+        fact.createdAt = now;
+        fact.updatedAt = now;
+        return fact;
+    }
+
     public void markConflicting(OffsetDateTime now) {
         if (now == null) {
             throw new IllegalArgumentException("Fact update time is required");
@@ -129,6 +181,18 @@ public class Fact {
             statusReason = FactStatusReason.ASSERTED_VALUE_CONFLICT;
             updatedAt = now;
         }
+    }
+
+    private static boolean isCalendarQuarter(LocalDate start, LocalDate end) {
+        int month = start.getMonthValue();
+        return start.getDayOfMonth() == 1
+                && (month == 1 || month == 4 || month == 7 || month == 10)
+                && end.equals(start.plusMonths(3).minusDays(1));
+    }
+
+    private static boolean isEarningsPredicate(FactPredicate predicate) {
+        return predicate == FactPredicate.REVENUE
+                || predicate == FactPredicate.OPERATING_INCOME;
     }
 
     private static boolean isCurrencyCode(String value) {

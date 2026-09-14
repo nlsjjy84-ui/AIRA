@@ -1,0 +1,7 @@
+# P6 Generic Event — PASS
+
+- Added an additive non-EARNINGS Event factory and unique-dedup-key registration path. The existing EARNINGS factory/registration SQL remains unchanged.
+- Material registration accepts an already validated endpoint key, canonical OpenDART company code, 14-digit receipt, neutral title, approved EventType, and endpoint-specific structured `OFFICIAL_DATA` Evidence. Its SHA-256 dedup input is `AIRA|EVENT|V1|OPENDART_MATERIAL|{endpointKey}|{companyCanonicalKey}|{rcept_no}`. A different receipt stays distinct; a different endpoint for one receipt blocks classification.
+- In one transaction, it resolves `OPENDART/CORP_CODE -> COMPANY`, registers/reuses the shared OpenDART Source and structured Evidence, locks/reuses the Event, creates/reuses COMPANY `SUBJECT` and Evidence `SUPPORTS`, then confirms. A mismatched type/title, Evidence revision content/provenance conflict, source mismatch, or relation failure blocks and rolls back. The Event remains date-precision-safe with `occurred_at=NULL`; no receipt/request/collection time is treated as occurrence.
+- Targeted PostgreSQL tests: 9 passed, 0 failed (4 P6 tests and 5 existing Event normalization tests). They cover replay, concurrent same-key registration, title/hash conflict, cross-endpoint classification conflict, rollback after attempted writes, and preservation of the EARNINGS path.
+- Migration audit: latest applied version is V16 with `success=true`; P6 made no schema or migration change. P7 endpoint mapping, Assessment and Alert are outside this packet.

@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,9 @@ import com.aira.api.auth.security.AiraPrincipal;
 import com.aira.api.user.exception.InterestEntityNotFoundException;
 import com.aira.api.user.exception.InvalidInterestEntityException;
 import com.aira.api.user.service.UserInterestService;
+import com.aira.api.user.dto.InterestEligibilityResponse;
+import com.aira.api.market.dto.CanonicalDataState;
+import com.aira.api.market.domain.EntityType;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +74,21 @@ class UserInterestControllerTests {
 
         verify(service).setAlertEnabled(userId, entityId, true);
         verify(service).setAlertEnabled(userId, entityId, false);
+    }
+
+    @Test
+    void eligibilityReadUsesAuthenticatedOwnerAndReturnsCanonicalTarget() throws Exception {
+        UUID entityId = UUID.randomUUID();
+        when(service.eligibility(userId, entityId)).thenReturn(new InterestEligibilityResponse(
+                CanonicalDataState.BLOCKED, entityId, EntityType.SECURITY, false, false,
+                java.time.LocalDate.of(2026, 9, 14), "MARKET_THRESHOLD"));
+        mvc.perform(get("/api/me/interests/{entityId}/eligibility", entityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.entityId").value(entityId.toString()))
+                .andExpect(jsonPath("$.entityType").value("SECURITY"))
+                .andExpect(jsonPath("$.state").value("BLOCKED"))
+                .andExpect(jsonPath("$.newRegistrationAllowed").value(false));
+        verify(service).eligibility(userId, entityId);
     }
 
     private record AuthenticatedPrincipalResolver(AiraPrincipal principal)

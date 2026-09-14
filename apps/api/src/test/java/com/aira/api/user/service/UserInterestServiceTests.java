@@ -12,6 +12,8 @@ import static org.mockito.Mockito.when;
 
 import com.aira.api.market.domain.EntityType;
 import com.aira.api.market.domain.MarketEntity;
+import com.aira.api.market.krx.KrxCurrentQuery;
+import java.math.BigDecimal;
 import com.aira.api.market.repository.MarketEntityRepository;
 import com.aira.api.user.domain.AppUser;
 import com.aira.api.user.domain.UserInterest;
@@ -66,6 +68,31 @@ class UserInterestServiceTests {
         assertEquals(entityId, response.entityId());
         assertNull(response.interestLevel());
         assertFalse(response.alertEnabled());
+    }
+
+    @Test void exactKrxThresholdsGateOnlyNewSecurityInterests() {
+        KrxCurrentQuery current = mock(KrxCurrentQuery.class);
+        UserInterestService gated = new UserInterestService(interests, entities, users, current);
+        MarketEntity security = activeEntity(EntityType.SECURITY);
+        when(security.getMarketCode()).thenReturn("KOSPI");
+        when(entities.findById(entityId)).thenReturn(Optional.of(security));
+        when(users.getReferenceById(userId)).thenReturn(mock(AppUser.class));
+        when(interests.saveAndFlush(any(UserInterest.class))).thenAnswer(i -> i.getArgument(0));
+        when(current.eligibility(entityId)).thenReturn(eligibility("999", "19.99"));
+        assertThrows(InvalidInterestEntityException.class, () -> gated.add(userId, entityId));
+        when(current.eligibility(entityId)).thenReturn(eligibility("1000", "20"));
+        assertThrows(InvalidInterestEntityException.class, () -> gated.add(userId, entityId));
+        when(current.eligibility(entityId)).thenReturn(eligibility("1000", "19.99"));
+        assertEquals(entityId, gated.add(userId, entityId).entityId());
+        UserInterest existing = UserInterest.create(mock(AppUser.class), security, OffsetDateTime.now());
+        when(interests.findByUser_IdAndMarketEntity_Id(userId, entityId)).thenReturn(Optional.of(existing));
+        when(current.eligibility(entityId)).thenReturn(eligibility("1", "99"));
+        assertEquals(entityId, gated.add(userId, entityId).entityId());
+    }
+
+    private static KrxCurrentQuery.Eligibility eligibility(String close, String change) {
+        return new KrxCurrentQuery.Eligibility(new KrxCurrentQuery.Observation(UUID.randomUUID(),
+                java.time.LocalDate.of(2026, 9, 11), new BigDecimal(close)), new BigDecimal(change));
     }
 
     @Test

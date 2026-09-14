@@ -71,5 +71,9 @@ public class EntityExternalIdentifierRegistryService {
             throw new IllegalArgumentException(
                     "OpenDART corp code can only identify a company entity");
         }
+        if ("KRX".equals(key.namespace()) && "STANDARD_CODE".equals(key.identifierType())
+                && entity.getEntityType() != EntityType.SECURITY) {
+            throw new IllegalArgumentException("KRX standard code can only identify a security entity");
+        }
     }
 }
