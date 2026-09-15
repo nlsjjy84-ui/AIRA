@@ -50,8 +50,9 @@ export function FinancialOverview({ observation, onEvidence }) {
 
 export function FinancialSplit({ comparison, onEvidence }) {
   if (comparison?.state !== 'AVAILABLE' || !comparison.metrics?.length) return null
-  return <section className="viz-block" aria-label="A와 B 분할 비교"><h3>비교 · A ↔ B</h3>
-    <p>백엔드가 검증한 정확한 A/B 기간과 공시만 비교합니다. 증감은 B − A입니다.</p>
+  return <section className="viz-block comparison-result" aria-label="A와 B 분할 비교">
+    <div className="comparison-result-heading"><h3>비교 · A ↔ B</h3>
+      <p>백엔드가 검증한 정확한 A/B 기간과 공시만 비교합니다. 증감은 B − A입니다.</p></div>
     {comparison.metrics.map(metric => <div className="viz-compare-row" key={metric.predicate}>
       <h4>{FACT_LABEL[metric.predicate] ?? metric.predicate}</h4>
       <div className="viz-split">{[['A', comparison.a, metric.a], ['B', comparison.b, metric.b]].map(([side, period, observation]) =>
@@ -60,8 +61,8 @@ export function FinancialSplit({ comparison, onEvidence }) {
           {observation.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
             { type: 'FACT', label: `${metric.predicate} · ${side} ${period.periodStart} — ${period.periodEnd} · ${period.receipt}` })}>
             {side} 근거 식별자 · {id}</button>)}</article>)}</div>
-      <p>증감액 {formatQuantity(metric.changeAmountBMinusA, metric.a.currency)} · 증감률 {metric.changePercentBOverA == null
-        ? `계산 불가 (${metric.percentReason})` : formatQuantity(metric.changePercentBOverA, '%')}</p>
+      <p className="viz-change-summary"><span>증감액 {formatQuantity(metric.changeAmountBMinusA, metric.a.currency)}</span><span>증감률 {metric.changePercentBOverA == null
+        ? `계산 불가 (${metric.percentReason})` : formatQuantity(metric.changePercentBOverA, '%')}</span></p>
       {/* Meter width is only a visual projection of server values; the change numbers above come from the API. */}
       {Number(metric.a.value) >= 0 && Number(metric.b.value) >= 0 && <div className="viz-bars" aria-label={`${metric.predicate} A와 B 값 막대`}>
         {[metric.a, metric.b].map((observation, index) => <div key={index}><span>{index ? 'B' : 'A'}</span>

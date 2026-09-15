@@ -31,7 +31,8 @@ describe('evidence-linked visuals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'B 근거 식별자 · e-b' }))
     expect(onEvidence.mock.calls.map(call => call[0])).toEqual(['e-a', 'e-b'])
     expect(screen.getAllByRole('meter')).toHaveLength(2)
-    expect(screen.getByText(/증감액 1억 원 · 증감률 계산 불가 \(BASE_NON_POSITIVE\)/)).toBeInTheDocument()
+    expect(screen.getByText('증감액 1억 원')).toBeInTheDocument()
+    expect(screen.getByText(/증감률 계산 불가 \(BASE_NON_POSITIVE\)/)).toBeInTheDocument()
   })
 
   it('refuses an inferred candle when a value or same official D is missing', () => {
