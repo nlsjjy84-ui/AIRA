@@ -256,6 +256,8 @@ describe('canonical explorer', () => {
     expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('현재 분석')
     expect(screen.getByRole('button', { name: '아직 모르는 것' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('후속 공시는 아직 확인되지 않았습니다.')).toBeInTheDocument()
+    expect(screen.getByText('판단의 한계')).toBeInTheDocument()
+    expect(screen.getByText(/현재 판단이 설명하지 못하는 범위를 표시합니다/)).toBeInTheDocument()
     expect(screen.queryByText('현재 AIRA 해석')).not.toBeInTheDocument()
   })
   it('distinguishes Assess event loading, not-found and request failure', async () => {

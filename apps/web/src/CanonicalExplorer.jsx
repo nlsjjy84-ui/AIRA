@@ -450,7 +450,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         <div><dt>확신</dt><dd>{CONFIDENCE_LABEL[eventDetail.assessment.confidence] ?? eventDetail.assessment.confidence}</dd></div><div><dt>중요도</dt><dd>{IMPORTANCE_LABEL[eventDetail.assessment.importance] ?? eventDetail.assessment.importance}</dd></div>
         <div><dt>분석 방법</dt><dd>{METHOD_LABEL[eventDetail.assessment.method] ?? eventDetail.assessment.method}</dd></div><div><dt>분석 버전</dt><dd>{eventDetail.assessment.analysisVersion}</dd></div></dl>
         : <p className="state-message">현재 표시할 신뢰 수준이 없습니다.</p>}</div>}
-      {assessSection === 'unknown' && <div className="subsection-panel" aria-label="아직 모르는 것"><p className="uncertainty-copy">{eventDetail?.assessment?.uncertainty ?? '현재 저장된 미확인 정보가 없습니다.'}</p></div>}
+      {assessSection === 'unknown' && <div className="subsection-panel assessment-limit" aria-label="아직 모르는 것"><span className="assessment-limit-label">판단의 한계</span><p className="uncertainty-copy">{eventDetail?.assessment?.uncertainty ?? '현재 저장된 미확인 정보가 없습니다.'}</p><p className="assessment-limit-note">확인되지 않은 정보는 현재 판단의 근거로 취급하지 않습니다. 이 영역은 현재 판단이 설명하지 못하는 범위를 표시합니다.</p></div>}
     </section>}
     {data.loading && <LoadingNotice>자료를 확인하는 중…</LoadingNotice>}
     {!data.loading && data.state && data.state !== 'AVAILABLE' && <StateNotice state={data.state} />}

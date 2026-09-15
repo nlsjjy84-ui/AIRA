@@ -1156,6 +1156,10 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .assessment-evidence-row div { display: grid; gap: .15rem; }
 .assessment-evidence-row span { color: var(--muted); }
 .uncertainty-copy { max-width: 52rem; padding-left: 1rem; border-left: 3px solid var(--series-d); line-height: 1.7; }
+.assessment-limit { margin-top: .25rem; padding: .95rem 0 .95rem 1rem; border-left: 4px solid var(--stage-color); background: linear-gradient(90deg, color-mix(in srgb, var(--stage-soft) 72%, transparent), transparent 78%); }
+.assessment-limit-label { color: var(--stage-color); font-size: .76rem; font-weight: 800; letter-spacing: .08em; }
+.assessment-limit .uncertainty-copy { margin: .25rem 0 .4rem; padding: 0; border: 0; font-size: 1.08rem; font-weight: 720; }
+.assessment-limit-note { max-width: 50rem; margin: 0; color: var(--muted); font-size: .84rem; }
 @media (max-width: 40rem) {
   .subsection-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .subsection-nav button { font-size: .82rem; }
