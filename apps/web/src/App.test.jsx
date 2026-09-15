@@ -468,20 +468,18 @@ describe('authenticated interest and return experience', () => {
     await user.type(within(dialog).getByLabelText('비밀번호'), 'long-secure-password')
     await user.click(within(dialog).getByRole('button', { name: '로그인' }))
     expect(await screen.findByText(/아직 저장한 관심회사가 없습니다/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '회사 탐색하기' })).toHaveAttribute('href', '#companies')
+    expect(screen.getByRole('link', { name: '회사 탐색하기' })).toHaveAttribute('href', '/explore')
     expect(screen.getByRole('button', { name: '계정 설정 열기' })).toHaveTextContent('ReturnUser')
     expect(backend.fetch.mock.calls.filter(([path]) => path === '/api/me')).toHaveLength(2)
   })
 
-  it('restores an existing session and re-enters financials from saved interests', async () => {
+  it('restores an existing session and continues saved interests through staged exploration', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest] })
     global.fetch = backend.fetch
-    const user = userEvent.setup()
     render(<App />)
     expect(await screen.findByRole('button', { name: '계정 설정 열기' })).toHaveTextContent('ReturnUser')
     const section = screen.getByRole('heading', { name: '내 관심회사' }).closest('section')
-    await user.click(await within(section).findByRole('button', { name: /삼성전자.*재무정보 다시 보기/ }))
-    expect(await screen.findByText('333,605,938,000,000')).toBeInTheDocument()
+    expect(await within(section).findByRole('link', { name: /삼성전자.*단계별 탐색 이어가기/ })).toHaveAttribute('href', '/explore?q=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90')
   })
 
   it('saves and removes Samsung without duplicate posts or UUID display', async () => {
@@ -677,8 +675,8 @@ describe('authenticated interest and return experience', () => {
     const briefing = (await screen.findByRole('heading', { name: '내 브리핑' })).closest('section')
     expect(await within(briefing).findByText('아직 관심 회사가 없습니다.')).toBeInTheDocument()
     expect(within(briefing).getByText('계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.')).toBeInTheDocument()
-    expect(within(briefing).getByRole('link', { name: '관심회사 살펴보기' })).toHaveAttribute('href', '#companies')
-    expect(screen.getByRole('link', { name: '회사와 알림 설정 보기' })).toHaveAttribute('href', '#companies')
+    expect(within(briefing).getByRole('link', { name: '관심회사 살펴보기' })).toHaveAttribute('href', '/explore')
+    expect(screen.getByRole('link', { name: '회사와 알림 설정 보기' })).toHaveAttribute('href', '/explore')
   })
 
   it('describes an empty catch-up window without claiming that no facts exist', async () => {
