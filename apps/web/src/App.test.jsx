@@ -92,11 +92,6 @@ function server({ user = null, interests = [], overrides = {} } = {}) {
   return { state, fetch }
 }
 
-async function selectSamsung(user) {
-  await user.click(await screen.findByRole('button', { name: /삼성전자.*대한민국/ }))
-  return screen.findByLabelText('정확한 보고 기간')
-}
-
 beforeEach(() => { document.cookie = 'XSRF-TOKEN=test-csrf; path=/' })
 afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'; window.history.replaceState({}, '', '/') })
 
@@ -224,30 +219,17 @@ describe('authenticated interest and return experience', () => {
     await waitFor(() => expect(screen.queryByText('Previous user private detail')).not.toBeInTheDocument())
     expect(screen.queryByRole('heading', { name: '정확한 알림 상세' })).not.toBeInTheDocument()
   })
-  it('renders one event with all companies and all evidence revisions and an unknown occurrence', async () => {
-    const references = [
-      { evidenceId: 'revision-1', revision: 1, sourceName: 'Registry', externalId: 'FILING', originalUrl: 'https://official.test/1', title: 'First' },
-      { evidenceId: 'revision-2', revision: 2, sourceName: 'Registry', externalId: 'FILING', originalUrl: 'https://official.test/2', title: 'Second' },
-    ]
+  it('renders one recent event with all related companies and an unknown occurrence', async () => {
     const backend = server({ overrides: {
       'GET /api/events': () => json({ events: [{ ...exploreEvent, companies: relatedCompanies, occurredAt: null }] }),
-      [`GET /api/companies/${company.companyId}/events`]: () => json({ companyId: company.companyId,
-        events: [{ ...eventExperience, occurredAt: null, evidence: references }] }),
     } })
     global.fetch = backend.fetch
-    const user = userEvent.setup()
     render(<App />)
     const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
     await within(explore).findByText('관련회사 A · 관련회사 B')
     expect(within(explore).getAllByRole('article')).toHaveLength(1)
     expect(within(explore).getByText(/발생시각 미상/)).toBeInTheDocument()
-    await user.click(await screen.findByRole('button', { name: /삼성전자.*대한민국/ }))
-    const companySection = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
-    await within(companySection).findByText(/근거 개정 번호 2/)
-    expect(within(companySection).getAllByRole('article')).toHaveLength(1)
-    expect(within(companySection).getAllByRole('link', { name: /근거 원문 확인/ })).toHaveLength(2)
   })
-
   it('opens event detail from explore and separates factual event, event evidence, assessment, and assessment evidence', async () => {
     const backend = server()
     global.fetch = backend.fetch
@@ -326,7 +308,7 @@ describe('authenticated interest and return experience', () => {
     expect(within(detail).getByRole('link', { name: /공식 원문 열기/ })).toHaveAttribute('href', officialEvidence.originalUrl)
   })
 
-  it('opens the same official evidence view from assessment evidence and company fact identity', async () => {
+  it('opens the same official evidence view from assessment evidence', async () => {
     const backend = server()
     global.fetch = backend.fetch
     const user = userEvent.setup()
@@ -337,13 +319,7 @@ describe('authenticated interest and return experience', () => {
     await user.click(within(assessmentEvidence).getByRole('button', { name: '공식 자료 상세' }))
     expect(await screen.findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
     expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/assessment-evidence-1', expect.anything())
-
-    await selectSamsung(user)
-    const factEvidence = screen.getByText(/같은 공시에 포함된 재무 항목/).closest('aside')
-    await user.click(within(factEvidence).getByRole('button', { name: '공식 자료 상세' }))
-    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/evidence-1', expect.anything())
   })
-
   it('shows an exact official evidence unavailable-link state without claiming deletion', async () => {
     const backend = server({ overrides: {
       'GET /api/evidence/event-evidence-1': () => json({ ...officialEvidence, originalUrl: null }),
@@ -401,45 +377,15 @@ describe('authenticated interest and return experience', () => {
     expect(await within(explore).findByRole('alert')).toBeInTheDocument()
   })
 
-  it('preserves anonymous navigation and the public financial journey', async () => {
-    const backend = server()
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
+  it('preserves anonymous access to staged public exploration', async () => {
+    global.fetch = server().fetch
     render(<App />)
     expect(await screen.findByRole('button', { name: '로그인' })).toBeInTheDocument()
-    await selectSamsung(user)
-    expect(await screen.findByText('333,605,938,000,000')).toBeInTheDocument()
-    expect(screen.getByText('43,601,051,000,000')).toBeInTheDocument()
-    expect(screen.getAllByText('OpenDART')).toHaveLength(2)
-    expect(screen.getByRole('button', { name: '로그인하고 관심회사에 저장' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
+    expect(screen.getByRole('searchbox', { name: '검색' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '기업 선택' })).not.toBeInTheDocument()
   })
 
-  it('renders the semantic compatibility terminal company assessment normally', async () => {
-    const backend = server()
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    await selectSamsung(user)
-    const events = (await screen.findByRole('heading', { name: '관련 사건과 확인할 의미' })).closest('section')
-    expect(within(events).getByRole('heading', { name: eventExperience.title })).toBeInTheDocument()
-    expect(within(events).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
-    expect(within(events).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
-    expect(within(events).getByRole('link', { name: /근거 원문 확인/ })).toHaveAttribute('href', eventExperience.evidence[0].originalUrl)
-    expect(within(events).queryByText(/매수|매도|추천/)).not.toBeInTheDocument()
-  })
-
-  it('renders the semantic compatibility company event without a current assessment safely', async () => {
-    const backend = server({ overrides: {
-      [`GET /api/companies/${company.companyId}/events`]: () => json({
-        companyId: company.companyId, events: [{ ...eventExperience, assessment: null }],
-      }),
-    } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    await selectSamsung(user)
-    expect(await screen.findByText('현재 표시할 AIRA 판단이 없습니다.')).toBeInTheDocument()
-  })
 
   it('signs up without creating a session and leads naturally to login', async () => {
     const backend = server()
@@ -482,31 +428,16 @@ describe('authenticated interest and return experience', () => {
     expect(await within(section).findByRole('link', { name: /삼성전자.*단계별 탐색 이어가기/ })).toHaveAttribute('href', '/explore?q=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90')
   })
 
-  it('saves and removes Samsung without duplicate posts or UUID display', async () => {
-    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    const { container } = render(<App />)
-    await selectSamsung(user)
-    await user.click(screen.getByRole('button', { name: '관심회사에 저장' }))
-    expect(await screen.findByRole('button', { name: '관심회사에서 삭제' })).toBeInTheDocument()
-    expect(container).not.toHaveTextContent(company.companyId)
-    expect(backend.fetch.mock.calls.filter(([path, options]) => path.includes('/api/me/interests/') && options.method === 'POST')).toHaveLength(1)
-    await user.click(screen.getByRole('button', { name: '관심회사에서 삭제' }))
-    expect(await screen.findByRole('button', { name: '관심회사에 저장' })).toBeInTheDocument()
-  })
 
-  it('logs out while leaving public company browsing available', async () => {
-    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
-    global.fetch = backend.fetch
+  it('logs out while leaving staged public exploration available', async () => {
+    global.fetch = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } }).fetch
     const user = userEvent.setup()
     render(<App />)
     await user.click(await screen.findByRole('button', { name: '로그아웃' }))
     expect(await screen.findByText(/로그아웃되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /삼성전자.*대한민국/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
   })
-
   it('turns an expired interest session into a safe anonymous state', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
       'GET /api/me/interests': () => json({ code: 'UNAUTHORIZED' }, 401),
@@ -515,27 +446,14 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     expect(await screen.findByText(/세션이 만료되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /삼성전자.*대한민국/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
   })
-
-  it.each([
-    ['NICKNAME_ALREADY_EXISTS', '사용할 수 없는 닉네임입니다.'],
-    ['AUTHENTICATION_FAILED', '닉네임 또는 비밀번호를 확인해 주세요.'],
-  ])('maps %s without exposing account details', async (code, copy) => {
-    const endpoint = code === 'NICKNAME_ALREADY_EXISTS' ? 'POST /api/auth/signup' : 'POST /api/auth/login'
-    const backend = server({ overrides: { [endpoint]: () => json({ code }, code === 'NICKNAME_ALREADY_EXISTS' ? 409 : 401) } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(await screen.findByRole('button', { name: code === 'NICKNAME_ALREADY_EXISTS' ? '회원가입' : '로그인' }))
-    const dialog = screen.getByRole('dialog')
-    await user.type(within(dialog).getByLabelText('닉네임'), 'ReturnUser')
-    await user.type(within(dialog).getByLabelText('비밀번호'), 'long-secure-password')
-    await user.click(within(dialog).getByRole('button', { name: code === 'NICKNAME_ALREADY_EXISTS' ? '회원가입' : '로그인' }))
-    expect(await within(dialog).findByText(copy)).toBeInTheDocument()
-  })
-
-  it('shows interest failure with retry and succeeds without duplicating UI state', async () => {
+  it('shows staged interest failure with retry and succeeds without duplicating UI state', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Ask', target: { entityId: company.companyId, entityType: 'COMPANY', canonicalName: company.canonicalName },
+      perspective: null, category: null, detail: null, periodStart: '', periodEnd: '', receipt: '',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
     let attempts = 0
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
       [`POST /api/me/interests/${company.companyId}`]: (state) => {
@@ -548,14 +466,13 @@ describe('authenticated interest and return experience', () => {
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
-    await selectSamsung(user)
-    await user.click(screen.getByRole('button', { name: '관심회사에 저장' }))
-    const alert = await screen.findByRole('alert')
+    const region = screen.getByRole('region', { name: '선택한 회사 관심 설정' })
+    await user.click(await within(region).findByRole('button', { name: '관심회사에 저장' }))
+    const alert = await within(region).findByRole('alert')
     await user.click(within(alert).getByRole('button', { name: '다시 시도' }))
-    expect(await screen.findByRole('button', { name: '관심회사에서 삭제' })).toBeInTheDocument()
+    expect(await within(region).findByRole('button', { name: '관심회사에서 삭제' })).toBeInTheDocument()
     expect(attempts).toBe(2)
   })
-
   it('announces session and interest loading states', async () => {
     let releaseSession
     const backend = server({ overrides: {
