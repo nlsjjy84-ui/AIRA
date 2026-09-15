@@ -293,8 +293,13 @@ export default function CanonicalExplorer({ embedded = false }) {
   })[context.step]
   const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
   const selectionLabel = ({ HISTORICAL_EXACT: '정확한 기간·공시', LATEST_OFFICIAL_MARKET_D: '공식 거래일 현재값', KRX_CURRENT: '공식 거래일 현재값' })[data.selection] ?? detailLabel
+  const activeSectionLabel = context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0
+    ? INSPECT_SECTIONS.find(([key]) => key === inspectSection)?.[1]
+    : context.step === 'Relate' ? RELATE_SECTIONS.find(([key]) => key === relateSection)?.[1]
+      : context.step === 'Assess' ? ASSESS_SECTIONS.find(([key]) => key === assessSection)?.[1] : null
   const currentCategory = context.step === 'Relate' || context.step === 'Assess' ? '사건' : context.category
-  const currentDetail = context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel
+  const currentDetail = activeSectionLabel ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel)
+  const trailParts = activeSectionLabel ? [...contextTrail(context), activeSectionLabel] : contextTrail(context)
   const contextNodes = [
     { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
@@ -347,7 +352,7 @@ export default function CanonicalExplorer({ embedded = false }) {
       <ol className="context-branch">{contextNodes.map((node, index) => <li key={node.label} className={node.ready ? 'ready' : 'pending'}>
         <span>{node.label}</span><strong>{node.value}</strong>{index < contextNodes.length - 1 && <i aria-hidden="true">›</i>}
       </li>)}</ol>
-      <nav aria-label="현재 탐색 경로" className="explorer-trail">{contextTrail(context).map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
+      <nav aria-label="현재 탐색 경로" className="explorer-trail">{trailParts.map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
     </section>}
     {!embedded && <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
       aria-current={context.step === step ? 'step' : undefined}
@@ -391,7 +396,7 @@ export default function CanonicalExplorer({ embedded = false }) {
         <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p></div>}
     </section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
-      <p className="event-meta">사건 식별자 · {context.eventId}</p>
+      <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : '선택한 사건 확인 중…'}</p>
       <nav className="subsection-nav assess-submenu" aria-label="Assess 하위 메뉴">{ASSESS_SECTIONS.map(([key, label]) => <button key={key} type="button"
         aria-current={assessSection === key ? 'page' : undefined} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
       {assessSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실">{eventDetail ? <>
