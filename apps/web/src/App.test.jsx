@@ -101,24 +101,21 @@ beforeEach(() => { document.cookie = 'XSRF-TOKEN=test-csrf; path=/' })
 afterEach(() => { vi.restoreAllMocks(); document.cookie = 'XSRF-TOKEN=; Max-Age=0; path=/'; window.history.replaceState({}, '', '/') })
 
 describe('authenticated interest and return experience', () => {
-  it('separates perspective selection, header search, workflow and user settings', async () => {
+  it('keeps MAIN focused and routes staged workflow into the explorer', async () => {
     global.fetch = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } }).fetch
     const user = userEvent.setup()
     render(<App />)
     const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
     expect(within(flow).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['MAIN 메인', 'Ask 질문', 'Inspect 살피기', 'Relate 잇기', 'Assess 판단'])
-    const ask = screen.getByRole('region', { name: 'Ask — 확인할 관점' })
-    expect(within(ask).queryByRole('textbox')).not.toBeInTheDocument()
-    await user.click(within(ask).getByRole('radio', { name: '사건과 관련 회사' }))
-    expect(within(ask).getByRole('link')).toHaveAttribute('href', '#events')
+    expect(within(flow).getByRole('link', { name: 'MAIN 메인' })).toHaveAttribute('href', '#main')
+    for (const name of ['Ask 질문', 'Inspect 살피기', 'Relate 잇기', 'Assess 판단'])
+      expect(within(flow).getByRole('link', { name })).toHaveAttribute('href', '/explore')
+    expect(screen.queryByRole('region', { name: 'Ask — 확인할 관점' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
     expect(screen.queryByRole('heading', { name: '계정 복구 이메일' })).not.toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: '계정 설정 열기' }))
     expect(screen.getByRole('heading', { name: '계정 복구 이메일' })).toBeInTheDocument()
-    await user.type(screen.getByRole('searchbox', { name: '검색' }), '없는회사')
-    const picker = screen.getByRole('region', { name: '기업 선택' })
-    expect(within(picker).queryByRole('button')).not.toBeInTheDocument()
-    await user.clear(screen.getByRole('searchbox', { name: '검색' }))
-    expect(await within(picker).findByRole('button', { name: /삼성전자/ })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: '검색' })).toBeInTheDocument()
   })
 
   it('keeps the shared shell on explore without duplicate search or step navigation', async () => {

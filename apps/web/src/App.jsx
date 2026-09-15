@@ -215,7 +215,6 @@ function initialRecoveryEntry() {
 
 export default function App() {
   const [search, setSearch] = useState('')
-  const [perspective, setPerspective] = useState('evidence')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historicalId, setHistoricalId] = useState(null)
   const requestVersions = useRef({})
@@ -455,12 +454,8 @@ export default function App() {
     return step === 'Assess' && !workflowContext.hasEvent
   }
 
-  function chooseWorkflowStep(step, hash) {
-    if (exploring) {
-      window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
-      return
-    }
-    window.location.hash = hash
+  function chooseWorkflowStep(step) {
+    if (exploring) window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
   }
 
   return <>
@@ -478,13 +473,14 @@ export default function App() {
       <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? '›' : '‹'}</button>
       <nav aria-label="AIRA 흐름">
-        {[['MAIN', '메인', 'MAIN', 'main'], ['Ask', '질문', 'A', 'ask'], ['Inspect', '살피기', 'I', 'companies'],
-          ['Relate', '잇기', 'R', 'events'], ['Assess', '판단', 'A', 'event-detail']].map(([step, korean, code, hash]) => exploring
+        {[['MAIN', '메인', 'MAIN'], ['Ask', '질문', 'A'], ['Inspect', '살피기', 'I'],
+          ['Relate', '잇기', 'R'], ['Assess', '판단', 'A']].map(([step, korean, code]) => exploring
           ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
               aria-current={workflowContext.step === step ? 'step' : undefined} disabled={workflowStepDisabled(step)}
-              onClick={() => chooseWorkflowStep(step, hash)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
+              onClick={() => chooseWorkflowStep(step)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
-          : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} href={`#${hash}`} aria-label={`${step} ${korean}`}>
+          : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step}
+              href={step === 'MAIN' ? '#main' : '/explore'} aria-label={`${step} ${korean}`}>
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
@@ -496,13 +492,7 @@ export default function App() {
     <main id="main">
       {exploring ? <CanonicalExplorer embedded /> : <>
       <div className="home-orientation">
-        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
-        <section id="ask" className="ask-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
-          <fieldset className="ask-perspective"><legend>어떤 관점으로 먼저 볼까요?</legend>
-            <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
-            <label><input type="radio" name="perspective" checked={perspective === 'event'} onChange={() => setPerspective('event')} />사건과 관련 회사</label>
-          </fieldset><a className="ask-go" href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인 →</a>
-        </section>
+        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
       </div>
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
 
