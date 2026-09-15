@@ -299,13 +299,9 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   })[context.step]
   const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
   const selectionLabel = ({ HISTORICAL_EXACT: '정확한 기간·공시', LATEST_OFFICIAL_MARKET_D: '공식 거래일 현재값', KRX_CURRENT: '공식 거래일 현재값' })[data.selection] ?? detailLabel
-  const activeSectionLabel = context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0
-    ? INSPECT_SECTIONS.find(([key]) => key === inspectSection)?.[1]
-    : context.step === 'Relate' ? RELATE_SECTIONS.find(([key]) => key === relateSection)?.[1]
-      : context.step === 'Assess' ? ASSESS_SECTIONS.find(([key]) => key === assessSection)?.[1] : null
   const currentCategory = context.step === 'Relate' || context.step === 'Assess' ? '사건' : context.category
-  const currentDetail = activeSectionLabel ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel)
-  const trailParts = activeSectionLabel ? [...contextTrail(context), activeSectionLabel] : contextTrail(context)
+  const currentDetail = context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel
+  const trailParts = contextTrail(context)
   const eventCompanies = context.step === 'Assess' ? (eventDetail?.companies ?? []) : []
   const targetContext = target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}`
     : eventCompanies.length > 0 ? eventCompanies.map(company => company.companyName).join(' · ') : '선택 전'
