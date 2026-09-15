@@ -29,6 +29,9 @@ describe('canonical exploration context', () => {
 
   it('requires an event before Assess and distinguishes API states', () => {
     expect(advance(initialExplorerState(), 'Assess').step).toBe('MAIN')
+    const assess = { ...initialExplorerState(), step: 'Assess', eventId: 'event-internal-id', target: company }
+    expect(contextTrail(assess)).toContain('선택한 사건')
+    expect(contextTrail(assess).join(' ')).not.toContain('event-internal-id')
     for (const state of ['NO_DATA', 'PARTIAL', 'CONFLICTING', 'BLOCKED', 'UNSUPPORTED', 'UNAVAILABLE'])
       expect(stateCopy(state)).toBeTruthy()
   })

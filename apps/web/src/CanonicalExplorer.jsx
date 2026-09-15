@@ -88,6 +88,11 @@ export default function CanonicalExplorer({ embedded = false }) {
   }, [context.step, context.eventId])
 
   useEffect(() => {
+    if (!evidence.value) return
+    requestAnimationFrame(() => document.getElementById('explorer-evidence-detail')?.scrollIntoView?.({ block: 'start' }))
+  }, [evidence.value])
+
+  useEffect(() => {
     const query = new URLSearchParams(window.location.search).get('q')?.trim()
     if (!query) return
     const request = ++requestNumber.current
@@ -101,6 +106,7 @@ export default function CanonicalExplorer({ embedded = false }) {
 
   function navigate(next) {
     if (next === context) return
+    const stepChanged = next.step !== context.step
     requestNumber.current += 1
     window.history.pushState({ ...window.history.state, [KEY]: next }, '', window.location.href)
     setContext(next)
@@ -113,6 +119,7 @@ export default function CanonicalExplorer({ embedded = false }) {
     setHistorical({ loading: false, value: null, state: null })
     setEvidence({ loading: false, value: null, state: null })
     setEventDetail(null)
+    if (stepChanged) requestAnimationFrame(() => document.querySelector('.canonical-explorer')?.scrollIntoView?.({ block: 'start' }))
   }
 
   useEffect(() => {
@@ -455,13 +462,13 @@ export default function CanonicalExplorer({ embedded = false }) {
           <label>종료일 <input type="date" value={marketRange.to} onChange={event => changeRangeField('to', event.target.value)} /></label>
           <button type="submit">공식 시계열 확인</button></form>
           {marketRange.loading && <LoadingNotice>공식 관측일을 불러오는 중…</LoadingNotice>}
-          {marketRange.state && marketRange.state !== 'AVAILABLE' && <StateNotice state={marketRange.state} lead="관측 흐름을 표시할 수 없습니다." detail={marketRange.data?.reason} />}
+          {marketRange.state && marketRange.state !== 'AVAILABLE' && <StateNotice state={marketRange.state} lead="관측 흐름을 표시할 수 없습니다." />}
           <MarketSeriesView series={marketRange.data} onEvidence={openEvidence} /></>}
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
       <section className="viz-block"><button type="button" onClick={loadPrevious}>D와 직전 실제 관측일 비교</button>
         {previous.loading && <LoadingNotice>직전 공식 관측값 확인 중…</LoadingNotice>}
-        {previous.state && previous.state !== 'AVAILABLE' && <StateNotice state={previous.state} lead="직전 관측과 비교할 수 없습니다." detail={previous.data?.reason} />}
+        {previous.state && previous.state !== 'AVAILABLE' && <StateNotice state={previous.state} lead="직전 관측과 비교할 수 없습니다." />}
         <MarketPreviousView comparison={previous.data} onEvidence={openEvidence} />
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
@@ -474,6 +481,9 @@ export default function CanonicalExplorer({ embedded = false }) {
       </section>}
     {evidence.loading && <LoadingNotice>공식 근거 확인 중…</LoadingNotice>}
     {evidence.state === 'UNAVAILABLE' && <StateNotice state="UNAVAILABLE" lead="공식 근거를 불러올 수 없습니다." />}
-    <EvidenceChain evidence={evidence.value} relation={evidence.relation} />
+    {evidence.value && <section id="explorer-evidence-detail" className="evidence-inspector" aria-label="열린 근거 상세">
+      <div className="evidence-inspector-head"><strong>공식 근거 상세</strong><button type="button" onClick={() => setEvidence({ loading: false, value: null, state: null, relation: null })}>근거 상세 닫기</button></div>
+      <EvidenceChain evidence={evidence.value} relation={evidence.relation} />
+    </section>}
   </div>
 }

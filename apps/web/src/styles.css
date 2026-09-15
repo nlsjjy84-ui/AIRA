@@ -30,7 +30,7 @@ body { margin: 0; min-width: 20rem; line-height: 1.6; }
 button, select { font: inherit; }
 a { color: inherit; }
 button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
-.canonical-explorer { max-width: 58rem; margin: auto; padding: 2rem 1.5rem 5rem; }
+.canonical-explorer { max-width: 58rem; margin: auto; padding: 2rem 1.5rem 5rem; scroll-margin-top: 6.25rem; }
 .explorer-head { padding: 2.5rem 0; }
 .explorer-head h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
 .explorer-search, .explorer-fields { display: grid; gap: .6rem; }
@@ -77,7 +77,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 @media (max-width: 40rem) { .viz-series li button { grid-template-columns: 1fr; gap: .1rem; } .viz-series meter { grid-row: 2; } }
 /* Split view contract: primary A context 2fr, supporting B context .9fr; never default to 50:50. */
 @media (max-width: 52rem) { .viz-split { grid-template-columns: 1fr; } }
-@media (max-width: 40rem) { .explorer-search { grid-template-columns: 1fr; } }
+@media (max-width: 40rem) { .explorer-search { grid-template-columns: 1fr; } .canonical-explorer { scroll-margin-top: 8rem; } }
 
 .site-header { max-width: var(--content); margin: auto; padding: 1.5rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .brand { font-size: 1.2rem; font-weight: 800; letter-spacing: .16em; text-decoration: none; }
@@ -1241,4 +1241,34 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .inspect-fact-row > small { grid-column: 1 / -1; text-align: left; }
   .inspect-evidence-row { grid-template-columns: 1fr; }
   .inspect-evidence-row .secondary-action { width: 100%; justify-content: center; }
+}
+
+/* Evidence drill-down stays focused and can be closed after inspection. */
+.evidence-inspector {
+  scroll-margin-top: 7rem;
+  margin-top: 1rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--line);
+}
+.evidence-inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.evidence-inspector-head > strong { font-size: .9rem; }
+.evidence-inspector-head button {
+  min-height: 2.35rem;
+  padding: .35rem .65rem;
+  border: 1px solid var(--line);
+  border-radius: .4rem;
+  color: var(--accent);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+}
+@media (max-width: 40rem) {
+  .evidence-inspector-head { align-items: stretch; flex-direction: column; gap: .4rem; }
+  .evidence-inspector-head button { width: 100%; }
 }
