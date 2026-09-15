@@ -82,14 +82,33 @@ export function MarketSeriesView({ series, onEvidence }) {
   const [selectedId, setSelectedId] = useState(null)
   if (series?.state !== 'AVAILABLE' || !series.points?.length) return null
   const selected = series.points.find(point => point.factId === selectedId)
-  const max = Math.max(1, ...series.points.map(point => Number(point.value)))
-  return <section className="viz-block" aria-label="공식 시장 관측 흐름"><h3>흐름 · 공식 관측일</h3>
-    <p>{series.from} — {series.to} · {FACT_LABEL[series.predicate] ?? series.predicate}. 각 막대는 저장된 실제 관측일이며 빈 날짜는 채우지 않습니다.</p>
-    <ol className="viz-series">{series.points.map(point => <li key={point.factId}>
+  const unit = series.predicate === 'TRADING_VOLUME' ? '주' : 'KRW'
+  const numeric = series.points.map(point => Number(point.value))
+  const chartable = numeric.every(Number.isFinite)
+  const chartMin = chartable ? Math.min(...numeric) : 0
+  const chartMax = chartable ? Math.max(...numeric) : 0
+  const width = 720, height = 220, padX = 38, padY = 28
+  const xAt = index => series.points.length === 1 ? width / 2 : padX + index * (width - padX * 2) / (series.points.length - 1)
+  const yAt = value => chartMax === chartMin ? height / 2 : padY + (chartMax - value) * (height - padY * 2) / (chartMax - chartMin)
+  const polyline = chartable ? series.points.map((point, index) => `${xAt(index)},${yAt(Number(point.value))}`).join(' ') : ''
+  return <section className="viz-block viz-process" aria-label="공식 시장 관측 흐름">
+    <div className="viz-process-heading"><div><p className="eyebrow">OFFICIAL SERIES</p><h3>공식 관측 흐름</h3></div>
+      <p>{series.from} — {series.to} · {FACT_LABEL[series.predicate] ?? series.predicate}. 빈 날짜는 채우거나 추정하지 않습니다.</p></div>
+    {chartable && <div className="viz-series-chart-wrap">
+      <div className="viz-series-scale" aria-hidden="true"><span>{formatQuantity(chartMax, unit)}</span><span>{formatQuantity(chartMin, unit)}</span></div>
+      <svg className="viz-series-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${FACT_LABEL[series.predicate] ?? series.predicate} 공식 관측 흐름`}>
+        <line x1={padX} x2={width - padX} y1={padY} y2={padY} className="viz-grid-line" />
+        <line x1={padX} x2={width - padX} y1={height - padY} y2={height - padY} className="viz-grid-line" />
+        <polyline points={polyline} className="viz-series-line" />
+        {series.points.map((point, index) => <g key={point.factId} className={selectedId === point.factId ? 'selected' : ''}>
+          <circle cx={xAt(index)} cy={yAt(Number(point.value))} r={selectedId === point.factId ? 6 : 4} className="viz-series-dot" />
+        </g>)}
+      </svg>
+      <div className="viz-series-axis" aria-hidden="true"><span>{series.points[0].tradingDate}</span><span>{series.points.at(-1).tradingDate}</span></div>
+    </div>}
+    <ol className="viz-series-list">{series.points.map(point => <li key={point.factId}>
       <button type="button" aria-pressed={selectedId === point.factId} onClick={() => setSelectedId(point.factId)}>
-        <time>{point.tradingDate}</time><meter aria-label={`${point.tradingDate} ${series.predicate} ${point.value}`}
-          min="0" max={max} value={Math.max(0, Number(point.value))} />
-        <span>{formatQuantity(point.value, series.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</span>
+        <time>{point.tradingDate}</time><strong>{formatQuantity(point.value, unit)}</strong>
       </button></li>)}</ol>
     {selected && <div className="viz-selection"><h4>선택한 정확한 관측</h4><p>{selected.tradingDate} · 값 {selected.value} · Fact ID {selected.factId}</p>
       <p>공식 Evidence {selected.evidenceExternalId}</p>

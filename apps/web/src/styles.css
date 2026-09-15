@@ -13,6 +13,8 @@
   --series-a: #173f55;
   --series-b: #3f787a;
   --series-neutral: #879590;
+  --series-c: #8b6b3f;
+  --series-d: #685f88;
   --error: #9e342c;
   --content: 70rem;
   --radius: 0.75rem;
@@ -558,4 +560,49 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 @media (max-width: 40rem) {
   body { font-weight: 400; }
   h1 { letter-spacing: -.035em; }
+}
+
+/* Quantitative views: shape, scale and color carry different jobs. */
+.viz-process-heading h3 { font-size: clamp(1.25rem, 2.6vw, 1.7rem); }
+.viz-series-chart-wrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .55rem;
+  margin: 1rem 0 .65rem;
+  padding: .85rem 1rem .65rem;
+  border: 1px solid var(--line);
+  border-radius: .8rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--accent-faint));
+}
+.viz-series-scale { display: flex; flex-direction: column; justify-content: space-between; padding: .2rem 0 1.3rem; color: var(--muted); font-size: .72rem; text-align: right; }
+.viz-series-chart { width: 100%; min-height: 11rem; overflow: visible; }
+.viz-grid-line { stroke: var(--line); stroke-width: 1; }
+.viz-series-line { fill: none; stroke: var(--series-b); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.viz-series-dot { fill: var(--surface); stroke: var(--series-a); stroke-width: 3; }
+.viz-series-chart g.selected .viz-series-dot { fill: var(--series-d); stroke: var(--series-d); }
+.viz-series-axis { grid-column: 2; display: flex; justify-content: space-between; margin-top: -.35rem; color: var(--muted); font-size: .72rem; }
+.viz-series-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: .45rem;
+  margin: .75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.viz-series-list button { width: 100%; display: grid; gap: .05rem; margin: 0; padding: .65rem .7rem; border-color: var(--line); text-align: left; }
+.viz-series-list button time { color: var(--muted); font-size: .72rem; }
+.viz-series-list button strong { color: var(--accent-strong); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.viz-series-list button span { color: var(--muted); font-size: .68rem; overflow-wrap: anywhere; }
+.viz-series-list button[aria-pressed="true"] { border-color: var(--series-d); background: color-mix(in srgb, var(--surface) 84%, #eeeaf8); }
+.viz-chain li:nth-child(1) { border-top-color: var(--series-a); }
+.viz-chain li:nth-child(2) { border-top-color: var(--series-b); }
+.viz-chain li:nth-child(3) { border-top-color: var(--series-c); }
+.viz-chain li:nth-child(1) .viz-node-label { color: var(--series-a); }
+.viz-chain li:nth-child(2) .viz-node-label { color: var(--series-b); }
+.viz-chain li:nth-child(3) .viz-node-label { color: var(--series-c); }
+@media (max-width: 40rem) {
+  .viz-series-chart-wrap { grid-template-columns: 1fr; padding: .65rem; }
+  .viz-series-scale { display: none; }
+  .viz-series-axis { grid-column: 1; }
+  .viz-series-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
