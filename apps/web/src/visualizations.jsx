@@ -133,30 +133,40 @@ export function EventTimeline({ events, onSelect }) {
   // Only provider-approved occurredAt participates in chronological order; unknown time remains separate.
   const dated = events.filter(item => item.occurredAt).toSorted((a, b) => a.occurredAt.localeCompare(b.occurredAt))
   const unknown = events.filter(item => !item.occurredAt)
-  return <section className="viz-block" aria-label="사건 시간순"><h3>흐름 · Event</h3>
+  return <section className="viz-block viz-process" aria-label="사건 시간순">
+    <div className="viz-process-heading"><div><p className="eyebrow">EVENT FLOW</p><h3>확인된 사건의 시간 흐름</h3></div>
+      <p>공식 발생시각이 있는 Event만 시간순으로 놓고, 시각 미상은 따로 남깁니다.</p></div>
     <ol className="viz-timeline">{[...dated, ...unknown].map(item => <li key={item.eventId}>
-      <time>{item.occurredAt ? item.occurredAt.slice(0, 10) : '발생시각 미상'}</time>
+      <span className="viz-node-label">EVENT</span><time>{item.occurredAt ? item.occurredAt.slice(0, 10) : '발생시각 미상'}</time>
       <button type="button" onClick={() => onSelect(item)}>{item.title}</button><small>Event ID {item.eventId}</small>
     </li>)}</ol></section>
 }
 
 export function AssessmentFlow({ assessment, onHistorical, onEvidence }) {
   if (!assessment?.assessmentId) return null
-  return <section className="viz-block" aria-label="Assessment 승계 흐름"><h3>흐름 · Assessment</h3>
-    <div className="viz-flow">{assessment.supersedesAssessmentId && <><button type="button" onClick={() => onHistorical(assessment.supersedesAssessmentId)}>
-      이전 · {assessment.supersedesAssessmentId}</button><span aria-hidden="true">→</span></>}
-      <strong>현재 · {assessment.assessmentId}</strong></div>
-    <p>Current는 API의 unique terminal입니다. 이전 ID는 Historical Exact로 따로 확인합니다.</p>
-    {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => onEvidence(id,
-      { type: 'ASSESSMENT', label: assessment.assessmentId })}>Evidence ID {id}</button>)}</section>
+  return <section className="viz-block viz-process" aria-label="Assessment 승계 흐름">
+    <div className="viz-process-heading"><div><p className="eyebrow">ASSESSMENT FLOW</p><h3>현재 판단과 이전 판단의 연결</h3></div>
+      <p>Current를 최신이라고 추정하지 않고 API가 지정한 승계 관계만 표시합니다.</p></div>
+    <div className="viz-flow">{assessment.supersedesAssessmentId && <><button type="button" className="viz-flow-node previous"
+      onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>HISTORICAL EXACT</small><span>이전 · {assessment.supersedesAssessmentId}</span></button>
+      <span className="viz-flow-arrow" aria-hidden="true">→</span></>}
+      <strong className="viz-flow-node current"><small>CURRENT</small><span>현재 · {assessment.assessmentId}</span></strong></div>
+    {(assessment.evidenceIds ?? []).length > 0 && <div className="viz-evidence-links"><span>판단 근거</span>
+      {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => onEvidence(id,
+        { type: 'ASSESSMENT', label: assessment.assessmentId })}>Evidence ID {id}</button>)}</div>}
+  </section>
 }
 
 export function EvidenceChain({ evidence, relation }) {
   if (!evidence) return null
-  return <section className="viz-block" aria-label="근거 연결"><h3>근거 · 출처 → Evidence</h3>
-    <ol className="viz-chain"><li>{evidence.source?.sourceName} · {evidence.source?.sourceType}</li>
-      <li>{evidence.title ?? evidence.externalId} · Evidence ID {evidence.evidenceId}</li>
-      {relation && <li>{relation.type} · {relation.label}</li>}</ol>
-    {evidence.originalUrl && <a href={evidence.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 열기</a>}
+  return <section className="viz-block viz-process" aria-label="근거 연결">
+    <div className="viz-process-heading"><div><p className="eyebrow">EVIDENCE PATH</p><h3>출처에서 현재 판단까지의 근거 경로</h3></div>
+      <p>클릭한 관계만 보여주며 다른 Fact·Event·Assessment로 자동 확장하지 않습니다.</p></div>
+    <ol className="viz-chain">
+      <li><span className="viz-node-label">SOURCE</span><strong>{evidence.source?.sourceName}</strong><small>{evidence.source?.sourceType}</small></li>
+      <li><span className="viz-node-label">EVIDENCE</span><strong>{evidence.title ?? evidence.externalId}</strong><small>Evidence ID {evidence.evidenceId}</small></li>
+      {relation && <li><span className="viz-node-label">LINKED TO</span><strong>{relation.type} · {relation.label}</strong></li>}
+    </ol>
+    {evidence.originalUrl && <a className="viz-source-link" href={evidence.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 열기 <span aria-hidden="true">↗</span></a>}
   </section>
 }
