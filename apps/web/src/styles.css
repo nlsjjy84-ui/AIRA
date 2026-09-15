@@ -1343,3 +1343,27 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 @media (max-width: 40rem) {
   .session-notice { min-height: 2.75rem; flex-wrap: wrap; }
 }
+
+/* Inspect exact selection uses an asymmetric work area, not another card grid. */
+.exact-observation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(14rem, .7fr);
+  gap: clamp(1.25rem, 3vw, 2.75rem);
+  align-items: start;
+  max-width: 50rem;
+  margin-top: .85rem;
+}
+.explorer-fields.exact-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem .85rem;
+  max-width: none;
+  margin: 0;
+}
+.exact-fields .receipt-field { grid-column: 1 / -1; }
+.exact-fields > button { justify-self: start; border-color: var(--stage-color); color: white; background: var(--stage-color); }
+.exact-selection-note { padding: .2rem 0 .2rem 1rem; border-left: 3px solid var(--stage-color); }
+.exact-selection-note strong { color: var(--stage-color); }
+.exact-selection-note p { margin: .45rem 0; color: var(--muted); }
+.exact-selection-note span { font-size: .8rem; font-weight: 750; }
+@media (max-width: 52rem) { .exact-observation-layout { grid-template-columns: 1fr; } }
+@media (max-width: 40rem) { .explorer-fields.exact-fields { grid-template-columns: 1fr; } .exact-fields .receipt-field { grid-column: auto; } }
