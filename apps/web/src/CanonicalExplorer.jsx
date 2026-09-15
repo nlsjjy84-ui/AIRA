@@ -64,6 +64,11 @@ export default function CanonicalExplorer({ embedded = false }) {
     return () => window.removeEventListener('aira-workflow-step', moveFromShell)
   }, [embedded, context])
 
+  useEffect(() => {
+    if (!embedded) return
+    window.dispatchEvent(new CustomEvent('aira-workflow-context', { detail: context.step }))
+  }, [embedded, context.step])
+
   function edit(next) {
     // Field typing is one selection in history; Back should return to the prior screen, not a prior character.
     requestNumber.current += 1
@@ -220,6 +225,13 @@ export default function CanonicalExplorer({ embedded = false }) {
   }
 
   const target = context.target
+  const stepCopy = ({ MAIN: '대상 찾기', Ask: '관점 선택', Inspect: '자료 살피기', Relate: '관계 잇기', Assess: '판단 근거 확인' })[context.step]
+  const contextNodes = [
+    { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
+    { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
+    { label: '분류', value: context.category ?? (context.step === 'Relate' || context.step === 'Assess' ? '사건' : '선택 전'), ready: Boolean(context.category || context.step === 'Relate' || context.step === 'Assess') },
+    { label: '세부', value: context.detail ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : '선택 전'), ready: Boolean(context.detail || context.step === 'Relate' || context.step === 'Assess') },
+  ]
   return <div className={`canonical-explorer ${embedded ? 'embedded' : ''}`}>
     <header className="explorer-head"><p className="eyebrow">AIRA · MAIN</p><h1>대상을 찾고 근거를 따라 확인하세요.</h1>
       <p>기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.</p></header>
@@ -236,7 +248,13 @@ export default function CanonicalExplorer({ embedded = false }) {
         {item.canonicalName} <span>{item.entityType === 'COMPANY' ? '기업' : '종목'} · {item.symbol ?? item.canonicalKey}</span>
       </button></li>)}</ul>}
 
-    <nav aria-label="현재 탐색 경로" className="explorer-trail">{contextTrail(context).map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
+    <section className="explorer-context" aria-label="현재 탐색 문맥">
+      <div className="context-stage"><span>현재 단계</span><strong>{context.step} · {stepCopy}</strong></div>
+      <ol className="context-branch">{contextNodes.map((node, index) => <li key={node.label} className={node.ready ? 'ready' : 'pending'}>
+        <span>{node.label}</span><strong>{node.value}</strong>{index < contextNodes.length - 1 && <i aria-hidden="true">›</i>}
+      </li>)}</ol>
+      <nav aria-label="현재 탐색 경로" className="explorer-trail">{contextTrail(context).map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
+    </section>
     {!embedded && <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
       aria-current={context.step === step ? 'step' : undefined}
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
@@ -244,23 +262,27 @@ export default function CanonicalExplorer({ embedded = false }) {
     {context.step !== 'MAIN' && <button type="button" className="secondary-action" onClick={() => window.history.back()}>이전 상태로</button>}
 
     {context.step === 'MAIN' && <p>검색 결과에서 정확한 기업 또는 종목을 선택하세요.</p>}
-    {context.step === 'Ask' && target && <section className="explorer-panel"><h2>Ask · 확인할 관점</h2>
-      <p>{target.canonicalName} · {target.entityType}. 자유 질문 대신 관점을 선택합니다.</p>
-      <div className="explorer-options"><button type="button" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>공식 사실과 근거</button>
-        <button type="button" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>사건과 분석</button></div></section>}
-    {context.step === 'Inspect' && target && <section className="explorer-panel"><h2>Inspect · 자료 분류</h2>
-      {!context.category && <div className="explorer-options"><button type="button" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}>{target.entityType === 'COMPANY' ? '재무' : '시장'}</button></div>}
-      {context.category && !context.detail && <div className="explorer-options"><button type="button" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</button></div>}
-      {context.detail && <div className="explorer-detail"><p>{context.category} › {context.detail}</p>
+    {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
+      <p className="panel-lead">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p>
+      <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
+      <div className="explorer-options branch-options"><button type="button" className="choice-card" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
+          <strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
+        <button type="button" className="choice-card" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
+          <strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div></section>}
+    {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
+      <p className="panel-lead">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p>
+      {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 Fact와 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
+      {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
+      {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{context.detail}</strong></p>
         {target.entityType === 'COMPANY' ? <div className="explorer-fields"><label>기간 시작 <input type="date" value={context.periodStart} onChange={event => edit({ ...context, periodStart: event.target.value })} /></label>
           <label>기간 종료 <input type="date" value={context.periodEnd} onChange={event => edit({ ...context, periodEnd: event.target.value })} /></label>
           <label>공시 접수번호 <input value={context.receipt} onChange={event => edit({ ...context, receipt: event.target.value })} /></label></div>
           : <label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label>}
         <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}</section>}
-    {context.step === 'Relate' && target && <section className="explorer-panel"><h2>Relate · 관련 사건</h2>
+    {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>관련 사건과 대상을 연결해 확인하세요.</h2>
       {target.entityType === 'COMPANY' ? <button type="button" onClick={loadDetail}>사건 목록 확인</button> : <p>종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
       {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
-    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><h2>Assess · 현재 분석</h2>
+    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
       <p>Event ID {context.eventId}</p><button type="button" onClick={loadDetail}>Assessment 확인</button>
       {eventDetail && <div className="viz-block"><h3>사건 상세</h3><p>{eventDetail.title} · Event ID {eventDetail.eventId}</p>
         {!eventDetail.assessment && <p>이 Event에 연결된 Assessment가 없습니다.</p>}
@@ -279,8 +301,9 @@ export default function CanonicalExplorer({ embedded = false }) {
       {data.value.tradingDate && <MarketOverview observation={data} predicate={context.predicate} />}
     </div>}
     {context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0 &&
-      <section className="viz-block"><button type="button" onClick={() => setCompare(value => ({ ...value, open: !value.open }))}>A ↔ B 비교 {compare.open ? '닫기' : '열기'}</button>
-        {compare.open && <><form onSubmit={loadComparison} className="explorer-fields" aria-label="B 정확한 기간 선택">
+      <section className="viz-block comparison-workspace" aria-label="분할 비교 도구"><div className="split-mode-heading"><div><p className="eyebrow">SPLIT VIEW · 비교</p><h3>A ↔ B 분할 비교</h3>
+          <p>A의 현재 문맥을 유지한 채 B의 정확한 기간·공시를 옆에 놓고 비교합니다.</p></div><button type="button" onClick={() => setCompare(value => ({ ...value, open: !value.open }))}>{compare.open ? '분할보기 닫기' : '분할보기 열기'}</button></div>
+        {compare.open && <><form onSubmit={loadComparison} className="explorer-fields compare-fields" aria-label="B 정확한 기간 선택">
           <label>B 기간 시작 <input type="date" value={compare.periodStart} onChange={event => changeCompareField('periodStart', event.target.value)} /></label>
           <label>B 기간 종료 <input type="date" value={compare.periodEnd} onChange={event => changeCompareField('periodEnd', event.target.value)} /></label>
           <label>B 공시 접수번호 <input value={compare.receipt} onChange={event => changeCompareField('receipt', event.target.value)} /></label>
