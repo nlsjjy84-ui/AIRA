@@ -255,20 +255,34 @@ export default function CanonicalExplorer({ embedded = false }) {
         {item.canonicalName} <span>{item.entityType === 'COMPANY' ? '기업' : '종목'} · {item.symbol ?? item.canonicalKey}</span>
       </button></li>)}</ul>}
 
-    <section className="explorer-context" aria-label="현재 탐색 문맥">
+    {context.step === 'MAIN' && <section className="main-entry" aria-labelledby="main-entry-title">
+      <div className="main-entry-copy"><p className="eyebrow">START HERE</p><h2 id="main-entry-title">위 검색창에서 기업·종목을 찾는 것부터 시작합니다.</h2>
+        <p>추천 순위가 아니라 정확한 대상을 고른 뒤, 필요한 관점과 공식 근거를 따라 확인합니다.</p></div>
+      <div className="main-path" aria-label="AIRA 탐색 구조">
+        <div className="main-path-step main-path-main"><span>01 · MAIN</span><strong>대상 찾기</strong><small>기업·종목 식별</small></div>
+        <i aria-hidden="true">→</i>
+        <div className="main-path-step main-path-ask"><span>02 · ASK</span><strong>관점 정하기</strong><small>무엇을 볼지 선택</small></div>
+        <i aria-hidden="true">→</i>
+        <div className="main-path-branch"><div className="main-path-step main-path-inspect"><span>03A · INSPECT</span><strong>자료 살피기</strong><small>값·기간·공시</small></div>
+          <div className="main-path-step main-path-relate"><span>03B · RELATE</span><strong>관계 잇기</strong><small>Event·관련 대상</small></div></div>
+        <i aria-hidden="true">→</i>
+        <div className="main-path-step main-path-assess"><span>04 · ASSESS</span><strong>판단 확인</strong><small>분석·Evidence</small></div>
+      </div>
+      <p className="main-path-note">Ask에서 고른 관점에 따라 Inspect 또는 Relate로 갈라지고, 필요한 경우 Assess에서 판단 근거까지 확인합니다.</p>
+    </section>}
+    {context.step !== 'MAIN' && <section className="explorer-context" aria-label="현재 탐색 문맥">
       <div className="context-stage"><span>현재 단계</span><strong>{context.step} · {stepCopy}</strong></div>
       <ol className="context-branch">{contextNodes.map((node, index) => <li key={node.label} className={node.ready ? 'ready' : 'pending'}>
         <span>{node.label}</span><strong>{node.value}</strong>{index < contextNodes.length - 1 && <i aria-hidden="true">›</i>}
       </li>)}</ol>
       <nav aria-label="현재 탐색 경로" className="explorer-trail">{contextTrail(context).map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
-    </section>
+    </section>}
     {!embedded && <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
       aria-current={context.step === step ? 'step' : undefined}
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
       onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
     {context.step !== 'MAIN' && <button type="button" className="secondary-action" onClick={() => window.history.back()}>이전 상태로</button>}
 
-    {context.step === 'MAIN' && <p>검색 결과에서 정확한 기업 또는 종목을 선택하세요.</p>}
     {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
       <p className="panel-lead">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>

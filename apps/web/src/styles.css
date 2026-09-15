@@ -646,3 +646,44 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   box-shadow: inset 3px 0 0 var(--item-stage);
 }
 .workflow-sidebar [data-workflow-step][aria-current="step"] .workflow-label { color: var(--item-stage); font-weight: 750; }
+
+/* MAIN first-impression pass: clearer start, meaningful color, no duplicate search UI. */
+.site-header form[role="search"] { position: relative; }
+.site-header form[role="search"] > label {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.site-header input[type="search"] { min-height: 2.65rem; padding-inline: .95rem; border-radius: .65rem; }
+.main-entry { margin: .2rem 0 2rem; padding: 1.35rem 0 1.55rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.main-entry-copy { display: grid; grid-template-columns: minmax(14rem, .85fr) minmax(18rem, 1.15fr); gap: 1.5rem 3rem; align-items: end; }
+.main-entry-copy .eyebrow { grid-column: 1 / -1; margin-bottom: -.65rem; }
+.main-entry-copy h2 { max-width: 28rem; font-size: clamp(1.35rem, 2.6vw, 2rem); }
+.main-entry-copy > p:last-child { max-width: 32rem; margin: 0; color: var(--muted); }
+.main-path { display: grid; grid-template-columns: minmax(7.5rem, 1fr) auto minmax(7.5rem, 1fr) auto minmax(9rem, 1.2fr) auto minmax(7.5rem, 1fr); gap: .65rem; align-items: center; margin-top: 1.7rem; }
+.main-path > i { color: var(--muted); font-style: normal; font-size: 1.15rem; text-align: center; }
+.main-path-step { display: grid; gap: .12rem; min-width: 0; padding: .75rem .15rem .6rem; border-top: 3px solid var(--path-color); }
+.main-path-step span { color: var(--path-color); font-size: .68rem; font-weight: 850; letter-spacing: .08em; }
+.main-path-step strong { font-size: 1rem; }
+.main-path-step small { color: var(--muted); font-size: .78rem; }
+.main-path-main { --path-color: #173f55; } .main-path-ask { --path-color: #0f5963; }
+.main-path-inspect { --path-color: #3f787a; } .main-path-relate { --path-color: #8b6b3f; } .main-path-assess { --path-color: #685f88; }
+.main-path-branch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.main-path-note { margin: 1rem 0 0; color: var(--muted); font-size: .82rem; }
+@media (max-width: 52rem) { .main-entry-copy { grid-template-columns: 1fr; gap: .75rem; } .main-entry-copy .eyebrow { margin-bottom: 0; } .main-path { grid-template-columns: 1fr; } .main-path > i { transform: rotate(90deg); } .main-path-branch { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 32rem) { .main-path-branch { grid-template-columns: 1fr; } }
+
+/* Mobile shell: no horizontal overflow; search and navigation remain immediately usable. */
+@media (max-width: 40rem) {
+  .site-header { display: grid; grid-template-columns: 1fr; gap: .65rem; padding-top: .85rem; padding-bottom: .85rem; }
+  .site-header form[role="search"] { width: 100%; max-width: none; min-width: 0; }
+  .site-header input[type="search"] { width: 100%; min-width: 0; }
+  .site-header .account-nav { width: 100%; justify-content: flex-start; gap: .15rem .35rem; }
+  .account-nav button, .account-nav a { padding: .35rem .4rem; font-size: .88rem; }
+  .workflow-sidebar { flex-direction: column; gap: .35rem; padding: .6rem 1.15rem; }
+  .workflow-sidebar nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; gap: .1rem; }
+  .workflow-sidebar nav button, .workflow-sidebar nav a {
+    width: 100%; min-width: 0; justify-content: center; padding: .5rem .15rem; font-size: .78rem; text-align: center;
+  }
+  .workflow-sidebar .settings-action { align-self: flex-end; padding: .25rem .45rem; font-size: .8rem; }
+  .canonical-explorer, .canonical-explorer.embedded, main { min-width: 0; overflow-wrap: anywhere; }
+}
