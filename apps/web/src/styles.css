@@ -805,3 +805,29 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .viz-evidence-path .viz-chain li:nth-child(3) { border-top-color: var(--series-d); }
 .viz-evidence-path .viz-chain li:nth-child(3) .viz-node-label { color: var(--series-d); }
 .viz-timeline small, .viz-chain small { font-variant-numeric: tabular-nums; }
+
+/* Personal areas: role color and hierarchy without ranking or sentiment cues. */
+.interests-section { --personal-color: var(--accent-strong); }
+.briefing-section { --personal-color: var(--series-b); }
+.alert-section { --personal-color: var(--series-c); }
+.interests-section .section-heading span,
+.briefing-section .section-heading span,
+.alert-section .section-heading span { color: var(--personal-color); }
+.interest-list button { border-left: 4px solid var(--accent-strong); }
+.briefing-card,
+.alert-card {
+  padding: 1.25rem;
+  border: 0;
+  border-top: 3px solid var(--personal-card-color);
+  border-radius: .75rem;
+  background: var(--surface);
+}
+.briefing-card { --personal-card-color: var(--series-b); }
+.alert-card { --personal-card-color: var(--series-c); }
+.insight-identity { color: var(--muted); font-size: .84rem; overflow-wrap: anywhere; }
+.evidence-reference { display: grid; gap: .28rem; margin-top: .9rem; padding-top: .85rem; border-top: 1px dashed var(--line); overflow-wrap: anywhere; }
+.evidence-reference .official-evidence-action { justify-self: start; }
+@media (max-width: 40rem) {
+  .briefing-card, .alert-card { padding: 1rem; }
+  .evidence-reference .secondary-action { justify-self: stretch; justify-content: center; }
+}

@@ -10,6 +10,12 @@ import { alertEmptyMessage } from './alertEmptyState.js'
 import { getAlert, reconcileAlerts } from './api/alertApi.js'
 
 const LABELS = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
+const EVIDENCE_TYPE_LABELS = { ARTICLE: '기사', DISCLOSURE: '공시', IR: 'IR 자료', PRESS_RELEASE: '보도자료', OFFICIAL_DATA: '공식 데이터', OTHER: '기타' }
+const SOURCE_TYPE_LABELS = { NEWS: '뉴스', REGULATOR: '감독기관', EXCHANGE: '거래소', COMPANY_IR: '기업 IR', GOVERNMENT: '정부기관', OTHER: '기타' }
+const EVENT_TYPE_LABELS = { EARNINGS: '실적', DISCLOSURE: '공시', BUSINESS: '사업', GOVERNANCE: '지배구조', POLICY_REGULATION: '정책·규제', RISK: '리스크', MARKET: '시장' }
+const IMPORTANCE_LABELS = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '매우 높음' }
+const CONFIDENCE_LABELS = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }
+const ASSESSMENT_METHOD_LABELS = { RULE: '규칙 기반', AI: 'AI 기반', HYBRID: '혼합', HUMAN_REVIEW: '사람 검토' }
 
 function messageFor(error, subject) {
   if (error?.status === 400) return `${subject} 요청을 확인해 주세요.`
@@ -504,18 +510,18 @@ export default function App() {
         {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
         {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
         {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
-          <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '아직 관심 회사가 없습니다.' : '이 Briefing 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason === 'NO_INTERESTS' && <p>계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 Briefing에서 모아볼 수 있습니다.</p>}<a className="secondary-action" href="#companies">관심회사 살펴보기</a></div>}
+          <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '아직 관심 회사가 없습니다.' : '이 브리핑 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason === 'NO_INTERESTS' && <p>계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.</p>}<a className="secondary-action" href="#companies">관심회사 살펴보기</a></div>}
         {briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
           <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
           <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-          <p>당시 분석 · Assessment ID {item.assessmentId} · {item.analysisVersion}</p>
-          <button onClick={() => setHistoricalId(item.assessmentId)}>당시 Assessment 보기</button>
+          <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+          <p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
+          <button onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
           <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
             <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <p>Event 상세는 현재 상태와 Current 분석을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button></div>
+          <p>사건 상세에서는 현재 상태와 현재 판단을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button></div>
           {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
             <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
             <span>공시 접수번호 {reference.externalId}</span>
@@ -532,12 +538,12 @@ export default function App() {
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
           <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
-          <p className="insight-time">Event 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>
-          {item.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(item.completedAt)}</p>}
+          <p className="insight-time">사건 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>
+          {item.completedAt && <p className="insight-time">판단 완료 {formatDateTime(item.completedAt)}</p>}
           {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
           <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAlertDetail(item.alertId)}>알림 상세 보기</button>
-            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 Event 보기</button></div>
+            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 사건 보기</button></div>
         </article>)}</div>
         {alertDetailState.loading && <Status busy>정확한 알림 기록을 불러오는 중입니다.</Status>}
         {alertDetailState.error && <ErrorState error={alertDetailState.error} subject="알림 상세" retry={() => openAlertDetail(alertDetailState.alertId)} />}
@@ -545,25 +551,25 @@ export default function App() {
           <h3 id="alert-detail-title">정확한 알림 상세</h3>
           <p className="eyebrow">관련 회사: {alertDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
           <h4>{alertDetailState.data.eventTitle}</h4><p>{alertDetailState.data.summary}</p>
-          <p>알림 전달 당시 분석 (Historical Exact)</p><button onClick={() => setHistoricalId(alertDetailState.data.assessmentId)}>당시 Assessment 보기</button>
+          <p>알림 전달 당시 판단</p><button onClick={() => setHistoricalId(alertDetailState.data.assessmentId)}>당시 판단 보기</button>
           <dl className="fact-list">
-            <div className="fact-row"><dt>Assessment ID</dt><dd>{alertDetailState.data.assessmentId}</dd></div>
+            <div className="fact-row"><dt>판단 식별자</dt><dd>{alertDetailState.data.assessmentId}</dd></div>
             <div className="fact-row"><dt>분석 버전</dt><dd>{alertDetailState.data.analysisVersion}</dd></div>
-            <div className="fact-row"><dt>분석 방법</dt><dd>{alertDetailState.data.method}</dd></div>
-            <div className="fact-row"><dt>중요도</dt><dd>{alertDetailState.data.importance}</dd></div>
-            <div className="fact-row"><dt>신뢰도</dt><dd>{alertDetailState.data.confidence}</dd></div>
+            <div className="fact-row"><dt>분석 방법</dt><dd>{ASSESSMENT_METHOD_LABELS[alertDetailState.data.method] ?? alertDetailState.data.method}</dd></div>
+            <div className="fact-row"><dt>중요도</dt><dd>{IMPORTANCE_LABELS[alertDetailState.data.importance] ?? alertDetailState.data.importance}</dd></div>
+            <div className="fact-row"><dt>확신 수준</dt><dd>{CONFIDENCE_LABELS[alertDetailState.data.confidence] ?? alertDetailState.data.confidence}</dd></div>
             <div className="fact-row"><dt>아직 확인할 점</dt><dd>{alertDetailState.data.uncertainty}</dd></div>
           </dl>
-          <p className="insight-time">Event 발생 {formatDateTime(alertDetailState.data.occurredAt) ?? '발생시각 미상'}</p>
-          {alertDetailState.data.completedAt && <p className="insight-time">Assessment 완료 {formatDateTime(alertDetailState.data.completedAt)}</p>}
+          <p className="insight-time">사건 발생 {formatDateTime(alertDetailState.data.occurredAt) ?? '발생시각 미상'}</p>
+          {alertDetailState.data.completedAt && <p className="insight-time">판단 완료 {formatDateTime(alertDetailState.data.completedAt)}</p>}
           {alertDetailState.data.sentAt && <p className="insight-time">알림 전달 {formatDateTime(alertDetailState.data.sentAt)}</p>}
-          <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openEventDetail(alertDetailState.data.eventId, null)}>현재 Event 보기</button></div>
+          <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openEventDetail(alertDetailState.data.eventId, null)}>현재 사건 보기</button></div>
           {alertDetailState.data.evidence.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
             <strong>{reference.sourceName}</strong>
-            <span>Evidence ID {reference.evidenceId}</span>
+            <span>근거 식별자 {reference.evidenceId}</span>
             <span>공시 접수번호 {reference.externalId}</span>
-            {reference.publishedAt && <span>Evidence 발행 {formatDateTime(reference.publishedAt)}</span>}
-            <span>Evidence revision {reference.revision}</span>
+            {reference.publishedAt && <span>근거 자료 발행 {formatDateTime(reference.publishedAt)}</span>}
+            <span>근거 개정 번호 {reference.revision}</span>
             <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">공식 근거 원문 <span aria-hidden="true">↗</span></a>
             <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
           </div>)}
@@ -571,33 +577,33 @@ export default function App() {
       </section>}
 
       <section id="events" className="content-section event-section" aria-labelledby="explore-events-title">
-        <div className="section-heading"><span>RELATE</span><h2 id="explore-events-title">최근 확인된 Event</h2></div>
-        {exploreEventsState.loading && <Status busy>확인된 Event를 불러오는 중입니다.</Status>}
-        {exploreEventsState.error && <ErrorState error={exploreEventsState.error} subject="Event" retry={loadExploreEvents} />}
+        <div className="section-heading"><span>RELATE</span><h2 id="explore-events-title">최근 확인된 사건</h2></div>
+        {exploreEventsState.loading && <Status busy>확인된 사건을 불러오는 중입니다.</Status>}
+        {exploreEventsState.error && <ErrorState error={exploreEventsState.error} subject="사건" retry={loadExploreEvents} />}
         {!exploreEventsState.loading && !exploreEventsState.error && exploreEventsState.data.length === 0
-          && <Status>현재 AIRA에서 확인해 보여줄 수 있는 Event가 없습니다.</Status>}
+          && <Status>현재 AIRA에서 확인해 보여줄 수 있는 사건이 없습니다.</Status>}
         <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={item.eventId}>
           <p className="eyebrow">{item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.title}</h3>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+          <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
           <button type="button" className="secondary-action"
-            onClick={() => openEventDetail(item.eventId, null)}>Event 상세 보기</button>
+            onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button>
         </article>)}</div>
       </section>
 
       {
         <section id="event-detail" className="content-section event-section" aria-labelledby="event-detail-title">
-          <div className="section-heading"><span>ASSESS · CURRENT EVENT</span><h2 id="event-detail-title">Event 상세</h2></div>
-          {!eventDetailState.loading && !eventDetailState.error && !eventDetailState.data && <Status>Event를 선택하면 Current 분석과 근거를 확인할 수 있습니다.</Status>}{eventDetailState.loading && <Status busy>Event 상세를 불러오는 중입니다.</Status>}
+          <div className="section-heading"><span>ASSESS · 현재 사건</span><h2 id="event-detail-title">사건 상세</h2></div>
+          {!eventDetailState.loading && !eventDetailState.error && !eventDetailState.data && <Status>사건을 선택하면 현재 판단과 근거를 확인할 수 있습니다.</Status>}{eventDetailState.loading && <Status busy>사건 상세를 불러오는 중입니다.</Status>}
           {eventDetailState.error?.status === 404 &&
-            <Status>이 Event는 현재 공개 상세로 제공되지 않습니다.</Status>}
+            <Status>이 사건은 현재 공개 상세로 제공되지 않습니다.</Status>}
           {eventDetailState.error && eventDetailState.error.status !== 404 &&
-            <ErrorState error={eventDetailState.error} subject="Event 상세"
+            <ErrorState error={eventDetailState.error} subject="사건 상세"
               retry={() => openEventDetail(eventDetailState.eventId, eventDetailState.contextCompanyId)} />}
           {eventDetailState.data && <article className="event-detail">
-            <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT</p>
+            <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT · 사건 사실</p>
               <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
               <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
-              <p className="event-meta">{eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+              <p className="event-meta">{EVENT_TYPE_LABELS[eventDetailState.data.eventType] ?? eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
             </section>
             <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
               {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
@@ -606,19 +612,19 @@ export default function App() {
                 <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
               </div>)}
             </section>
-            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 해석</h3><p>Current — 현재 분석</p>
-              {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
+            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 판단</h3><p>현재 판단</p>
+              {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 판단이 없습니다.</Status>}
               {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
-                <p>Assessment ID {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
+                <p>판단 식별자 {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
                 <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
-                <p className="assessment-meta">중요도 {eventDetailState.data.assessment.importance} · 확신 {eventDetailState.data.assessment.confidence} · {eventDetailState.data.assessment.method}</p>
+                <p className="assessment-meta">중요도 {IMPORTANCE_LABELS[eventDetailState.data.assessment.importance] ?? eventDetailState.data.assessment.importance} · 확신 {CONFIDENCE_LABELS[eventDetailState.data.assessment.confidence] ?? eventDetailState.data.assessment.confidence} · {ASSESSMENT_METHOD_LABELS[eventDetailState.data.assessment.method] ?? eventDetailState.data.assessment.method}</p>
               </div>}
             </section>
             {eventDetailState.data.assessment && <section aria-labelledby="assessment-evidence-title">
-              <h3 id="assessment-evidence-title">해석 근거</h3>
+              <h3 id="assessment-evidence-title">판단 근거</h3>
               {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
                 <strong>{item.sourceName}</strong><span>{item.title}</span>
-                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">해석에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
+                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">판단에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
                 <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
               </div>)}
             </section>}
@@ -630,7 +636,7 @@ export default function App() {
           <div className="section-heading"><span>OFFICIAL EVIDENCE</span><h2 id="official-evidence-detail-title">공식 자료</h2></div>
           {officialEvidenceState.loading && <Status busy>공식 자료를 불러오는 중입니다.</Status>}
           {officialEvidenceState.error?.status === 404 &&
-            <Status>이 Evidence를 현재 public AIRA 경로에서 표시할 수 없습니다.</Status>}
+            <Status>이 근거 자료를 현재 공개 AIRA 경로에서 표시할 수 없습니다.</Status>}
           {officialEvidenceState.error && officialEvidenceState.error.status !== 404 &&
             <ErrorState error={officialEvidenceState.error} subject="공식 자료"
               retry={() => openOfficialEvidence(officialEvidenceState.evidenceId)} />}
@@ -638,11 +644,11 @@ export default function App() {
             <p className="eyebrow">{officialEvidenceState.data.source.sourceName}</p>
             <h3>{officialEvidenceState.data.title}</h3>
             <p>문서 식별자 {officialEvidenceState.data.externalId}</p>
-            <p>자료 유형 {officialEvidenceState.data.evidenceType} · 출처 유형 {officialEvidenceState.data.source.sourceType}</p>
+            <p>자료 유형 {EVIDENCE_TYPE_LABELS[officialEvidenceState.data.evidenceType] ?? officialEvidenceState.data.evidenceType} · 출처 유형 {SOURCE_TYPE_LABELS[officialEvidenceState.data.source.sourceType] ?? officialEvidenceState.data.source.sourceType}</p>
             {officialEvidenceState.data.source.canonicalDomain && <p>출처 도메인 {officialEvidenceState.data.source.canonicalDomain}</p>}
             <p>공식 자료 발행 {formatDateTime(officialEvidenceState.data.publishedAt) ?? '저장된 발행 시각 없음'}</p>
             <p>AIRA 자료 수집 {formatDateTime(officialEvidenceState.data.collectedAt) ?? '저장된 수집 시각 없음'}</p>
-            <p>Revision {officialEvidenceState.data.revision}</p>
+            <p>근거 개정 번호 {officialEvidenceState.data.revision}</p>
             {officialEvidenceState.data.locator && <p>자료 위치 {officialEvidenceState.data.locator}</p>}
             {officialEvidenceState.data.excerpt && <blockquote>{officialEvidenceState.data.excerpt}</blockquote>}
             {officialEvidenceState.data.originalUrl
@@ -679,14 +685,14 @@ export default function App() {
         {!eventsState.loading && !eventsState.error && eventsState.data.length === 0 && <Status>현재 근거와 함께 확인할 사건이 없습니다.</Status>}
         <div className="event-list">{eventsState.data.map(item => <article id={`event-${item.eventId}`} tabIndex="-1" key={item.eventId} className={`event-card ${highlightedEventId === item.eventId ? 'insight-target' : ''}`}>
           <p className="eyebrow">WHAT HAPPENED</p><h3>{item.title}</h3>
-          <p className="event-meta">{item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+          <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
           {item.assessment
-            ? <div className="assessment"><p>Current — 현재 분석</p><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
+            ? <div className="assessment"><p>현재 판단</p><h4>AIRA가 확인한 의미</h4><p>{item.assessment.summary}</p>
               <h4>아직 확인할 점</h4><p>{item.assessment.uncertainty}</p>
-              <p className="assessment-meta">중요도 {item.assessment.importance} · 확신 {item.assessment.confidence} · 규칙 기반 분석</p></div>
-            : <Status>현재 표시할 AIRA 해석이 없습니다.</Status>}
-          <button onClick={() => openEventDetail(item.eventId, selectedCompany.companyId)}>현재 Event와 분석 근거 보기</button>
-          {item.evidence.map(reference => <div className="event-evidence" key={reference.evidenceId}><strong>{reference.sourceName}</strong><span>공시 식별자 {reference.externalId} · revision {reference.revision}</span>
+              <p className="assessment-meta">중요도 {IMPORTANCE_LABELS[item.assessment.importance] ?? item.assessment.importance} · 확신 {CONFIDENCE_LABELS[item.assessment.confidence] ?? item.assessment.confidence} · {ASSESSMENT_METHOD_LABELS[item.assessment.method] ?? item.assessment.method}</p></div>
+            : <Status>현재 표시할 AIRA 판단이 없습니다.</Status>}
+          <button onClick={() => openEventDetail(item.eventId, selectedCompany.companyId)}>현재 사건과 판단 근거 보기</button>
+          {item.evidence.map(reference => <div className="event-evidence" key={reference.evidenceId}><strong>{reference.sourceName}</strong><span>공시 식별자 {reference.externalId} · 근거 개정 번호 {reference.revision}</span>
             <a href={reference.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>)}
         </article>)}</div>
       </section>}
