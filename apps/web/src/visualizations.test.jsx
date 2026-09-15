@@ -32,7 +32,8 @@ describe('evidence-linked visuals', () => {
     expect(onEvidence.mock.calls.map(call => call[0])).toEqual(['e-a', 'e-b'])
     expect(screen.getAllByRole('meter')).toHaveLength(2)
     expect(screen.getByText('증감액 1억 원')).toBeInTheDocument()
-    expect(screen.getByText(/증감률 계산 불가 \(BASE_NON_POSITIVE\)/)).toBeInTheDocument()
+    expect(screen.getByText(/증감률 계산 불가 · A 값이 0 이하라 일반 증감률을 계산할 수 없습니다/)).toBeInTheDocument()
+    expect(screen.queryByText(/BASE_NON_POSITIVE/)).not.toBeInTheDocument()
   })
 
   it('refuses an inferred candle when a value or same official D is missing', () => {

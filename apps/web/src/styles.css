@@ -1223,3 +1223,22 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .assessment-evidence-row .secondary-action { width: 100%; justify-content: center; }
   .relation-actions > * { flex: 1 1 100%; justify-content: center; }
 }
+
+/* Company Inspect: confirmed structure, one subsection at a time. */
+.inspect-result-workspace { margin-top: .9rem; padding-top: .9rem; border-top: 1px solid var(--line); }
+.inspect-result-context { margin: 0; color: var(--muted); font-size: .84rem; overflow-wrap: anywhere; }
+.inspect-fact-list, .inspect-evidence-list { border-top: 1px solid var(--line); }
+.inspect-fact-row { display: grid; grid-template-columns: minmax(7rem, .8fr) minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+.inspect-fact-row > span { color: var(--muted); font-weight: 700; }
+.inspect-fact-row > strong { font-size: 1.12rem; }
+.inspect-fact-row > small { color: var(--muted); text-align: right; }
+.inspect-evidence-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .8rem; align-items: center; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+.inspect-evidence-row > div { display: grid; gap: .15rem; min-width: 0; }
+.inspect-evidence-row span, .inspect-evidence-row small { color: var(--muted); overflow-wrap: anywhere; }
+.inspect-result-workspace .comparison-workspace { margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+@media (max-width: 40rem) {
+  .inspect-fact-row { grid-template-columns: 1fr auto; gap: .25rem .6rem; }
+  .inspect-fact-row > small { grid-column: 1 / -1; text-align: left; }
+  .inspect-evidence-row { grid-template-columns: 1fr; }
+  .inspect-evidence-row .secondary-action { width: 100%; justify-content: center; }
+}

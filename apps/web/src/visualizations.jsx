@@ -22,6 +22,7 @@ const FACT_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', CLOSE_
   MARKET_CAP: '시가총액' }
 const RELATION_LABEL = { FACT: '사실', EVENT: '사건', ASSESSMENT: '판단' }
 const SOURCE_TYPE_LABEL = { EXCHANGE: '거래소', REGULATOR: '감독기관', FILING: '공시', OFFICIAL: '공식 기관' }
+const PERCENT_REASON_LABEL = { BASE_NON_POSITIVE: 'A 값이 0 이하라 일반 증감률을 계산할 수 없습니다.' }
 
 export function FinancialOverview({ observation, onEvidence }) {
   const [expanded, setExpanded] = useState(null)
@@ -62,7 +63,7 @@ export function FinancialSplit({ comparison, onEvidence }) {
             { type: 'FACT', label: `${metric.predicate} · ${side} ${period.periodStart} — ${period.periodEnd} · ${period.receipt}` })}>
             {side} 근거 식별자 · {id}</button>)}</article>)}</div>
       <p className="viz-change-summary"><span>증감액 {formatQuantity(metric.changeAmountBMinusA, metric.a.currency)}</span><span>증감률 {metric.changePercentBOverA == null
-        ? `계산 불가 (${metric.percentReason})` : formatQuantity(metric.changePercentBOverA, '%')}</span></p>
+        ? `계산 불가 · ${PERCENT_REASON_LABEL[metric.percentReason] ?? '계산 조건을 충족하지 않습니다.'}` : formatQuantity(metric.changePercentBOverA, '%')}</span></p>
       {/* Meter width is only a visual projection of server values; the change numbers above come from the API. */}
       {Number(metric.a.value) >= 0 && Number(metric.b.value) >= 0 && <div className="viz-bars" aria-label={`${metric.predicate} A와 B 값 막대`}>
         {[metric.a, metric.b].map((observation, index) => <div key={index}><span>{index ? 'B' : 'A'}</span>

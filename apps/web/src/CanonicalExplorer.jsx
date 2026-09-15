@@ -5,10 +5,11 @@ import { getCompanyEvents } from './api/companyApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
 import { advance, contextTrail, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
-import { FinancialOverview, FinancialSplit, MarketOverview, MarketSeriesView, MarketPreviousView,
+import { formatQuantity, FinancialSplit, MarketOverview, MarketSeriesView, MarketPreviousView,
   OhlcCandle, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
 
 const KEY = 'airaCanonicalExplorer12B'
+const INSPECT_SECTIONS = [['fact', '확인된 사실'], ['evidence', '공식 근거'], ['history', '변경 이력'], ['compare', '기간 비교']]
 const RELATE_SECTIONS = [['confirmed', '확인된 연결'], ['correction', '정정 이력 연결'], ['review', '추가로 살펴볼 연결']]
 const ASSESS_SECTIONS = [['fact', '확인된 사실'], ['interpretation', 'AIRA 해석'], ['reason', '왜 이렇게 해석했나요?'],
   ['path', '가능한 연결 경로'], ['confidence', '신뢰 수준'], ['unknown', '아직 모르는 것']]
@@ -16,6 +17,17 @@ const CONFIDENCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }
 const IMPORTANCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '매우 높음' }
 const METHOD_LABEL = { RULE: '규칙 기반', AI: 'AI 기반', HYBRID: '혼합', HUMAN_REVIEW: '사람 검토' }
 const EVENT_TYPE_LABEL = { EARNINGS: '실적', DISCLOSURE: '공시', BUSINESS: '사업', GOVERNANCE: '지배구조', POLICY: '정책', OTHER: '기타' }
+const FINANCIAL_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
+const COMPARISON_REASON_COPY = {
+  INVALID_EXACT_SELECTION: '비교할 기간과 공시 접수번호를 다시 확인해 주세요.',
+  A_FACTS_NOT_FOUND: 'A 기간에서 비교할 정확한 재무 값을 찾지 못했습니다.',
+  B_FACTS_NOT_FOUND: 'B 기간에서 비교할 정확한 재무 값을 찾지 못했습니다.',
+  A_COMPANY_NOT_FOUND: 'A 기간의 기업 자료를 찾지 못했습니다.', B_COMPANY_NOT_FOUND: 'B 기간의 기업 자료를 찾지 못했습니다.',
+  A_UNSUPPORTED_PREDICATE: 'A 기간에서 지원하지 않는 재무 항목입니다.', B_UNSUPPORTED_PREDICATE: 'B 기간에서 지원하지 않는 재무 항목입니다.',
+  A_INCONSISTENT_PROVENANCE: 'A 기간의 공식 근거가 일관되지 않아 비교할 수 없습니다.',
+  B_INCONSISTENT_PROVENANCE: 'B 기간의 공식 근거가 일관되지 않아 비교할 수 없습니다.',
+  CURRENCY_MISMATCH: '두 기간의 통화 단위가 달라 직접 비교할 수 없습니다.',
+}
 
 const STATE_PRESENTATION = {
   NO_DATA: ['결과 없음', 'neutral'], PARTIAL: ['일부 확인', 'attention'], STALE: ['갱신 확인 필요', 'attention'],
@@ -46,6 +58,7 @@ export default function CanonicalExplorer({ embedded = false }) {
   const [historical, setHistorical] = useState({ loading: false, value: null, state: null })
   const [evidence, setEvidence] = useState({ loading: false, value: null, state: null })
   const [eventDetail, setEventDetail] = useState(null)
+  const [inspectSection, setInspectSection] = useState('fact')
   const [relateSection, setRelateSection] = useState('confirmed')
   const [assessSection, setAssessSection] = useState('fact')
   const requestNumber = useRef(0)
@@ -58,9 +71,10 @@ export default function CanonicalExplorer({ embedded = false }) {
   }, [])
 
   useEffect(() => {
+    if (context.step === 'Inspect') setInspectSection('fact')
     if (context.step === 'Relate') setRelateSection('confirmed')
     if (context.step === 'Assess') setAssessSection('fact')
-  }, [context.step, context.eventId])
+  }, [context.step, context.detail, context.eventId])
 
   useEffect(() => {
     if (context.step !== 'Assess' || !context.eventId) { setEventDetail(null); return undefined }
@@ -401,13 +415,24 @@ export default function CanonicalExplorer({ embedded = false }) {
     </section>}
     {data.loading && <LoadingNotice>자료를 확인하는 중…</LoadingNotice>}
     {!data.loading && data.state && data.state !== 'AVAILABLE' && <StateNotice state={data.state} />}
-    {context.step === 'Inspect' && !data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
-      <p>{selectionLabel} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`} {data.receipt && `· 공시 접수번호 ${data.receipt}`}</p>
-      {data.value.facts && <FinancialOverview observation={data} onEvidence={openEvidence} />}
+    {context.step === 'Inspect' && target?.entityType === 'SECURITY' && !data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
+      <p>{selectionLabel} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`}</p>
       {data.value.tradingDate && <MarketOverview observation={data} predicate={context.predicate} />}
     </div>}
-    {context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0 &&
-      <section className="viz-block comparison-workspace" aria-label="분할 비교 도구"><div className="split-mode-heading"><div><p className="eyebrow">SPLIT VIEW · 비교</p><h3>A ↔ B 분할 비교</h3>
+    {context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0 && <section className="inspect-result-workspace" aria-label="재무 Inspect 결과">
+      <p className="inspect-result-context">정확한 기간·공시 · {data.periodStart} — {data.periodEnd} · 공시 접수번호 {data.receipt}</p>
+      <nav className="subsection-nav" aria-label="Inspect 하위 메뉴">{INSPECT_SECTIONS.map(([key, label]) => <button key={key} type="button"
+        aria-current={inspectSection === key ? 'page' : undefined} onClick={() => setInspectSection(key)}>{label}</button>)}</nav>
+      {inspectSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실"><div className="inspect-fact-list" role="list">{data.value.facts.map(fact => <div className="inspect-fact-row" role="listitem" key={`${fact.predicate}:${fact.evidenceId}`}>
+        <span>{FINANCIAL_LABEL[fact.predicate] ?? fact.predicate}</span><strong>{formatQuantity(fact.value, fact.currency)}</strong><small>{fact.periodStart ?? data.periodStart} — {fact.periodEnd ?? data.periodEnd}</small>
+      </div>)}</div></div>}
+      {inspectSection === 'evidence' && <div className="subsection-panel" aria-label="공식 근거"><div className="inspect-evidence-list">{[...new Map(data.value.facts.filter(fact => fact.evidenceId).map(fact => [fact.evidenceId, fact])).values()].map(fact => <div className="inspect-evidence-row" key={fact.evidenceId}>
+        <div><strong>{fact.sourceName ?? '공식 출처'}</strong><span>공시 접수번호 {fact.evidenceExternalId ?? data.receipt}</span><small>근거 식별자 · {fact.evidenceId}</small></div>
+        <button type="button" className="secondary-action" onClick={() => openEvidence(fact.evidenceId, { type: 'FACT', label: `${target.canonicalName} · ${data.periodStart} — ${data.periodEnd}` })}>공식 근거 상세</button>
+      </div>)}</div></div>}
+      {inspectSection === 'history' && <div className="subsection-panel subview-empty" aria-label="변경 이력"><strong>현재 확인된 변경 이력이 없습니다.</strong>
+        <p>정정·변경 관계가 공식 데이터로 확인될 때만 이력으로 연결합니다. 이름이나 revision만으로 변경 계보를 만들지 않습니다.</p></div>}
+      {inspectSection === 'compare' && <div className="subsection-panel" aria-label="기간 비교"><section className="comparison-workspace"><div className="split-mode-heading"><div><p className="eyebrow">SPLIT VIEW · 비교</p><h3>A ↔ B 분할 비교</h3>
           <p>A의 현재 문맥을 유지한 채 B의 정확한 기간·공시를 옆에 놓고 비교합니다.</p></div><button type="button" onClick={() => setCompare(value => ({ ...value, open: !value.open }))}>{compare.open ? '분할보기 닫기' : '분할보기 열기'}</button></div>
         {compare.open && <><form onSubmit={loadComparison} className="explorer-fields compare-fields" aria-label="B 정확한 기간 선택">
           <label>B 기간 시작 <input type="date" value={compare.periodStart} onChange={event => changeCompareField('periodStart', event.target.value)} /></label>
@@ -415,9 +440,11 @@ export default function CanonicalExplorer({ embedded = false }) {
           <label>B 공시 접수번호 <input value={compare.receipt} onChange={event => changeCompareField('receipt', event.target.value)} /></label>
           <button type="submit">B 관측값 확인</button></form>
           {compare.loading && <LoadingNotice>B 관측값 확인 중…</LoadingNotice>}
-          {compare.state && compare.state !== 'AVAILABLE' && <StateNotice state={compare.state} lead="비교할 수 없습니다." detail={compare.data?.reason} />}
+          {compare.state && compare.state !== 'AVAILABLE' && <StateNotice state={compare.state} lead="비교할 수 없습니다."
+            detail={COMPARISON_REASON_COPY[compare.data?.reason]} />}
           {compare.data?.state === 'AVAILABLE' && <FinancialSplit comparison={compare.data} onEvidence={openEvidence} />}</>}
-      </section>}
+      </section></div>}
+    </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && context.detail &&
       <section className="viz-block"><button type="button" onClick={() => setMarketRange(value => ({ ...value, open: !value.open }))}>
         공식 관측 흐름 {marketRange.open ? '닫기' : '열기'}</button>
