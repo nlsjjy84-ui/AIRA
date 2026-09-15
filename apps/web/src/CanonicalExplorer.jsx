@@ -234,11 +234,12 @@ export default function CanonicalExplorer({ embedded = false }) {
     Relate: { eyebrow: 'RELATE · 잇기', title: '사건과 대상의 연결을 따라갑니다.', copy: '확인된 Event와 관련 대상을 근거가 있는 관계만 이어서 봅니다.' },
     Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: 'Current와 Historical Exact를 구분하고 연결된 Evidence를 직접 확인합니다.' },
   })[context.step]
+  const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
   const contextNodes = [
     { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
     { label: '분류', value: context.category ?? (context.step === 'Relate' || context.step === 'Assess' ? '사건' : '선택 전'), ready: Boolean(context.category || context.step === 'Relate' || context.step === 'Assess') },
-    { label: '세부', value: context.detail ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : '선택 전'), ready: Boolean(context.detail || context.step === 'Relate' || context.step === 'Assess') },
+    { label: '세부', value: detailLabel ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : '선택 전'), ready: Boolean(context.detail || context.step === 'Relate' || context.step === 'Assess') },
   ]
   return <div className={`canonical-explorer ${embedded ? 'embedded' : ''} stage-${context.step.toLowerCase()}`}>
     <header className="explorer-head stage-hero"><p className="eyebrow">{stageVisual.eyebrow}</p><h1>{stageVisual.title}</h1>
@@ -301,9 +302,9 @@ export default function CanonicalExplorer({ embedded = false }) {
           <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div></section>}
     {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
       <p className="panel-lead">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p>
-      {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 Fact와 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
+      {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
       {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
-      {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{context.detail}</strong></p>
+      {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{detailLabel}</strong></p>
         {target.entityType === 'COMPANY' ? <div className="explorer-fields"><label>기간 시작 <input type="date" value={context.periodStart} onChange={event => edit({ ...context, periodStart: event.target.value })} /></label>
           <label>기간 종료 <input type="date" value={context.periodEnd} onChange={event => edit({ ...context, periodEnd: event.target.value })} /></label>
           <label>공시 접수번호 <input value={context.receipt} onChange={event => edit({ ...context, receipt: event.target.value })} /></label></div>

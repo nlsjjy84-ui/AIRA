@@ -21,10 +21,12 @@ export function selectTarget(state, target) {
 }
 
 export function contextTrail(state) {
-  return [state.step, state.target && `${state.target.canonicalName} · ${state.target.entityType}`,
-    state.perspective, state.category, state.detail,
+  const targetType = state.target?.entityType === 'COMPANY' ? '기업' : state.target?.entityType === 'SECURITY' ? '종목' : null
+  const detailLabel = state.detail === 'Historical Exact' ? '정확한 기간·공시' : state.detail === 'KRX Current' ? '공식 거래일 현재값' : state.detail
+  return [state.step, state.target && `${state.target.canonicalName} · ${targetType}`,
+    state.perspective, state.category, detailLabel,
     state.periodStart && state.periodEnd && `${state.periodStart} — ${state.periodEnd}`,
-    state.receipt && `receipt ${state.receipt}`, state.comparison && `비교 ${state.comparison}`].filter(Boolean)
+    state.receipt && `공시 접수번호 ${state.receipt}`, state.comparison && `비교 ${state.comparison}`].filter(Boolean)
 }
 
 export function stateCopy(state) {
