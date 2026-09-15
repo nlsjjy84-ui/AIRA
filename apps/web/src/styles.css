@@ -1,16 +1,22 @@
 :root {
   color-scheme: light;
-  --ink: #17211c;
-  --muted: #637069;
-  --paper: #f6f7f2;
+  --ink: #12242a;
+  --muted: #52635f;
+  --paper: #f4f7f6;
   --surface: #ffffff;
-  --line: #d9ded8;
-  --accent: #155c43;
-  --accent-soft: #dcebe3;
+  --line: #d6dfdd;
+  --accent: #0f5963;
+  --accent-soft: #e4f0ef;
+  --accent-strong: #173f55;
+  --accent-faint: #eef5f4;
+  --focus: #0b6972;
+  --series-a: #173f55;
+  --series-b: #3f787a;
+  --series-neutral: #879590;
   --error: #9e342c;
   --content: 70rem;
   --radius: 0.75rem;
-  font-family: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  font-family: "Pretendard Variable", Pretendard, "Noto Sans KR", "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
   color: var(--ink);
   background: var(--paper);
   font-synthesis: none;
@@ -21,7 +27,7 @@ html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 20rem; line-height: 1.6; }
 button, select { font: inherit; }
 a { color: inherit; }
-button:focus-visible, a:focus-visible, select:focus-visible { outline: 3px solid #267c5d; outline-offset: 3px; }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .canonical-explorer { max-width: 58rem; margin: auto; padding: 2rem 1.5rem 5rem; }
 .explorer-head { padding: 2.5rem 0; }
 .explorer-head h1 { font-size: clamp(2rem, 5vw, 3.5rem); }
@@ -492,4 +498,64 @@ footer p { margin: 0; }
   .viz-flow-arrow { transform: rotate(90deg); justify-self: center; }
   .viz-chain { grid-template-columns: 1fr; gap: .4rem; }
   .viz-chain li:not(:last-child)::after { content: '↓'; right: auto; left: .1rem; top: auto; bottom: -.72rem; transform: none; }
+}
+
+/* Visual system pass: typography, contrast, and neutral evidence-first emphasis. */
+body { color: var(--ink); background: var(--paper); font-weight: 450; }
+h1, h2, h3, h4 { color: var(--ink); font-weight: 760; text-wrap: balance; }
+h1 { letter-spacing: -.045em; }
+h2, h3 { letter-spacing: -.025em; }
+.brand { color: var(--accent-strong); letter-spacing: .12em; }
+.eyebrow { color: var(--accent); letter-spacing: .12em; }
+.site-header { background: color-mix(in srgb, var(--paper) 94%, white); }
+.explorer-panel, .explorer-data {
+  padding: 1.75rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.explorer-options .choice-card { border-color: var(--line); }
+.explorer-options .choice-card:hover,
+.explorer-options .choice-card:focus-visible { border-color: var(--accent); background: var(--accent-faint); }
+.explorer-detail > button,
+.compare-fields > button { color: white; background: var(--accent); }
+.viz-big-number { color: var(--accent-strong); font-weight: 780; }
+.viz-side { position: relative; }
+.viz-side::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2.75rem;
+  height: 2px;
+  background: var(--series-neutral);
+}
+.viz-side-a::before { background: var(--series-a); }
+.viz-side-b::before { background: var(--series-b); }
+.viz-side-a > small:first-child { color: var(--series-a); font-weight: 750; }
+.viz-side-b > small:first-child { color: var(--series-b); font-weight: 750; }
+.viz-compare-row > p { color: var(--accent-strong); }
+.viz-flow-node.previous { border-top-color: var(--series-a); }
+.viz-flow-node.current { border-top-color: var(--series-b); }
+.context-stage strong,
+.workflow-code { color: var(--accent-strong); }
+.workflow-sidebar nav button[aria-current="step"] {
+  color: var(--accent-strong);
+  box-shadow: inset 3px 0 0 var(--accent-strong);
+}
+meter { height: .7rem; border: 0; border-radius: 999px; background: var(--line); }
+meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--line); }
+.viz-bars > div:first-child meter::-webkit-meter-optimum-value { background: var(--series-a); }
+.viz-bars > div:nth-child(2) meter::-webkit-meter-optimum-value { background: var(--series-b); }
+.viz-series meter::-webkit-meter-optimum-value { background: var(--series-b); }
+.viz-bars > div:first-child meter::-moz-meter-bar { background: var(--series-a); }
+.viz-bars > div:nth-child(2) meter::-moz-meter-bar { background: var(--series-b); }
+.viz-series meter::-moz-meter-bar { background: var(--series-b); }
+.viz-selection { border-top-color: var(--series-b); }
+.viz-node-label { color: var(--accent-strong); }
+.viz-source-link { color: var(--accent-strong); }
+@media (max-width: 40rem) {
+  body { font-weight: 400; }
+  h1 { letter-spacing: -.035em; }
 }

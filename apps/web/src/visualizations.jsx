@@ -53,7 +53,7 @@ export function FinancialSplit({ comparison, onEvidence }) {
     {comparison.metrics.map(metric => <div className="viz-compare-row" key={metric.predicate}>
       <h4>{FACT_LABEL[metric.predicate] ?? metric.predicate}</h4>
       <div className="viz-split">{[['A', comparison.a, metric.a], ['B', comparison.b, metric.b]].map(([side, period, observation]) =>
-        <article key={side}><small>{side} · {period.periodStart} — {period.periodEnd} · 공시 {period.receipt}</small>
+        <article className={`viz-side viz-side-${side.toLowerCase()}`} key={side}><small>{side} · {period.periodStart} — {period.periodEnd} · 공시 {period.receipt}</small>
           <strong>{formatQuantity(observation.value, observation.currency)}</strong>
           {observation.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
             { type: 'FACT', label: `${metric.predicate} · ${side} ${period.periodStart} — ${period.periodEnd} · ${period.receipt}` })}>
@@ -102,7 +102,7 @@ export function MarketPreviousView({ comparison, onEvidence }) {
   if (comparison?.state !== 'AVAILABLE' || !comparison.current || !comparison.previous) return null
   return <section className="viz-block" aria-label="D와 직전 공식 관측 비교"><h3>비교 · D와 직전 실제 관측일</h3>
     <div className="viz-split">{[['직전 관측', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
-      <article key={label}><small>{label} · {point.tradingDate}</small><strong>{formatQuantity(point.value,
+      <article className={`viz-side ${label === 'D' ? 'viz-side-b' : 'viz-side-a'}`} key={label}><small>{label} · {point.tradingDate}</small><strong>{formatQuantity(point.value,
         comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</strong><small>Fact ID {point.factId}</small>
         {point.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
           { type: 'FACT', label: `${comparison.predicate} · ${point.tradingDate} · ${point.factId}` })}>
