@@ -1266,3 +1266,18 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   padding: .5rem .75rem;
   white-space: normal;
 }
+
+/* Action hierarchy: primary actions carry fill; secondary actions stay visually light. */
+.secondary-action {
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line));
+  color: var(--accent-strong);
+  background: transparent;
+}
+.secondary-action:hover,
+.secondary-action:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.secondary-action:disabled {
+  background: transparent;
+}
