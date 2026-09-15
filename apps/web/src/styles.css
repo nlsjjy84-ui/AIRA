@@ -1170,3 +1170,56 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   box-shadow: inset 0 2px 0 var(--series-d);
 }
 .market-previous .viz-bars > div { grid-template-columns: 2.5rem minmax(0, 1fr) auto; }
+
+/* Confirmed AIRA submenus: show one internal view at a time. */
+.subsection-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: .3rem;
+  margin: 1rem 0 .85rem;
+  padding-bottom: .55rem;
+  border-bottom: 1px solid var(--line);
+}
+.subsection-nav button {
+  min-height: 2.55rem;
+  padding: .55rem .65rem;
+  border: 0;
+  border-radius: .45rem;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 720;
+  text-align: left;
+}
+.subsection-nav button[aria-current="page"] {
+  background: var(--stage-soft);
+  color: var(--stage-color);
+  box-shadow: inset 0 -2px 0 var(--stage-color);
+}
+.subsection-panel { padding: .45rem 0 .25rem; }
+.relation-list { margin-top: .8rem; border-top: 1px solid var(--line); }
+.relation-row { padding: .9rem 0; border-bottom: 1px solid var(--line); }
+.relation-row h3 { margin: .35rem 0 .25rem; font-size: 1.08rem; }
+.relation-route { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; color: var(--muted); font-size: .8rem; }
+.relation-route span { font-weight: 700; }
+.relation-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .7rem; }
+.subview-empty { border-left: 3px solid var(--line); padding-left: 1rem; }
+.subview-empty p { max-width: 48rem; color: var(--muted); }
+.assessment-summary { max-width: 52rem; font-size: 1.03rem; line-height: 1.7; }
+.assessment-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; margin: .75rem 0; border-top: 1px solid var(--line); }
+.assessment-facts > div { padding: .6rem 0; border-bottom: 1px solid var(--line); }
+.assessment-facts dt { color: var(--muted); font-size: .78rem; font-weight: 700; }
+.assessment-facts dd { margin: .15rem 0 0; font-weight: 700; overflow-wrap: anywhere; }
+.historical-summary { margin-top: .85rem; padding-top: .85rem; border-top: 1px dashed var(--line); }
+.assessment-evidence-list { border-top: 1px solid var(--line); }
+.assessment-evidence-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .75rem 0; border-bottom: 1px solid var(--line); }
+.assessment-evidence-row div { display: grid; gap: .15rem; }
+.assessment-evidence-row span { color: var(--muted); }
+.uncertainty-copy { max-width: 52rem; padding-left: 1rem; border-left: 3px solid var(--series-d); line-height: 1.7; }
+@media (max-width: 40rem) {
+  .subsection-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .subsection-nav button { font-size: .82rem; }
+  .assessment-facts { grid-template-columns: 1fr; }
+  .assessment-evidence-row { grid-template-columns: 1fr; }
+  .assessment-evidence-row .secondary-action { width: 100%; justify-content: center; }
+  .relation-actions > * { flex: 1 1 100%; justify-content: center; }
+}

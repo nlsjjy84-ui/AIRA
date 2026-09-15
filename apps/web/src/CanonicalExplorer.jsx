@@ -6,9 +6,16 @@ import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
 import { advance, contextTrail, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
 import { FinancialOverview, FinancialSplit, MarketOverview, MarketSeriesView, MarketPreviousView,
-  OhlcCandle, EventTimeline, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
+  OhlcCandle, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
 
 const KEY = 'airaCanonicalExplorer12B'
+const RELATE_SECTIONS = [['confirmed', '확인된 연결'], ['correction', '정정 이력 연결'], ['review', '추가로 살펴볼 연결']]
+const ASSESS_SECTIONS = [['fact', '확인된 사실'], ['interpretation', 'AIRA 해석'], ['reason', '왜 이렇게 해석했나요?'],
+  ['path', '가능한 연결 경로'], ['confidence', '신뢰 수준'], ['unknown', '아직 모르는 것']]
+const CONFIDENCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }
+const IMPORTANCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '매우 높음' }
+const METHOD_LABEL = { RULE: '규칙 기반', AI: 'AI 기반', HYBRID: '혼합', HUMAN_REVIEW: '사람 검토' }
+const EVENT_TYPE_LABEL = { EARNINGS: '실적', DISCLOSURE: '공시', BUSINESS: '사업', GOVERNANCE: '지배구조', POLICY: '정책', OTHER: '기타' }
 
 const STATE_PRESENTATION = {
   NO_DATA: ['결과 없음', 'neutral'], PARTIAL: ['일부 확인', 'attention'], STALE: ['갱신 확인 필요', 'attention'],
@@ -39,13 +46,32 @@ export default function CanonicalExplorer({ embedded = false }) {
   const [historical, setHistorical] = useState({ loading: false, value: null, state: null })
   const [evidence, setEvidence] = useState({ loading: false, value: null, state: null })
   const [eventDetail, setEventDetail] = useState(null)
+  const [relateSection, setRelateSection] = useState('confirmed')
+  const [assessSection, setAssessSection] = useState('fact')
   const requestNumber = useRef(0)
+  const eventRequestNumber = useRef(0)
 
   useEffect(() => {
     const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetail(null) }
     window.addEventListener('popstate', restore)
     return () => window.removeEventListener('popstate', restore)
   }, [])
+
+  useEffect(() => {
+    if (context.step === 'Relate') setRelateSection('confirmed')
+    if (context.step === 'Assess') setAssessSection('fact')
+  }, [context.step, context.eventId])
+
+  useEffect(() => {
+    if (context.step !== 'Assess' || !context.eventId) { setEventDetail(null); return undefined }
+    const request = ++eventRequestNumber.current
+    getEventDetail(context.eventId).then(result => {
+      if (request === eventRequestNumber.current) setEventDetail(result)
+    }).catch(() => {
+      if (request === eventRequestNumber.current) setEventDetail(null)
+    })
+    return () => { eventRequestNumber.current += 1 }
+  }, [context.step, context.eventId])
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search).get('q')?.trim()
@@ -231,15 +257,8 @@ export default function CanonicalExplorer({ embedded = false }) {
     catch { setHistorical({ loading: false, value: null, state: 'UNAVAILABLE' }) }
   }
 
-  async function selectEvent(item) {
+  function selectEvent(item) {
     navigate({ ...context, eventId: item.eventId, step: 'Assess', assessmentId: null, evidenceId: null })
-    const request = requestNumber.current
-    try {
-      const result = await getEventDetail(item.eventId)
-      if (request === requestNumber.current) setEventDetail(result)
-    } catch {
-      if (request === requestNumber.current) setEventDetail(null)
-    }
   }
 
   const target = context.target
@@ -328,25 +347,61 @@ export default function CanonicalExplorer({ embedded = false }) {
           : <label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label>}
         <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}
       <p className="panel-lead panel-note">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p></section>}
-    {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>관련 사건과 대상을 연결해 확인하세요.</h2>
+    {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>어떤 것들이 연결되어 있는지 나눠서 확인하세요.</h2>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
-      {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 보기</button> : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
-      <p className="panel-lead panel-note">선택한 대상에 공식 근거로 연결된 사건만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
-      {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
-    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
-      <p className="event-meta">사건 식별자 · {context.eventId}</p><button type="button" className="primary-action" onClick={loadDetail}>현재 판단 확인</button>
-      {eventDetail && <div className="viz-block"><h3>사건 상세</h3><p>{eventDetail.title} · 사건 식별자 {eventDetail.eventId}</p>
-        {!eventDetail.assessment && <p>이 사건에 연결된 현재 AIRA 판단이 없습니다.</p>}
-        {(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" onClick={() => openEvidence(item.evidenceId,
-          { type: 'EVENT', label: eventDetail.eventId })}>사건 근거 · 근거 식별자 {item.evidenceId}</button>)}</div>}
-      <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
-      {historical.loading && <LoadingNotice>이전 당시 판단 확인 중…</LoadingNotice>}
-      {historical.value && <div className="viz-block"><h3>이전 당시 판단</h3><p>판단 식별자 {historical.value.assessmentId} · 사건 식별자 {historical.value.eventId}</p>
-        {(historical.value.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => openEvidence(id,
-          { type: 'ASSESSMENT', label: historical.value.assessmentId })}>판단 근거 · 근거 식별자 {id}</button>)}</div>}</section>}
+      <nav className="subsection-nav" aria-label="Relate 하위 메뉴">{RELATE_SECTIONS.map(([key, label]) => <button key={key} type="button"
+        aria-current={relateSection === key ? 'page' : undefined} onClick={() => setRelateSection(key)}>{label}</button>)}</nav>
+      {relateSection === 'confirmed' && <div className="subsection-panel" aria-label="확인된 연결">
+        {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 불러오기</button>
+          : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
+        {Array.isArray(data.value) && <div className="relation-list">{data.value.map(item => <article className="relation-row" key={item.eventId}>
+          <div className="relation-route"><span>공식 근거 {(item.evidence ?? []).length}건</span><i aria-hidden="true">→</i><span>사건</span><i aria-hidden="true">→</i><span>{target.canonicalName}</span></div>
+          <h3>{item.title}</h3><p className="event-meta">{EVENT_TYPE_LABEL[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+          <div className="relation-actions">{(item.evidence ?? []).map(reference => <button key={reference.evidenceId} type="button" className="secondary-action"
+            onClick={() => openEvidence(reference.evidenceId, { type: 'EVENT', label: item.eventId })}>공식 근거 · {reference.sourceName}</button>)}
+            <button type="button" className="primary-action" onClick={() => selectEvent(item)}>이 사건 판단 보기</button></div>
+        </article>)}</div>}
+        <p className="panel-lead panel-note">공식 근거로 확인된 연결만 표시하고 확인되지 않은 관계는 이어 붙이지 않습니다.</p></div>}
+      {relateSection === 'correction' && <div className="subsection-panel subview-empty" aria-label="정정 이력 연결"><strong>현재 확인된 정정 이력 연결이 없습니다.</strong>
+        <p>공시의 정정 관계가 공식 데이터로 명시적으로 확인될 때만 연결합니다. Evidence revision만으로 정정 계보를 추론하지 않습니다.</p></div>}
+      {relateSection === 'review' && <div className="subsection-panel subview-empty" aria-label="추가로 살펴볼 연결"><strong>현재 저장된 추가 확인 연결이 없습니다.</strong>
+        <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p></div>}
+    </section>}
+    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
+      <p className="event-meta">사건 식별자 · {context.eventId}</p>
+      <nav className="subsection-nav assess-submenu" aria-label="Assess 하위 메뉴">{ASSESS_SECTIONS.map(([key, label]) => <button key={key} type="button"
+        aria-current={assessSection === key ? 'page' : undefined} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
+      {assessSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실">{eventDetail ? <>
+        <h3>{eventDetail.title}</h3><dl className="assessment-facts"><div><dt>대상</dt><dd>{(eventDetail.companies ?? []).map(company => company.companyName).join(' · ')}</dd></div>
+          <div><dt>사건 유형</dt><dd>{EVENT_TYPE_LABEL[eventDetail.eventType] ?? eventDetail.eventType}</dd></div><div><dt>발생일</dt><dd>{eventDetail.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</dd></div></dl>
+        <div className="relation-actions">{(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" className="secondary-action"
+          onClick={() => openEvidence(item.evidenceId, { type: 'EVENT', label: eventDetail.eventId })}>공식 근거 · {item.sourceName}</button>)}</div></>
+        : <LoadingNotice>사건 사실 확인 중…</LoadingNotice>}</div>}
+      {assessSection === 'interpretation' && <div className="subsection-panel" aria-label="AIRA 해석">{eventDetail?.assessment ? <>
+        <p className="assessment-summary">{eventDetail.assessment.summary}</p><button type="button" className="primary-action" onClick={loadDetail}>현재·이전 판단 연결 확인</button>
+        <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
+        {historical.loading && <LoadingNotice>이전 당시 판단 확인 중…</LoadingNotice>}
+        {historical.value && <div className="historical-summary"><h3>이전 당시 판단</h3><dl className="assessment-facts">
+          <div><dt>판단 시점</dt><dd>{historical.value.completedAt?.slice(0, 10) ?? '저장된 시점 없음'}</dd></div><div><dt>분석 버전</dt><dd>{historical.value.analysisVersion}</dd></div>
+          <div><dt>분석 방법</dt><dd>{METHOD_LABEL[historical.value.method] ?? historical.value.method}</dd></div><div><dt>확신</dt><dd>{CONFIDENCE_LABEL[historical.value.confidence] ?? historical.value.confidence}</dd></div></dl>
+          <p>{historical.value.uncertainty}</p><div className="relation-actions">{(historical.value.evidenceIds ?? []).map(id => <button key={id} type="button" className="secondary-action"
+            onClick={() => openEvidence(id, { type: 'ASSESSMENT', label: historical.value.assessmentId })}>당시 판단 근거</button>)}</div></div>}</>
+        : <p className="state-message">이 사건에 연결된 현재 AIRA 판단이 없습니다.</p>}</div>}
+      {assessSection === 'reason' && <div className="subsection-panel" aria-label="왜 이렇게 해석했나요?">{(eventDetail?.assessment?.evidence ?? []).length > 0
+        ? <div className="assessment-evidence-list">{eventDetail.assessment.evidence.map(item => <div className="assessment-evidence-row" key={item.evidenceId}><div><strong>{item.sourceName}</strong><span>{item.title}</span></div>
+          <button type="button" className="secondary-action" onClick={() => openEvidence(item.evidenceId, { type: 'ASSESSMENT', label: eventDetail.assessment.assessmentId })}>근거 상세</button></div>)}</div>
+        : <p className="state-message">현재 표시할 판단 근거가 없습니다.</p>}</div>}
+      {assessSection === 'path' && <div className="subsection-panel subview-empty" aria-label="가능한 연결 경로"><strong>현재 저장된 연결 경로가 없습니다.</strong>
+        <p>확인되지 않은 인과관계는 만들지 않습니다. 근거가 있는 연결 경로가 등록된 경우에만 표시합니다.</p></div>}
+      {assessSection === 'confidence' && <div className="subsection-panel" aria-label="신뢰 수준">{eventDetail?.assessment ? <dl className="assessment-facts">
+        <div><dt>확신</dt><dd>{CONFIDENCE_LABEL[eventDetail.assessment.confidence] ?? eventDetail.assessment.confidence}</dd></div><div><dt>중요도</dt><dd>{IMPORTANCE_LABEL[eventDetail.assessment.importance] ?? eventDetail.assessment.importance}</dd></div>
+        <div><dt>분석 방법</dt><dd>{METHOD_LABEL[eventDetail.assessment.method] ?? eventDetail.assessment.method}</dd></div><div><dt>분석 버전</dt><dd>{eventDetail.assessment.analysisVersion}</dd></div></dl>
+        : <p className="state-message">현재 표시할 신뢰 수준이 없습니다.</p>}</div>}
+      {assessSection === 'unknown' && <div className="subsection-panel" aria-label="아직 모르는 것"><p className="uncertainty-copy">{eventDetail?.assessment?.uncertainty ?? '현재 저장된 미확인 정보가 없습니다.'}</p></div>}
+    </section>}
     {data.loading && <LoadingNotice>자료를 확인하는 중…</LoadingNotice>}
     {!data.loading && data.state && data.state !== 'AVAILABLE' && <StateNotice state={data.state} />}
-    {!data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
+    {context.step === 'Inspect' && !data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
       <p>{selectionLabel} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`} {data.receipt && `· 공시 접수번호 ${data.receipt}`}</p>
       {data.value.facts && <FinancialOverview observation={data} onEvidence={openEvidence} />}
       {data.value.tradingDate && <MarketOverview observation={data} predicate={context.predicate} />}

@@ -184,4 +184,51 @@ describe('canonical explorer', () => {
     expect(screen.queryByRole('region', { name: '시장 한눈에 보기' })).not.toBeInTheDocument()
     expect(fetchMock.mock.calls.some(([path]) => path.includes('/market-previous?'))).toBe(false)
   })
+
+  it('shows only the selected Relate subsection and never invents unconfirmed links', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Relate', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '사건과 분석', category: null, detail: null, periodStart: '', periodEnd: '', receipt: '',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const event = { eventId: 'EV-1', eventType: 'EARNINGS', title: '확인된 실적 공시', occurredAt: '2026-01-02T00:00:00Z',
+      evidence: [{ evidenceId: 'E-1', sourceName: 'OpenDART', revision: 1 }] }
+    vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/events')
+      ? { companyId: 'company-1', events: [event] } : {} })))
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '확인된 사건 불러오기' }))
+    expect(await screen.findByText('확인된 실적 공시')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '정정 이력 연결' }))
+    expect(screen.getByText('현재 확인된 정정 이력 연결이 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText('확인된 실적 공시')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '추가로 살펴볼 연결' }))
+    expect(screen.getByText(/공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다/)).toBeInTheDocument()
+  })
+
+  it('separates the six Assess subsections and keeps Current and Historical Exact distinct', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Assess', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '사건과 분석', category: null, detail: null, periodStart: '', periodEnd: '', receipt: '',
+      predicate: 'CLOSE_PRICE', eventId: 'EV-1', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const detail = { eventId: 'EV-1', eventType: 'EARNINGS', title: '확인된 실적 공시', occurredAt: '2026-01-02T00:00:00Z',
+      companies: [{ companyName: '회사' }], eventEvidence: [], assessment: { assessmentId: 'A2', summary: '현재 AIRA 해석',
+        uncertainty: '후속 공시는 아직 확인되지 않았습니다.', confidence: 'HIGH', importance: 'MEDIUM', method: 'RULE', analysisVersion: 'v2', evidence: [] } }
+    const current = { state: 'AVAILABLE', value: { assessmentId: 'A2', eventId: 'EV-1', analysisVersion: 'v2', method: 'RULE', confidence: 'HIGH',
+      uncertainty: detail.assessment.uncertainty, completedAt: '2026-01-03T00:00:00Z', supersedesAssessmentId: 'A1', evidenceIds: [] } }
+    const historical = { assessmentId: 'A1', eventId: 'EV-1', analysisVersion: 'v1', method: 'RULE', confidence: 'MEDIUM',
+      uncertainty: '당시 미확인 정보', completedAt: '2026-01-01T00:00:00Z', supersedesAssessmentId: null, evidenceIds: [] }
+    vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, status: 200, json: async () => path === '/api/events/EV-1' ? detail
+      : path.startsWith('/api/assessments/current') ? current : path === '/api/assessments/A1' ? historical : {} })))
+    render(<CanonicalExplorer />)
+    expect(await screen.findByText('확인된 실적 공시')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'AIRA 해석' }))
+    expect(screen.getByText('현재 AIRA 해석')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '현재·이전 판단 연결 확인' }))
+    fireEvent.click(await screen.findByRole('button', { name: /이전 당시 판단.*A1/ }))
+    expect(await screen.findByText('당시 미확인 정보')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '아직 모르는 것' }))
+    expect(screen.getByText('후속 공시는 아직 확인되지 않았습니다.')).toBeInTheDocument()
+    expect(screen.queryByText('현재 AIRA 해석')).not.toBeInTheDocument()
+  })
 })
