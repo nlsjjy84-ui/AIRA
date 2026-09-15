@@ -265,7 +265,7 @@ footer p { margin: 0; }
 
 @media (min-width: 1000px) {
   .workflow-sidebar {
-    top: 5.6rem;
+    top: 6.25rem;
     bottom: 0;
     width: 11rem;
     padding: 1rem .75rem;
@@ -316,7 +316,7 @@ footer p { margin: 0; }
 }
 .explorer-context {
   position: sticky;
-  top: 5.25rem;
+  top: 6.25rem;
   z-index: 8;
   margin: 0 0 .85rem;
   padding: .6rem 0 .75rem;
