@@ -400,13 +400,14 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       <nav className="subsection-nav" aria-label="Relate 하위 메뉴">{RELATE_SECTIONS.map(([key, label]) => <button key={key} type="button"
         aria-current={relateSection === key ? 'page' : undefined} onClick={() => setRelateSection(key)}>{label}</button>)}</nav>
       {relateSection === 'confirmed' && <div className="subsection-panel" aria-label="확인된 연결">
-        {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 불러오기</button>
+        {target.entityType === 'COMPANY' ? <button type="button" className={Array.isArray(data.value) ? 'secondary-action' : 'primary-action'} onClick={loadDetail}>
+          {Array.isArray(data.value) ? '확인된 사건 다시 불러오기' : '확인된 사건 불러오기'}</button>
           : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
         {Array.isArray(data.value) && <div className="relation-list">{data.value.map(item => <article className="relation-row" key={item.eventId}>
           <div className="relation-route"><span>공식 근거 {(item.evidence ?? []).length}건</span><i aria-hidden="true">→</i><span>사건</span><i aria-hidden="true">→</i><span>{target.canonicalName}</span></div>
           <h3>{item.title}</h3><p className="event-meta">{EVENT_TYPE_LABEL[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-          <div className="relation-actions">{(item.evidence ?? []).map(reference => <button key={reference.evidenceId} type="button" className="secondary-action"
-            onClick={() => openEvidence(reference.evidenceId, { type: 'EVENT', label: item.eventId })}>공식 근거 · {reference.sourceName}</button>)}
+          <div className="relation-actions relation-row-actions"><div className="relation-evidence-actions">{(item.evidence ?? []).map(reference => <button key={reference.evidenceId} type="button" className="relation-evidence-action"
+            onClick={() => openEvidence(reference.evidenceId, { type: 'EVENT', label: item.eventId })}>공식 근거 · {reference.sourceName}</button>)}</div>
             <button type="button" className="primary-action" onClick={() => selectEvent(item)}>이 사건 판단 보기</button></div>
         </article>)}</div>}
         <p className="panel-lead panel-note">공식 근거로 확인된 연결만 표시하고 확인되지 않은 관계는 이어 붙이지 않습니다.</p></div>}
