@@ -1107,3 +1107,66 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .comparison-result .viz-side > button { grid-column: 1; }
   .comparison-result .viz-side > button { justify-self: start; }
 }
+
+/* Full-width quantitative series must override the generic small illustration SVG rule. */
+.viz-block .viz-series-chart {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  min-height: 11rem;
+  margin: 0;
+}
+
+/* OHLC: one compact exact-day visual instead of a long label/value stack. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.viz-ohlc figcaption { margin-bottom: .8rem; font-weight: 750; }
+.viz-ohlc-body {
+  display: grid;
+  grid-template-columns: minmax(7rem, .9fr) minmax(0, 2fr);
+  gap: 1rem 1.4rem;
+  align-items: center;
+}
+.viz-ohlc-graphic { display: grid; justify-items: center; gap: .15rem; color: var(--accent-strong); }
+.viz-ohlc-graphic > span { color: var(--muted); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.viz-block .viz-ohlc-chart { width: 6rem; max-width: 100%; height: auto; margin: 0; }
+.viz-ohlc-values { display: grid; gap: 0; margin: 0; }
+.viz-ohlc-values > div {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: .7rem;
+  align-items: baseline;
+  padding: .45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.viz-ohlc-values > div:last-child { border-bottom: 0; }
+.viz-ohlc-values dt { color: var(--muted); font-weight: 750; }
+.viz-ohlc-values dd { margin: 0; font-weight: 750; font-variant-numeric: tabular-nums; }
+.viz-ohlc-values dd small { display: block; margin-top: .1rem; color: var(--muted); font-size: .72rem; font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 22rem) {
+  .viz-ohlc-body { grid-template-columns: 1fr; }
+  .viz-ohlc-values > div { grid-template-columns: 2.5rem minmax(0, 1fr); }
+}
+
+/* Market series behaves like a data strip, not a pile of cards. */
+.viz-series-list button {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.viz-series-list button[aria-pressed="true"] {
+  border-top-color: var(--series-d);
+  box-shadow: inset 0 2px 0 var(--series-d);
+}
+.market-previous .viz-bars > div { grid-template-columns: 2.5rem minmax(0, 1fr) auto; }

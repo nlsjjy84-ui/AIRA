@@ -95,6 +95,8 @@ describe('evidence-linked visuals', () => {
       previous: { tradingDate: '2026-09-10', factId: 'F1', value: '1000', evidenceIds: ['E1'] } }
     render(<MarketPreviousView comparison={response} onEvidence={vi.fn()} />)
     expect(screen.getByText(/직전 관측 · 2026-09-10/)).toBeInTheDocument()
-    expect(screen.getByText(/증감액 200원 · 증감률 20%/)).toBeInTheDocument()
+    expect(screen.getByText('증감액 200원')).toBeInTheDocument()
+    expect(screen.getByText('증감률 20%')).toBeInTheDocument()
+    expect(screen.getAllByRole('meter')).toHaveLength(2)
   })
 })

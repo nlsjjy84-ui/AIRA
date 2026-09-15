@@ -122,16 +122,18 @@ export function MarketSeriesView({ series, onEvidence }) {
 
 export function MarketPreviousView({ comparison, onEvidence }) {
   if (comparison?.state !== 'AVAILABLE' || !comparison.current || !comparison.previous) return null
-  return <section className="viz-block" aria-label="D와 직전 공식 관측 비교"><h3>비교 · D와 직전 실제 관측일</h3>
+  const unit = comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW'
+  const values = [Number(comparison.previous.value), Number(comparison.current.value)]
+  return <section className="viz-block comparison-result market-previous" aria-label="D와 직전 공식 관측 비교"><h3>비교 · D와 직전 실제 관측일</h3>
     <div className="viz-split">{[['직전 관측', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
-      <article className={`viz-side ${label === 'D' ? 'viz-side-b' : 'viz-side-a'}`} key={label}><small>{label} · {point.tradingDate}</small><strong>{formatQuantity(point.value,
-        comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</strong><small>관측 식별자 · {point.factId}</small>
+      <article className={`viz-side ${label === 'D' ? 'viz-side-b' : 'viz-side-a'}`} key={label}><small>{label} · {point.tradingDate} · 관측 식별자 · {point.factId}</small><strong>{formatQuantity(point.value, unit)}</strong>
         {point.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
           { type: 'FACT', label: `${comparison.predicate} · ${point.tradingDate} · ${point.factId}` })}>
           근거 식별자 · {id}</button>)}</article>)}</div>
-    <p>증감액 {formatQuantity(comparison.changeAmount, comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}
-      {' · '}증감률 {comparison.changePercent == null ? `계산 불가 (${comparison.percentReason})`
-        : formatQuantity(comparison.changePercent, '%')}</p>
+    <p className="viz-change-summary"><span>증감액 {formatQuantity(comparison.changeAmount, unit)}</span>
+      <span>증감률 {comparison.changePercent == null ? `계산 불가 (${comparison.percentReason})` : formatQuantity(comparison.changePercent, '%')}</span></p>
+    {values.every(value => Number.isFinite(value) && value >= 0) && <div className="viz-bars" aria-label="직전 관측과 D 값 막대">{[['직전', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
+      <div key={label}><span>{label}</span><meter aria-label={`${label} ${comparison.predicate} ${point.value} ${unit}`} min="0" max={Math.max(...values, 1)} value={Number(point.value)} /><span>{formatQuantity(point.value, unit)}</span></div>)}</div>}
   </section>
 }
 
@@ -143,11 +145,16 @@ export function OhlcCandle({ observations }) {
   const [open, high, low, close] = names.map(name => Number(observations[name].value.value))
   if (![open, high, low, close].every(Number.isFinite) || low > Math.min(open, close) || high < Math.max(open, close) || high <= low) return null
   const y = value => 10 + (high - value) / (high - low) * 120
-  return <figure className="viz-block"><figcaption>상세 · 공식 거래일 {observations.OPEN_PRICE.value.tradingDate} OHLC</figcaption>
-    <svg viewBox="0 0 120 150" role="img" aria-label={`시가 ${open}, 고가 ${high}, 저가 ${low}, 종가 ${close}`}>
-      <line x1="60" x2="60" y1={y(high)} y2={y(low)} stroke="currentColor" strokeWidth="2" />
-      <rect x="43" y={Math.min(y(open), y(close))} width="34" height={Math.max(2, Math.abs(y(open) - y(close)))} fill="none" stroke="currentColor" strokeWidth="2" />
-    </svg><dl>{names.map(name => <div key={name}><dt>{FACT_LABEL[name]}</dt><dd>{formatQuantity(observations[name].value.value, 'KRW')} · 관측 식별자 · {observations[name].value.factId}</dd></div>)}</dl></figure>
+  return <figure className="viz-block viz-ohlc"><figcaption>상세 · 공식 거래일 {observations.OPEN_PRICE.value.tradingDate} OHLC</figcaption>
+    <div className="viz-ohlc-body"><div className="viz-ohlc-graphic" aria-hidden="true"><span>{formatQuantity(high, 'KRW')}</span>
+      <svg className="viz-ohlc-chart" viewBox="0 0 120 150">
+        <line x1="60" x2="60" y1={y(high)} y2={y(low)} stroke="currentColor" strokeWidth="2" />
+        <rect x="43" y={Math.min(y(open), y(close))} width="34" height={Math.max(2, Math.abs(y(open) - y(close)))} fill="none" stroke="currentColor" strokeWidth="2" />
+      </svg><span>{formatQuantity(low, 'KRW')}</span></div>
+      <dl className="viz-ohlc-values">{names.map(name => <div key={name}><dt>{FACT_LABEL[name]}</dt><dd>{formatQuantity(observations[name].value.value, 'KRW')}<small>관측 식별자 · {observations[name].value.factId}</small></dd></div>)}</dl>
+    </div>
+    <span className="sr-only" role="img" aria-label={`시가 ${open}, 고가 ${high}, 저가 ${low}, 종가 ${close}`}></span>
+  </figure>
 }
 
 export function EventTimeline({ events, onSelect }) {
