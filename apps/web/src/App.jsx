@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
-import { getEventDetail, getRecentEvents } from './api/eventApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
@@ -225,8 +224,6 @@ export default function App() {
   const [recoveryEntry, setRecoveryEntry] = useState(initialRecoveryEntry)
   const [session, setSession] = useState({ loading: true, user: null, error: null, notice: null })
   const [authMode, setAuthMode] = useState(recoveryEntry.mode)
-  const [exploreEventsState, setExploreEventsState] = useState({ loading: true, data: [], error: null })
-  const [eventDetailState, setEventDetailState] = useState({ loading: false, data: null, error: null, eventId: null, contextCompanyId: null })
   const [officialEvidenceState, setOfficialEvidenceState] = useState({ loading: false, data: null, error: null, evidenceId: null })
   const [interestsState, setInterestsState] = useState({ loading: false, data: [], error: null })
   const [interestAction, setInterestAction] = useState({ loading: false, error: null, retry: null })
@@ -261,28 +258,6 @@ export default function App() {
   }, [becomeAnonymous, beginRequest])
 
   useEffect(loadSession, [loadSession])
-
-  const loadExploreEvents = useCallback(() => {
-    const controller = new AbortController()
-    setExploreEventsState({ loading: true, data: [], error: null })
-    getRecentEvents(controller.signal)
-      .then(body => setExploreEventsState({ loading: false, data: body.events ?? [], error: null }))
-      .catch(error => error.name !== 'AbortError'
-        && setExploreEventsState({ loading: false, data: [], error }))
-    return () => controller.abort()
-  }, [])
-  useEffect(loadExploreEvents, [loadExploreEvents])
-
-  const openEventDetail = useCallback((eventId, contextCompanyId) => {
-    const current = beginRequest('event')
-    const controller = new AbortController()
-    setEventDetailState({ loading: true, data: null, error: null, eventId, contextCompanyId })
-    getEventDetail(eventId, controller.signal)
-      .then(data => current() && setEventDetailState({ loading: false, data, error: null, eventId, contextCompanyId }))
-      .catch(error => current() && error.name !== 'AbortError'
-        && setEventDetailState({ loading: false, data: null, error, eventId, contextCompanyId }))
-    return () => controller.abort()
-  }, [beginRequest])
 
   const openOfficialEvidence = useCallback((evidenceId) => {
     const current = beginRequest('evidence')
@@ -538,65 +513,6 @@ export default function App() {
           </div>)}
         </article>}
       </section>}
-
-      <section id="events" className="content-section event-section" aria-labelledby="explore-events-title">
-        <div className="section-heading"><span>RELATE</span><h2 id="explore-events-title">최근 확인된 사건</h2></div>
-        {exploreEventsState.loading && <Status busy>확인된 사건을 불러오는 중입니다.</Status>}
-        {exploreEventsState.error && <ErrorState error={exploreEventsState.error} subject="사건" retry={loadExploreEvents} />}
-        {!exploreEventsState.loading && !exploreEventsState.error && exploreEventsState.data.length === 0
-          && <Status>현재 AIRA에서 확인해 보여줄 수 있는 사건이 없습니다.</Status>}
-        <div className="event-list">{exploreEventsState.data.map(item => <article className="event-card" key={item.eventId}>
-          <p className="eyebrow">{item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.title}</h3>
-          <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-          <button type="button" className="secondary-action"
-            onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button>
-        </article>)}</div>
-      </section>
-
-      {
-        <section id="event-detail" className="content-section event-section" aria-labelledby="event-detail-title">
-          <div className="section-heading"><span>ASSESS · 현재 사건</span><h2 id="event-detail-title">사건 상세</h2></div>
-          {!eventDetailState.loading && !eventDetailState.error && !eventDetailState.data && <Status>사건을 선택하면 현재 판단과 근거를 확인할 수 있습니다.</Status>}{eventDetailState.loading && <Status busy>사건 상세를 불러오는 중입니다.</Status>}
-          {eventDetailState.error?.status === 404 &&
-            <Status>이 사건은 현재 공개 상세로 제공되지 않습니다.</Status>}
-          {eventDetailState.error && eventDetailState.error.status !== 404 &&
-            <ErrorState error={eventDetailState.error} subject="사건 상세"
-              retry={() => openEventDetail(eventDetailState.eventId, eventDetailState.contextCompanyId)} />}
-          {eventDetailState.data && <article className="event-detail event-detail-grid">
-            <div className="event-detail-main">
-              <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT · 사건 사실</p>
-                <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
-                <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
-                <p className="event-meta">{EVENT_TYPE_LABELS[eventDetailState.data.eventType] ?? eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-              </section>
-              <section className="event-assessment-panel" aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 판단</h3><p>현재 판단</p>
-                {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 판단이 없습니다.</Status>}
-                {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
-                  <p className="insight-identity">판단 식별자 {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
-                  <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
-                  <p className="assessment-meta">중요도 {IMPORTANCE_LABELS[eventDetailState.data.assessment.importance] ?? eventDetailState.data.assessment.importance} · 확신 {CONFIDENCE_LABELS[eventDetailState.data.assessment.confidence] ?? eventDetailState.data.assessment.confidence} · {ASSESSMENT_METHOD_LABELS[eventDetailState.data.assessment.method] ?? eventDetailState.data.assessment.method}</p>
-                </div>}
-              </section>
-            </div>
-            <aside className="event-detail-side" aria-label="사건과 판단의 근거">
-              <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
-                {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
-                  <strong>{item.sourceName}</strong><span>{item.title}</span>
-                  <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 보기 <span aria-hidden="true">↗</span></a>
-                  <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
-                </div>)}
-              </section>
-              {eventDetailState.data.assessment && <section aria-labelledby="assessment-evidence-title">
-                <h3 id="assessment-evidence-title">판단 근거</h3>
-                {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
-                  <strong>{item.sourceName}</strong><span>{item.title}</span>
-                  <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">판단에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
-                  <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
-                </div>)}
-              </section>}
-            </aside>
-          </article>}
-        </section>}
 
       {(officialEvidenceState.loading || officialEvidenceState.error || officialEvidenceState.data) &&
         <section id="official-evidence-detail" className="content-section evidence" aria-labelledby="official-evidence-detail-title">

@@ -181,23 +181,6 @@ describe('authenticated interest and return experience', () => {
     expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/old-evidence', expect.anything())
   })
 
-  it('ignores a slower Event response after a different Event was selected', async () => {
-    let completeFirst
-    global.fetch = server({ overrides: {
-      'GET /api/events': () => json({ events: [exploreEvent, { ...exploreEvent, eventId: 'event-2', title: 'Second event' }] }),
-      'GET /api/events/event-1': () => new Promise(resolve => { completeFirst = resolve }),
-      'GET /api/events/event-2': () => json({ ...eventDetail, eventId: 'event-2', title: 'Second detail' }),
-    } }).fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const feed = screen.getByRole('region', { name: '최근 확인된 사건' })
-    const buttons = await within(feed).findAllByRole('button', { name: '사건 상세 보기' })
-    await user.click(buttons[0]); await user.click(buttons[1])
-    expect(await screen.findByRole('heading', { name: 'Second detail' })).toBeInTheDocument()
-    completeFirst(await json(eventDetail))
-    await waitFor(() => expect(screen.getByRole('region', { name: '사건 상세' })).not.toHaveTextContent(eventDetail.title))
-  })
-
   it('does not restore a previous users alert detail after logout and login', async () => {
     let completeDetail
     const backend = server({ user: { userId: 'old-user', nickname: 'OldUser' }, interests: [interest], overrides: {
@@ -219,164 +202,6 @@ describe('authenticated interest and return experience', () => {
     await waitFor(() => expect(screen.queryByText('Previous user private detail')).not.toBeInTheDocument())
     expect(screen.queryByRole('heading', { name: '정확한 알림 상세' })).not.toBeInTheDocument()
   })
-  it('renders one recent event with all related companies and an unknown occurrence', async () => {
-    const backend = server({ overrides: {
-      'GET /api/events': () => json({ events: [{ ...exploreEvent, companies: relatedCompanies, occurredAt: null }] }),
-    } })
-    global.fetch = backend.fetch
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await within(explore).findByText('관련회사 A · 관련회사 B')
-    expect(within(explore).getAllByRole('article')).toHaveLength(1)
-    expect(within(explore).getByText(/발생시각 미상/)).toBeInTheDocument()
-  })
-  it('opens event detail from explore and separates factual event, event evidence, assessment, and assessment evidence', async () => {
-    const backend = server()
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    expect(await within(explore).findByRole('heading', { name: exploreEvent.title })).toBeInTheDocument()
-    expect(within(explore).getByText(company.canonicalName)).toBeInTheDocument()
-    expect(within(explore).getByText(/실적.*2025-12-31/)).toBeInTheDocument()
-    expect(explore).not.toHaveTextContent(eventExperience.assessment.summary)
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    const detail = (await screen.findByRole('heading', { name: '사건 상세' })).closest('section')
-    expect(await within(detail).findByRole('heading', { name: exploreEvent.title })).toBeInTheDocument()
-    expect(within(detail).getByText(company.canonicalName)).toBeInTheDocument()
-    const official = within(detail).getByRole('heading', { name: '공식 근거' }).closest('section')
-    expect(within(official).getByText('Event official evidence')).toBeInTheDocument()
-    expect(within(official).getByText('Second event evidence')).toBeInTheDocument()
-    const assessment = within(detail).getByRole('heading', { name: 'AIRA 판단' }).closest('section')
-    expect(within(assessment).getByText('Current AIRA context')).toBeInTheDocument()
-    expect(within(assessment).getByText(/중요도 보통 · 확신 보통 · 규칙 기반/)).toBeInTheDocument()
-    expect(within(assessment).queryByText(/MEDIUM|RULE/)).not.toBeInTheDocument()
-    const assessmentEvidence = within(detail).getByRole('heading', { name: '판단 근거' }).closest('section')
-    expect(within(assessmentEvidence).getByText('Assessment-used evidence')).toBeInTheDocument()
-  })
-
-  it('shows an event detail data-boundary state when no current assessment exists', async () => {
-    const backend = server({ overrides: {
-      [`GET /api/events/${exploreEvent.eventId}`]: () => json({ ...eventDetail, assessment: null }),
-    } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    expect(await screen.findByText('현재 표시할 AIRA 판단이 없습니다.')).toBeInTheDocument()
-    expect(screen.queryByText(/중요하지 않음|분석할 가치가 없음/)).not.toBeInTheDocument()
-  })
-
-  it('distinguishes event detail loading, request failure, and public not-found', async () => {
-    let rejectDetail
-    const backend = server({ overrides: {
-      [`GET /api/events/${exploreEvent.eventId}`]: () => new Promise((resolve, reject) => { rejectDetail = reject }),
-    } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    expect(screen.getByText('사건 상세를 불러오는 중입니다.')).toBeInTheDocument()
-    rejectDetail({ status: 500 })
-    const detail = screen.getByRole('heading', { name: '사건 상세' }).closest('section')
-    expect(await within(detail).findByRole('alert')).toBeInTheDocument()
-
-    backend.fetch.mockImplementationOnce(() => json({}, 404))
-    await user.click(within(detail).getByRole('button', { name: '다시 시도' }))
-    expect(await within(detail).findByText('이 사건은 현재 공개 상세로 제공되지 않습니다.')).toBeInTheDocument()
-  })
-
-  it('opens official evidence from event evidence and shows stored source document and timestamp semantics', async () => {
-    const backend = server()
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
-    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
-    const detail = (await screen.findByRole('heading', { name: '공식 자료' })).closest('section')
-    expect(await within(detail).findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
-    expect(within(detail).getByText('Official Registry')).toBeInTheDocument()
-    expect(within(detail).getByText('자료·출처 유형')).toBeInTheDocument()
-    expect(within(detail).getByText('공시 · 감독기관')).toBeInTheDocument()
-    expect(within(detail).queryByText(/DISCLOSURE|REGULATOR/)).not.toBeInTheDocument()
-    expect(within(detail).getByText(/공식 자료 발행/)).toBeInTheDocument()
-    expect(within(detail).getByText(/AIRA 자료 수집/)).toBeInTheDocument()
-    expect(within(detail).getByRole('link', { name: /공식 원문 열기/ })).toHaveAttribute('href', officialEvidence.originalUrl)
-  })
-
-  it('opens the same official evidence view from assessment evidence', async () => {
-    const backend = server()
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    const assessmentEvidence = (await screen.findByRole('heading', { name: '판단 근거' })).closest('section')
-    await user.click(within(assessmentEvidence).getByRole('button', { name: '공식 자료 상세' }))
-    expect(await screen.findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
-    expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/assessment-evidence-1', expect.anything())
-  })
-  it('shows an exact official evidence unavailable-link state without claiming deletion', async () => {
-    const backend = server({ overrides: {
-      'GET /api/evidence/event-evidence-1': () => json({ ...officialEvidence, originalUrl: null }),
-    } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
-    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
-    expect(await screen.findByText('저장된 공식 원문 링크가 없습니다.')).toBeInTheDocument()
-    expect(screen.queryByText(/삭제되었습니다|존재하지 않습니다|링크가 깨졌습니다/)).not.toBeInTheDocument()
-  })
-
-  it('distinguishes official evidence loading request failure and public not-found', async () => {
-    let rejectEvidence
-    const backend = server({ overrides: {
-      'GET /api/evidence/event-evidence-1': () => new Promise((resolve, reject) => { rejectEvidence = reject }),
-    } })
-    global.fetch = backend.fetch
-    const user = userEvent.setup()
-    render(<App />)
-    const explore = (await screen.findByRole('heading', { name: '최근 확인된 사건' })).closest('section')
-    await user.click(within(explore).getByRole('button', { name: '사건 상세 보기' }))
-    const eventEvidence = (await screen.findByRole('heading', { name: '공식 근거' })).closest('section')
-    await user.click(within(eventEvidence).getAllByRole('button', { name: '공식 자료 상세' })[0])
-    expect(screen.getByText('공식 자료를 불러오는 중입니다.')).toBeInTheDocument()
-    rejectEvidence({ status: 500 })
-    const detail = screen.getByRole('heading', { name: '공식 자료' }).closest('section')
-    expect(await within(detail).findByRole('alert')).toBeInTheDocument()
-    backend.fetch.mockImplementationOnce(() => json({}, 404))
-    await user.click(within(detail).getByRole('button', { name: '다시 시도' }))
-    expect(await within(detail).findByText('이 근거 자료를 현재 공개 AIRA 경로에서 표시할 수 없습니다.')).toBeInTheDocument()
-  })
-
-  it('distinguishes an empty explore event feed without claiming reality has no events', async () => {
-    const backend = server({ overrides: { 'GET /api/events': () => json({ events: [] }) } })
-    global.fetch = backend.fetch
-    render(<App />)
-    expect(await screen.findByText('현재 AIRA에서 확인해 보여줄 수 있는 사건이 없습니다.')).toBeInTheDocument()
-    expect(screen.queryByText(/시장에 사건이 없음|아무 변화도 없음|중요한 뉴스가 없음|투자 기회가 없음/)).not.toBeInTheDocument()
-  })
-
-  it('distinguishes explore event loading and request failure', async () => {
-    let rejectEvents
-    const backend = server({ overrides: {
-      'GET /api/events': () => new Promise((resolve, reject) => { rejectEvents = reject }),
-    } })
-    global.fetch = backend.fetch
-    render(<App />)
-    expect(screen.getByText('확인된 사건을 불러오는 중입니다.')).toBeInTheDocument()
-    rejectEvents({ status: 500 })
-    const explore = screen.getByRole('heading', { name: '최근 확인된 사건' }).closest('section')
-    expect(await within(explore).findByRole('alert')).toBeInTheDocument()
-  })
-
   it('preserves anonymous access to staged public exploration', async () => {
     global.fetch = server().fetch
     render(<App />)
@@ -581,12 +406,31 @@ describe('authenticated interest and return experience', () => {
     expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence[0].originalUrl)
     expect(within(briefing).queryByText(/매수|매도|추천|알림/)).not.toBeInTheDocument()
     const user = userEvent.setup()
+    await user.click(within(briefing).getByRole('button', { name: '공식 자료 상세' }))
+    const evidenceDetail = (await screen.findByRole('heading', { name: '공식 자료' })).closest('section')
+    expect(await within(evidenceDetail).findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
+    expect(within(evidenceDetail).getByText('공시 · 감독기관')).toBeInTheDocument()
+    expect(within(evidenceDetail).getByText(/AIRA 자료 수집/)).toBeInTheDocument()
+    expect(within(evidenceDetail).getByRole('link', { name: /공식 원문 열기/ })).toHaveAttribute('href', officialEvidence.originalUrl)
     await user.click(within(briefing).getByRole('button', { name: '현재 판단 보기' }))
     expect(window.location.pathname).toBe('/explore')
     expect(window.location.search).not.toContain(eventExperience.eventId)
     expect(await screen.findByRole('heading', { name: '현재 분석과 판단 근거를 분리해 봅니다.' })).toBeInTheDocument()
     expect(await screen.findByText(eventExperience.title)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Assess 판단' })).toHaveAttribute('aria-current', 'step')
+  })
+
+  it('keeps an unavailable official evidence link exact from briefing', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
+      'GET /api/evidence/evidence-1': () => json({ ...officialEvidence, evidenceId: 'evidence-1', originalUrl: null }),
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const briefing = (await screen.findByRole('heading', { name: '내 브리핑' })).closest('section')
+    await user.click(await within(briefing).findByRole('button', { name: '공식 자료 상세' }))
+    expect(await screen.findByText('저장된 공식 원문 링크가 없습니다.')).toBeInTheDocument()
+    expect(screen.queryByText(/삭제되었습니다|존재하지 않습니다|링크가 깨졌습니다/)).not.toBeInTheDocument()
   })
 
   it('shows a safe briefing empty state without interests', async () => {
