@@ -47,6 +47,7 @@ export default function CanonicalExplorer({ embedded = false }) {
     requestNumber.current += 1
     window.history.pushState({ ...window.history.state, [KEY]: next }, '', window.location.href)
     setContext(next)
+    if (next.step !== 'MAIN') setResults({ loading: false, state: null, entities: [] })
     setData({ loading: false, state: null, value: null })
     setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null })
     setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null })
@@ -280,7 +281,8 @@ export default function CanonicalExplorer({ embedded = false }) {
       <p className="main-path-note">Ask에서 고른 관점에 따라 Inspect 또는 Relate로 갈라지고, 필요한 경우 Assess에서 판단 근거까지 확인합니다.</p>
     </section>}
     {context.step !== 'MAIN' && <section className="explorer-context" aria-label="현재 탐색 문맥">
-      <div className="context-stage"><span>현재 단계</span><strong>{context.step} · {stepCopy}</strong></div>
+      <div className="context-stage"><span>현재 단계</span><strong>{context.step} · {stepCopy}</strong>
+        <button type="button" className="context-back" onClick={() => window.history.back()}>← 이전 상태</button></div>
       <ol className="context-branch">{contextNodes.map((node, index) => <li key={node.label} className={node.ready ? 'ready' : 'pending'}>
         <span>{node.label}</span><strong>{node.value}</strong>{index < contextNodes.length - 1 && <i aria-hidden="true">›</i>}
       </li>)}</ol>
@@ -290,15 +292,13 @@ export default function CanonicalExplorer({ embedded = false }) {
       aria-current={context.step === step ? 'step' : undefined}
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
       onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
-    {context.step !== 'MAIN' && <button type="button" className="secondary-action" onClick={() => window.history.back()}>이전 상태로</button>}
-
     {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
       <p className="panel-lead">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
-      <div className="explorer-options branch-options"><button type="button" className="choice-card" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
-          <strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
-        <button type="button" className="choice-card" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
-          <strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div></section>}
+      <div className="explorer-options branch-options"><button type="button" className="choice-card ask-choice inspect-choice" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
+          <span className="choice-route">INSPECT · 살피기</span><strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
+        <button type="button" className="choice-card ask-choice relate-choice" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
+          <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div></section>}
     {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
       <p className="panel-lead">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p>
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 Fact와 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}

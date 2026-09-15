@@ -27,6 +27,7 @@ describe('canonical explorer', () => {
     fireEvent.click(screen.getByRole('button', { name: '검색' }))
     expect(await screen.findByRole('button', { name: /삼성 종목.*005930/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /삼성 종목/ }))
+    expect(screen.queryByRole('heading', { name: '정확한 대상을 선택하세요.' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /어떤 관점으로 볼지 선택하세요/ })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: '현재 탐색 경로' })).toHaveTextContent('SECURITY')
     expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('대상')

@@ -719,3 +719,15 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .result-key { grid-column: 1; grid-row: 2; }
   .result-action { grid-column: 2; grid-row: 1 / span 2; }
 }
+
+/* Ask choices preview the next branch without making the decision for the user. */
+.explorer-options .ask-choice { border-top: 3px solid var(--choice-color); }
+.ask-choice .choice-route { color: var(--choice-color); font-size: .7rem; font-weight: 850; letter-spacing: .08em; }
+.ask-choice.inspect-choice { --choice-color: #3f787a; }
+.ask-choice.relate-choice { --choice-color: #8b6b3f; }
+.explorer-options .ask-choice:hover,
+.explorer-options .ask-choice:focus-visible { border-color: var(--choice-color); background: color-mix(in srgb, var(--choice-color) 8%, var(--surface)); }
+
+.context-back { margin-left: auto; border: 0; padding: .25rem .4rem; color: var(--accent); background: transparent; cursor: pointer; font-weight: 750; }
+.context-back:hover { text-decoration: underline; }
+@media (max-width: 40rem) { .context-back { margin-left: 0; padding-left: 0; } }
