@@ -250,10 +250,19 @@ export default function CanonicalExplorer({ embedded = false }) {
     </form>}
     {results.loading && <p role="status">검색 중…</p>}
     {!results.loading && results.state && results.state !== 'AVAILABLE' && <p role="status">{stateCopy(results.state)}</p>}
-    {results.entities.length > 0 && <ul className="explorer-results">{results.entities.map(item => <li key={`${item.entityType}:${item.entityId}`}>
-      <button type="button" onClick={() => navigate(selectTarget(context, item))}>
-        {item.canonicalName} <span>{item.entityType === 'COMPANY' ? '기업' : '종목'} · {item.symbol ?? item.canonicalKey}</span>
-      </button></li>)}</ul>}
+    {results.entities.length > 0 && <section className="search-results-panel" aria-labelledby="search-results-title">
+      <div className="search-results-heading"><div><p className="eyebrow">SEARCH RESULT</p><h2 id="search-results-title">정확한 대상을 선택하세요.</h2></div>
+        <p>{results.entities.length}개 결과 · 이름과 식별자를 확인한 뒤 선택합니다.</p></div>
+      <ul className="explorer-results">{results.entities.map(item => {
+        const typeLabel = item.entityType === 'COMPANY' ? '기업' : '종목'
+        const identifier = item.symbol ?? item.canonicalKey
+        return <li key={`${item.entityType}:${item.entityId}`}><button type="button" className={`search-result ${item.entityType.toLowerCase()}`}
+          aria-label={`${item.canonicalName} ${typeLabel} · ${identifier} 선택`} onClick={() => navigate(selectTarget(context, item))}>
+          <span className="result-identity"><strong>{item.canonicalName}</strong><small>{typeLabel}</small></span>
+          <span className="result-key">{identifier}</span><span className="result-action" aria-hidden="true">선택 →</span>
+        </button></li>
+      })}</ul>
+    </section>}
 
     {context.step === 'MAIN' && <section className="main-entry" aria-labelledby="main-entry-title">
       <div className="main-entry-copy"><p className="eyebrow">START HERE</p><h2 id="main-entry-title">위 검색창에서 기업·종목을 찾는 것부터 시작합니다.</h2>

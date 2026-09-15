@@ -448,7 +448,7 @@ export default function App() {
   }
 
   return <>
-    <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈">AIRA</a>
+    <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈"><img src="/aira-logo.png" alt="AIRA" /></a>
       <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
         <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>

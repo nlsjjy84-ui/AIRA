@@ -687,3 +687,35 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .workflow-sidebar .settings-action { align-self: flex-end; padding: .25rem .45rem; font-size: .8rem; }
   .canonical-explorer, .canonical-explorer.embedded, main { min-width: 0; overflow-wrap: anywhere; }
 }
+
+/* Official AIRA logo: source pixels are never modified; layout only preserves aspect ratio. */
+.brand { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.brand img { display: block; width: auto; height: 3.15rem; }
+@media (max-width: 40rem) { .brand img { height: 3rem; } }
+
+/* Keep global notices clear of the desktop workflow rail. */
+@media (min-width: 1000px) {
+  .workflow-sidebar ~ .session-notice { padding-left: 11.5rem; }
+  .workflow-sidebar.collapsed ~ .session-notice { padding-left: 4.75rem; }
+}
+
+/* Search results: identity first, no recommendation-style ranking cues. */
+.search-results-panel { margin: 1rem 0 2rem; padding: 1.4rem 0 1.6rem; border-top: 2px solid var(--accent-strong); border-bottom: 1px solid var(--line); }
+.search-results-heading { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: 1rem; }
+.search-results-heading .eyebrow { margin-bottom: .25rem; }
+.search-results-heading > p { max-width: 28rem; margin: 0; color: var(--muted); font-size: .86rem; text-align: right; }
+.explorer-results .search-result { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 1rem 1.05rem; border-left: 4px solid var(--result-color, var(--accent)); }
+.search-result.company { --result-color: var(--accent-strong); }
+.search-result.security { --result-color: var(--series-b); }
+.result-identity { display: flex; align-items: baseline; gap: .65rem; min-width: 0; }
+.result-identity strong { font-size: 1.08rem; overflow-wrap: anywhere; }
+.result-identity small { color: var(--result-color); font-weight: 800; }
+.result-key { color: var(--muted); font-variant-numeric: tabular-nums; }
+.result-action { color: var(--result-color); font-weight: 800; white-space: nowrap; }
+@media (max-width: 40rem) {
+  .search-results-heading { align-items: flex-start; flex-direction: column; gap: .4rem; }
+  .search-results-heading > p { text-align: left; }
+  .explorer-results .search-result { grid-template-columns: 1fr auto; }
+  .result-key { grid-column: 1; grid-row: 2; }
+  .result-action { grid-column: 2; grid-row: 1 / span 2; }
+}
