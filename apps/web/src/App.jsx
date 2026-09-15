@@ -449,7 +449,6 @@ export default function App() {
 
   function chooseWorkflowStep(step, hash) {
     if (exploring) {
-      setWorkflowStep(step)
       window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
       return
     }

@@ -6,6 +6,10 @@ describe('canonical exploration context', () => {
   const security = { entityId: 'security-1', entityType: 'SECURITY', canonicalName: '같은 이름' }
 
   it('keeps exact context across steps and clears it on a different canonical type', () => {
+    const blank = initialExplorerState()
+    expect(advance(blank, 'Ask')).toBe(blank)
+    expect(advance(blank, 'Inspect')).toBe(blank)
+    expect(advance(blank, 'Relate')).toBe(blank)
     const selected = { ...selectTarget(initialExplorerState(), company), perspective: '공식 사실과 근거',
       category: '재무', detail: 'Historical Exact', periodStart: '2025-01-01', periodEnd: '2025-12-31',
       receipt: '20260101000001', comparison: '전년' }
