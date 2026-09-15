@@ -9,8 +9,16 @@ describe('canonical exploration context', () => {
     const selected = { ...selectTarget(initialExplorerState(), company), perspective: '공식 사실과 근거',
       category: '재무', detail: 'Historical Exact', periodStart: '2025-01-01', periodEnd: '2025-12-31',
       receipt: '20260101000001', comparison: '전년' }
-    expect(contextTrail(advance(selected, 'Inspect'))).toContain('2025-01-01 — 2025-12-31')
-    expect(contextTrail(selected)).toContain('비교 전년')
+    const inspect = advance(selected, 'Inspect')
+    expect(contextTrail(inspect)).toContain('2025-01-01 — 2025-12-31')
+    expect(contextTrail(inspect)).toContain('비교 전년')
+    const relate = advance(selected, 'Relate')
+    expect(contextTrail(relate)).toContain('사건')
+    expect(contextTrail(relate)).toContain('관련 사건')
+    expect(contextTrail(relate)).not.toContain('2025-01-01 — 2025-12-31')
+    expect(contextTrail(relate)).not.toContain('공시 접수번호 20260101000001')
+    expect(relate.periodStart).toBe('2025-01-01')
+    expect(contextTrail(advance(relate, 'Inspect'))).toContain('2025-01-01 — 2025-12-31')
     const changed = selectTarget(selected, security)
     expect(changed.target.entityType).toBe('SECURITY')
     expect(changed.periodStart).toBe('')

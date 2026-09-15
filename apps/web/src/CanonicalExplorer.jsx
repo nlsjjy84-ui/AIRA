@@ -286,11 +286,13 @@ export default function CanonicalExplorer({ embedded = false }) {
   })[context.step]
   const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
   const selectionLabel = ({ HISTORICAL_EXACT: '정확한 기간·공시', LATEST_OFFICIAL_MARKET_D: '공식 거래일 현재값', KRX_CURRENT: '공식 거래일 현재값' })[data.selection] ?? detailLabel
+  const currentCategory = context.step === 'Relate' || context.step === 'Assess' ? '사건' : context.category
+  const currentDetail = context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel
   const contextNodes = [
     { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
-    { label: '분류', value: context.category ?? (context.step === 'Relate' || context.step === 'Assess' ? '사건' : '선택 전'), ready: Boolean(context.category || context.step === 'Relate' || context.step === 'Assess') },
-    { label: '세부', value: detailLabel ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : '선택 전'), ready: Boolean(context.detail || context.step === 'Relate' || context.step === 'Assess') },
+    { label: '분류', value: currentCategory ?? '선택 전', ready: Boolean(currentCategory) },
+    { label: '세부', value: currentDetail ?? '선택 전', ready: Boolean(currentDetail) },
   ]
   return <div className={`canonical-explorer ${embedded ? 'embedded' : ''} stage-${context.step.toLowerCase()}`}>
     <header className="explorer-head stage-hero"><p className="eyebrow">{stageVisual.eyebrow}</p><h1>{stageVisual.title}</h1>
