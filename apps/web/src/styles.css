@@ -1210,3 +1210,38 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .evidence-inspector-head { align-items: stretch; flex-direction: column; gap: .4rem; }
   .evidence-inspector-head button { width: 100%; }
 }
+
+/* Surface rhythm: reserve cards for real choices; reading surfaces stay open and document-like. */
+.explorer-results .search-result {
+  border: 0;
+  border-left: 3px solid var(--result-color, var(--accent));
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.explorer-results .search-result:hover,
+.explorer-results .search-result:focus-visible {
+  background: color-mix(in srgb, var(--result-color, var(--accent)) 6%, transparent);
+}
+.explorer-options .choice-card {
+  border-radius: .9rem;
+}
+.subsection-nav button {
+  border-radius: .7rem;
+}
+.primary-action, .secondary-action, .saved-action,
+.explorer-detail > button, .compare-fields > button {
+  border-radius: .65rem;
+}
+
+.briefing-card, .alert-card {
+  padding: 1.05rem 0 1.2rem;
+  border: 0;
+  border-top: 3px solid var(--personal-card-color);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+@media (max-width: 40rem) {
+  .briefing-card, .alert-card { padding: .9rem 0 1rem; }
+}
