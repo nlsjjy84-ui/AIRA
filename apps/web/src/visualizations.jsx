@@ -20,6 +20,8 @@ export function formatQuantity(value, unit = '') {
 const FACT_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', CLOSE_PRICE: '종가',
   OPEN_PRICE: '시가', HIGH_PRICE: '고가', LOW_PRICE: '저가', TRADING_VOLUME: '거래량',
   MARKET_CAP: '시가총액' }
+const RELATION_LABEL = { FACT: '사실', EVENT: '사건', ASSESSMENT: '판단' }
+const SOURCE_TYPE_LABEL = { EXCHANGE: '거래소', REGULATOR: '감독기관', FILING: '공시', OFFICIAL: '공식 기관' }
 
 export function FinancialOverview({ observation, onEvidence }) {
   const [expanded, setExpanded] = useState(null)
@@ -37,7 +39,7 @@ export function FinancialOverview({ observation, onEvidence }) {
           <button type="button" aria-expanded={open} onClick={() => setExpanded(open ? null : key)}>{open ? '상세 닫기' : '상세 보기'}</button></div>
         {open && <div className="viz-metric-detail"><dl><div><dt>정확한 값</dt><dd>{fact.value} {fact.currency}</dd></div>
           <div><dt>기간</dt><dd>{fact.periodStart} — {fact.periodEnd}</dd></div>
-          <div><dt>Evidence ID</dt><dd>{fact.evidenceId}</dd></div>
+          <div><dt>근거 식별자</dt><dd>{fact.evidenceId}</dd></div>
           <div><dt>출처</dt><dd>{fact.sourceName}</dd></div></dl>
           {fact.evidenceId && <button type="button" onClick={() => onEvidence(fact.evidenceId,
             { type: 'FACT', label: `${fact.predicate} · ${fact.periodStart} — ${fact.periodEnd}` })}>근거 확인</button>}</div>}
@@ -57,7 +59,7 @@ export function FinancialSplit({ comparison, onEvidence }) {
           <strong>{formatQuantity(observation.value, observation.currency)}</strong>
           {observation.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
             { type: 'FACT', label: `${metric.predicate} · ${side} ${period.periodStart} — ${period.periodEnd} · ${period.receipt}` })}>
-            {side} Evidence ID {id}</button>)}</article>)}</div>
+            {side} 근거 식별자 · {id}</button>)}</article>)}</div>
       <p>증감액 {formatQuantity(metric.changeAmountBMinusA, metric.a.currency)} · 증감률 {metric.changePercentBOverA == null
         ? `계산 불가 (${metric.percentReason})` : formatQuantity(metric.changePercentBOverA, '%')}</p>
       {/* Meter width is only a visual projection of server values; the change numbers above come from the API. */}
@@ -74,7 +76,7 @@ export function MarketOverview({ observation, predicate }) {
   const value = observation.value
   return <section className="viz-block" aria-label="시장 한눈에 보기"><h3>한눈에 · {FACT_LABEL[predicate] ?? predicate}</h3>
     <strong className="viz-big-number">{formatQuantity(value.value, predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</strong>
-    <p>KRX 공식 거래일 {value.tradingDate} · Fact ID {value.factId}</p>
+    <p>KRX 공식 거래일 {value.tradingDate} · 관측 식별자 · {value.factId}</p>
     <p>이 응답은 D의 단일 관측값입니다. 흐름과 직전 관측 비교는 아래에서 따로 엽니다.</p></section>
 }
 
@@ -110,10 +112,10 @@ export function MarketSeriesView({ series, onEvidence }) {
       <button type="button" aria-pressed={selectedId === point.factId} onClick={() => setSelectedId(point.factId)}>
         <time>{point.tradingDate}</time><strong>{formatQuantity(point.value, unit)}</strong>
       </button></li>)}</ol>
-    {selected && <div className="viz-selection"><h4>선택한 정확한 관측</h4><p>{selected.tradingDate} · 값 {selected.value} · Fact ID {selected.factId}</p>
-      <p>공식 Evidence {selected.evidenceExternalId}</p>
+    {selected && <div className="viz-selection"><h4>선택한 정확한 관측</h4><p>{selected.tradingDate} · 값 {selected.value} · 관측 식별자 · {selected.factId}</p>
+      <p>공식 근거 · {selected.evidenceExternalId}</p>
       {selected.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
-        { type: 'FACT', label: `${series.predicate} · ${selected.tradingDate} · ${selected.factId}` })}>Evidence ID {id}</button>)}</div>}
+        { type: 'FACT', label: `${series.predicate} · ${selected.tradingDate} · ${selected.factId}` })}>근거 식별자 · {id}</button>)}</div>}
   </section>
 }
 
@@ -122,10 +124,10 @@ export function MarketPreviousView({ comparison, onEvidence }) {
   return <section className="viz-block" aria-label="D와 직전 공식 관측 비교"><h3>비교 · D와 직전 실제 관측일</h3>
     <div className="viz-split">{[['직전 관측', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
       <article className={`viz-side ${label === 'D' ? 'viz-side-b' : 'viz-side-a'}`} key={label}><small>{label} · {point.tradingDate}</small><strong>{formatQuantity(point.value,
-        comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</strong><small>Fact ID {point.factId}</small>
+        comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}</strong><small>관측 식별자 · {point.factId}</small>
         {point.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
           { type: 'FACT', label: `${comparison.predicate} · ${point.tradingDate} · ${point.factId}` })}>
-          Evidence ID {id}</button>)}</article>)}</div>
+          근거 식별자 · {id}</button>)}</article>)}</div>
     <p>증감액 {formatQuantity(comparison.changeAmount, comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW')}
       {' · '}증감률 {comparison.changePercent == null ? `계산 불가 (${comparison.percentReason})`
         : formatQuantity(comparison.changePercent, '%')}</p>
@@ -144,7 +146,7 @@ export function OhlcCandle({ observations }) {
     <svg viewBox="0 0 120 150" role="img" aria-label={`시가 ${open}, 고가 ${high}, 저가 ${low}, 종가 ${close}`}>
       <line x1="60" x2="60" y1={y(high)} y2={y(low)} stroke="currentColor" strokeWidth="2" />
       <rect x="43" y={Math.min(y(open), y(close))} width="34" height={Math.max(2, Math.abs(y(open) - y(close)))} fill="none" stroke="currentColor" strokeWidth="2" />
-    </svg><dl>{names.map(name => <div key={name}><dt>{FACT_LABEL[name]}</dt><dd>{formatQuantity(observations[name].value.value, 'KRW')} · Fact ID {observations[name].value.factId}</dd></div>)}</dl></figure>
+    </svg><dl>{names.map(name => <div key={name}><dt>{FACT_LABEL[name]}</dt><dd>{formatQuantity(observations[name].value.value, 'KRW')} · 관측 식별자 · {observations[name].value.factId}</dd></div>)}</dl></figure>
 }
 
 export function EventTimeline({ events, onSelect }) {
@@ -152,39 +154,39 @@ export function EventTimeline({ events, onSelect }) {
   // Only provider-approved occurredAt participates in chronological order; unknown time remains separate.
   const dated = events.filter(item => item.occurredAt).toSorted((a, b) => a.occurredAt.localeCompare(b.occurredAt))
   const unknown = events.filter(item => !item.occurredAt)
-  return <section className="viz-block viz-process" aria-label="사건 시간순">
-    <div className="viz-process-heading"><div><p className="eyebrow">EVENT FLOW</p><h3>확인된 사건의 시간 흐름</h3></div>
-      <p>공식 발생시각이 있는 Event만 시간순으로 놓고, 시각 미상은 따로 남깁니다.</p></div>
+  return <section className="viz-block viz-process viz-event-flow" aria-label="사건 시간순">
+    <div className="viz-process-heading"><div><p className="eyebrow">EVENT FLOW · 사건 흐름</p><h3>확인된 사건의 시간 흐름</h3></div>
+      <p>공식 발생시각이 확인된 사건만 시간순으로 놓고, 시각 미상은 따로 남깁니다.</p></div>
     <ol className="viz-timeline">{[...dated, ...unknown].map(item => <li key={item.eventId}>
-      <span className="viz-node-label">EVENT</span><time>{item.occurredAt ? item.occurredAt.slice(0, 10) : '발생시각 미상'}</time>
-      <button type="button" onClick={() => onSelect(item)}>{item.title}</button><small>Event ID {item.eventId}</small>
+      <span className="viz-node-label">사건</span><time>{item.occurredAt ? item.occurredAt.slice(0, 10) : '발생시각 미상'}</time>
+      <button type="button" onClick={() => onSelect(item)}>{item.title}</button><small>사건 식별자 · {item.eventId}</small>
     </li>)}</ol></section>
 }
 
 export function AssessmentFlow({ assessment, onHistorical, onEvidence }) {
   if (!assessment?.assessmentId) return null
-  return <section className="viz-block viz-process" aria-label="Assessment 승계 흐름">
-    <div className="viz-process-heading"><div><p className="eyebrow">ASSESSMENT FLOW</p><h3>현재 판단과 이전 판단의 연결</h3></div>
+  return <section className="viz-block viz-process viz-assessment-flow" aria-label="판단 승계 흐름">
+    <div className="viz-process-heading"><div><p className="eyebrow">ASSESSMENT FLOW · 판단 연결</p><h3>현재 판단과 이전 판단의 연결</h3></div>
       <p>현재 판단을 단순한 최신 시각으로 추정하지 않고 저장된 승계 관계만 표시합니다.</p></div>
     <div className="viz-flow">{assessment.supersedesAssessmentId && <><button type="button" className="viz-flow-node previous"
-      onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>이전 당시 판단 · HISTORICAL EXACT</small><span>{assessment.supersedesAssessmentId}</span></button>
+      onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>이전 당시 판단</small><span>{assessment.supersedesAssessmentId}</span><em className="viz-contract-term">Historical Exact</em></button>
       <span className="viz-flow-arrow" aria-hidden="true">→</span></>}
-      <strong className="viz-flow-node current"><small>현재 판단 · CURRENT</small><span>{assessment.assessmentId}</span></strong></div>
+      <strong className="viz-flow-node current"><small>현재 판단</small><span>{assessment.assessmentId}</span><em className="viz-contract-term">Current</em></strong></div>
     {(assessment.evidenceIds ?? []).length > 0 && <div className="viz-evidence-links"><span>판단 근거</span>
       {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => onEvidence(id,
-        { type: 'ASSESSMENT', label: assessment.assessmentId })}>Evidence ID {id}</button>)}</div>}
+        { type: 'ASSESSMENT', label: assessment.assessmentId })}>근거 식별자 · {id}</button>)}</div>}
   </section>
 }
 
 export function EvidenceChain({ evidence, relation }) {
   if (!evidence) return null
-  return <section className="viz-block viz-process" aria-label="근거 연결">
-    <div className="viz-process-heading"><div><p className="eyebrow">EVIDENCE PATH</p><h3>출처에서 현재 판단까지의 근거 경로</h3></div>
-      <p>클릭한 관계만 보여주며 다른 Fact·Event·Assessment로 자동 확장하지 않습니다.</p></div>
+  return <section className="viz-block viz-process viz-evidence-path" aria-label="근거 연결">
+    <div className="viz-process-heading"><div><p className="eyebrow">EVIDENCE PATH · 근거 경로</p><h3>출처에서 현재 판단까지의 근거 경로</h3></div>
+      <p>클릭한 관계만 보여주며 다른 사실·사건·판단으로 자동 확장하지 않습니다.</p></div>
     <ol className="viz-chain">
-      <li><span className="viz-node-label">SOURCE</span><strong>{evidence.source?.sourceName}</strong><small>{evidence.source?.sourceType}</small></li>
-      <li><span className="viz-node-label">EVIDENCE</span><strong>{evidence.title ?? evidence.externalId}</strong><small>Evidence ID {evidence.evidenceId}</small></li>
-      {relation && <li><span className="viz-node-label">LINKED TO</span><strong>{relation.type} · {relation.label}</strong></li>}
+      <li><span className="viz-node-label">공식 출처</span><strong>{evidence.source?.sourceName}</strong><small>{SOURCE_TYPE_LABEL[evidence.source?.sourceType] ?? evidence.source?.sourceType}</small></li>
+      <li><span className="viz-node-label">근거 자료</span><strong>{evidence.title ?? evidence.externalId}</strong><small>근거 식별자 · {evidence.evidenceId}</small></li>
+      {relation && <li><span className="viz-node-label">연결 대상</span><strong>{RELATION_LABEL[relation.type] ?? relation.type} · {relation.label}</strong></li>}
     </ol>
     {evidence.originalUrl && <a className="viz-source-link" href={evidence.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 열기 <span aria-hidden="true">↗</span></a>}
   </section>

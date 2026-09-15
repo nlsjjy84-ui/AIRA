@@ -786,3 +786,22 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .workflow-sidebar .settings-action { align-self: center; padding: .3rem .25rem; }
   .session-notice { padding: .55rem 1.15rem; font-size: .9rem; }
 }
+/* Event / Assessment / Evidence use role colors, never positive/negative signals. */
+.viz-event-flow { --process-color: var(--series-c); }
+.viz-assessment-flow { --process-color: var(--series-d); }
+.viz-evidence-path { --process-color: var(--series-b); }
+.viz-process[class*="viz-"] > .viz-process-heading .eyebrow { color: var(--process-color, var(--accent)); }
+.viz-event-flow .viz-timeline { border-left-color: color-mix(in srgb, var(--process-color) 42%, var(--line)); }
+.viz-event-flow .viz-timeline li::before { border-color: var(--process-color); }
+.viz-event-flow .viz-node-label { color: var(--process-color); }
+.viz-assessment-flow .viz-flow-node.previous { border-top-color: var(--series-a); }
+.viz-assessment-flow .viz-flow-node.current { border-top-color: var(--process-color); background: color-mix(in srgb, var(--process-color) 9%, var(--surface)); }
+.viz-assessment-flow .viz-evidence-links > span { color: var(--process-color); }
+.viz-contract-term { color: var(--muted); font-size: .66rem; font-style: normal; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.viz-evidence-path .viz-chain li:nth-child(1) { border-top-color: var(--series-a); }
+.viz-evidence-path .viz-chain li:nth-child(1) .viz-node-label { color: var(--series-a); }
+.viz-evidence-path .viz-chain li:nth-child(2) { border-top-color: var(--series-b); }
+.viz-evidence-path .viz-chain li:nth-child(2) .viz-node-label { color: var(--series-b); }
+.viz-evidence-path .viz-chain li:nth-child(3) { border-top-color: var(--series-d); }
+.viz-evidence-path .viz-chain li:nth-child(3) .viz-node-label { color: var(--series-d); }
+.viz-timeline small, .viz-chain small { font-variant-numeric: tabular-nums; }

@@ -248,10 +248,11 @@ export default function CanonicalExplorer({ embedded = false }) {
     MAIN: { eyebrow: 'AIRA · MAIN', title: '대상을 찾고 근거를 따라 확인하세요.', copy: '기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.' },
     Ask: { eyebrow: 'ASK · 질문', title: '무엇을 볼지 먼저 정하세요.', copy: '질문을 입력하는 대신 같은 대상을 어떤 관점으로 확인할지 선택합니다.' },
     Inspect: { eyebrow: 'INSPECT · 살피기', title: '자료를 좁혀 정확한 관측까지 내려갑니다.', copy: '분류와 하위분류를 거쳐 값·기간·공시·공식 관측을 확인합니다.' },
-    Relate: { eyebrow: 'RELATE · 잇기', title: '사건과 대상의 연결을 따라갑니다.', copy: '확인된 Event와 관련 대상을 근거가 있는 관계만 이어서 봅니다.' },
-    Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: '현재 판단(Current)과 당시 판단(Historical Exact)을 구분하고 연결된 공식 근거를 직접 확인합니다.' },
+    Relate: { eyebrow: 'RELATE · 잇기', title: '사건과 대상의 연결을 따라갑니다.', copy: '확인된 사건과 관련 대상을 근거가 있는 관계만 이어서 봅니다.' },
+    Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: '현재 판단과 당시 판단을 구분하고 연결된 공식 근거를 직접 확인합니다.' },
   })[context.step]
   const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
+  const selectionLabel = ({ HISTORICAL_EXACT: '정확한 기간·공시', LATEST_OFFICIAL_MARKET_D: '공식 거래일 현재값', KRX_CURRENT: '공식 거래일 현재값' })[data.selection] ?? detailLabel
   const contextNodes = [
     { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
@@ -292,9 +293,9 @@ export default function CanonicalExplorer({ embedded = false }) {
         <div className="main-path-step main-path-ask"><span>02 · ASK</span><strong>관점 정하기</strong><small>무엇을 볼지 선택</small></div>
         <i aria-hidden="true">→</i>
         <div className="main-path-branch"><div className="main-path-step main-path-inspect"><span>03A · INSPECT</span><strong>자료 살피기</strong><small>값·기간·공시</small></div>
-          <div className="main-path-step main-path-relate"><span>03B · RELATE</span><strong>관계 잇기</strong><small>Event·관련 대상</small></div></div>
+          <div className="main-path-step main-path-relate"><span>03B · RELATE</span><strong>관계 잇기</strong><small>사건·관련 대상</small></div></div>
         <i aria-hidden="true">→</i>
-        <div className="main-path-step main-path-assess"><span>04 · ASSESS</span><strong>판단 확인</strong><small>분석·Evidence</small></div>
+        <div className="main-path-step main-path-assess"><span>04 · ASSESS</span><strong>판단 확인</strong><small>분석·근거</small></div>
       </div>
       <p className="main-path-note">Ask에서 고른 관점에 따라 Inspect 또는 Relate로 갈라지고, 필요한 경우 Assess에서 판단 근거까지 확인합니다.</p>
     </section>}
@@ -315,7 +316,7 @@ export default function CanonicalExplorer({ embedded = false }) {
       <div className="explorer-options branch-options"><button type="button" className="choice-card ask-choice inspect-choice" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
           <span className="choice-route">INSPECT · 살피기</span><strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
         <button type="button" className="choice-card ask-choice relate-choice" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
-          <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div>
+          <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 사건과 관련 회사, 현재 판단의 근거를 잇습니다.</small></button></div>
       <p className="panel-lead panel-note">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p></section>}
     {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
@@ -330,23 +331,23 @@ export default function CanonicalExplorer({ embedded = false }) {
     {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>관련 사건과 대상을 연결해 확인하세요.</h2>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 보기</button> : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
-      <p className="panel-lead panel-note">선택한 대상에 공식 근거로 연결된 Event만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
+      <p className="panel-lead panel-note">선택한 대상에 공식 근거로 연결된 사건만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
       {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
       <p className="event-meta">사건 식별자 · {context.eventId}</p><button type="button" className="primary-action" onClick={loadDetail}>현재 판단 확인</button>
-      {eventDetail && <div className="viz-block"><h3>사건 상세</h3><p>{eventDetail.title} · Event ID {eventDetail.eventId}</p>
+      {eventDetail && <div className="viz-block"><h3>사건 상세</h3><p>{eventDetail.title} · 사건 식별자 {eventDetail.eventId}</p>
         {!eventDetail.assessment && <p>이 사건에 연결된 현재 AIRA 판단이 없습니다.</p>}
         {(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" onClick={() => openEvidence(item.evidenceId,
-          { type: 'EVENT', label: eventDetail.eventId })}>사건 근거 · Evidence ID {item.evidenceId}</button>)}</div>}
+          { type: 'EVENT', label: eventDetail.eventId })}>사건 근거 · 근거 식별자 {item.evidenceId}</button>)}</div>}
       <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
       {historical.loading && <LoadingNotice>이전 당시 판단 확인 중…</LoadingNotice>}
-      {historical.value && <div className="viz-block"><h3>이전 당시 판단 · Historical Exact</h3><p>판단 식별자 {historical.value.assessmentId} · 사건 식별자 {historical.value.eventId}</p>
+      {historical.value && <div className="viz-block"><h3>이전 당시 판단</h3><p>판단 식별자 {historical.value.assessmentId} · 사건 식별자 {historical.value.eventId}</p>
         {(historical.value.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => openEvidence(id,
-          { type: 'ASSESSMENT', label: historical.value.assessmentId })}>판단 근거 · Evidence ID {id}</button>)}</div>}</section>}
+          { type: 'ASSESSMENT', label: historical.value.assessmentId })}>판단 근거 · 근거 식별자 {id}</button>)}</div>}</section>}
     {data.loading && <LoadingNotice>자료를 확인하는 중…</LoadingNotice>}
     {!data.loading && data.state && data.state !== 'AVAILABLE' && <StateNotice state={data.state} />}
     {!data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
-      <p>{data.selection ?? context.detail} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`} {data.receipt && `· receipt ${data.receipt}`}</p>
+      <p>{selectionLabel} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`} {data.receipt && `· 공시 접수번호 ${data.receipt}`}</p>
       {data.value.facts && <FinancialOverview observation={data} onEvidence={openEvidence} />}
       {data.value.tradingDate && <MarketOverview observation={data} predicate={context.predicate} />}
     </div>}

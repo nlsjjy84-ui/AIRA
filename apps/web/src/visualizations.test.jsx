@@ -28,7 +28,7 @@ describe('evidence-linked visuals', () => {
     fireEvent.click(screen.getByRole('button', { name: '상세 보기' }))
     expect(screen.getByText('e-a')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '근거 확인' }))
-    fireEvent.click(screen.getByRole('button', { name: 'B Evidence ID e-b' }))
+    fireEvent.click(screen.getByRole('button', { name: 'B 근거 식별자 · e-b' }))
     expect(onEvidence.mock.calls.map(call => call[0])).toEqual(['e-a', 'e-b'])
     expect(screen.getAllByRole('meter')).toHaveLength(2)
     expect(screen.getByText(/증감액 1억 원 · 증감률 계산 불가 \(BASE_NON_POSITIVE\)/)).toBeInTheDocument()
@@ -55,7 +55,7 @@ describe('evidence-linked visuals', () => {
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('확정')
     expect(screen.getAllByRole('listitem')[1]).toHaveTextContent('발생시각 미상')
     fireEvent.click(screen.getByRole('button', { name: /이전 당시 판단.*A1/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Evidence ID E1' }))
+    fireEvent.click(screen.getByRole('button', { name: '근거 식별자 · E1' }))
     expect(historical).toHaveBeenCalledWith('A1')
     expect(evidence).toHaveBeenCalledWith('E1', { type: 'ASSESSMENT', label: 'A2' })
   })
@@ -70,8 +70,8 @@ describe('evidence-linked visuals', () => {
     render(<EvidenceChain evidence={{ evidenceId: 'E1', title: '공식 자료', source: { sourceName: 'OpenDART', sourceType: 'REGULATOR' } }}
       relation={{ type: 'FACT', label: 'REVENUE · 2025-01-01 — 2025-12-31' }} />)
     expect(screen.getByRole('list')).toHaveTextContent('OpenDART')
-    expect(screen.getByRole('list')).toHaveTextContent('Evidence ID E1')
-    expect(screen.getByRole('list')).toHaveTextContent('FACT · REVENUE')
+    expect(screen.getByRole('list')).toHaveTextContent('근거 식별자 · E1')
+    expect(screen.getByRole('list')).toHaveTextContent('사실 · REVENUE')
   })
 
   it('shows only returned official market dates and drills into exact Evidence', () => {
@@ -83,8 +83,8 @@ describe('evidence-linked visuals', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
     expect(screen.queryByText('2026-09-11')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /2026-09-14/ }))
-    expect(screen.getByText(/Fact ID F2/)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Evidence ID E2' }))
+    expect(screen.getByText(/관측 식별자 · F2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '근거 식별자 · E2' }))
     expect(onEvidence).toHaveBeenCalledWith('E2', { type: 'FACT', label: 'CLOSE_PRICE · 2026-09-14 · F2' })
   })
 
