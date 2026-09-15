@@ -628,7 +628,6 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .canonical-explorer .context-stage strong { color: var(--stage-color); }
 .canonical-explorer .context-branch li.ready { border-top-color: var(--stage-color); }
 .canonical-explorer .explorer-panel { border-top: 2px solid color-mix(in srgb, var(--stage-color) 52%, var(--line)); }
-.canonical-explorer .explorer-panel > .eyebrow { color: var(--stage-color); }
 
 .canonical-explorer .choice-card:hover,
 .canonical-explorer .choice-card:focus-visible {

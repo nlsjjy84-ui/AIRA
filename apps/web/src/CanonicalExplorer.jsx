@@ -380,14 +380,14 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {interest.error && <div className="explorer-interest-error" role="alert"><span>관심회사 요청을 처리하지 못했습니다.</span>
         {interest.retry && <button type="button" onClick={interest.retry}>다시 시도</button>}</div>}
     </section>}
-    {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
+    {context.step === 'Ask' && target && <section className="explorer-panel"><h2>어떤 관점으로 볼지 선택하세요.</h2>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       <div className="explorer-options branch-options"><button type="button" className="choice-card ask-choice inspect-choice" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
           <span className="choice-route">INSPECT · 살피기</span><strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
         <button type="button" className="choice-card ask-choice relate-choice" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
           <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 사건과 관련 회사, 현재 판단의 근거를 잇습니다.</small></button></div>
       <p className="panel-lead panel-note">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p></section>}
-    {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
+    {context.step === 'Inspect' && target && <section className="explorer-panel"><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
       {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
       {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{detailLabel}</strong></p>
@@ -397,7 +397,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           : <label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label>}
         <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}
       <p className="panel-lead panel-note">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p></section>}
-    {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>어떤 것들이 연결되어 있는지 나눠서 확인하세요.</h2>
+    {context.step === 'Relate' && target && <section className="explorer-panel"><h2>어떤 것들이 연결되어 있는지 나눠서 확인하세요.</h2>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       <nav className="subsection-nav" aria-label="Relate 하위 메뉴">{RELATE_SECTIONS.map(([key, label]) => <button key={key} type="button"
         aria-current={relateSection === key ? 'page' : undefined} onClick={() => setRelateSection(key)}>{label}</button>)}</nav>
@@ -417,7 +417,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {relateSection === 'review' && <div className="subsection-panel subview-empty" aria-label="추가로 살펴볼 연결"><strong>현재 저장된 추가 확인 연결이 없습니다.</strong>
         <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p></div>}
     </section>}
-    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
+    {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
       <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : eventDetailState.loading ? '선택한 사건 확인 중…'
         : eventDetailState.error?.status === 404 ? '선택한 사건 · 현재 공개 상세 없음' : '선택한 사건 · 불러오기 실패'}</p>
       <nav className="subsection-nav assess-submenu" aria-label="Assess 하위 메뉴">{ASSESS_SECTIONS.map(([key, label]) => <button key={key} type="button"
