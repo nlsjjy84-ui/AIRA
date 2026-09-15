@@ -1,3 +1,4 @@
+export const EXPLORER_HISTORY_KEY = 'airaCanonicalExplorer12B'
 export const STEPS = ['MAIN', 'Ask', 'Inspect', 'Relate', 'Assess']
 export const DATA_STATES = new Set(['AVAILABLE', 'NO_DATA', 'PARTIAL', 'STALE', 'CONFLICTING', 'BLOCKED', 'UNSUPPORTED', 'UNAVAILABLE'])
 
@@ -5,6 +6,15 @@ export function initialExplorerState() {
   return { step: 'MAIN', target: null, perspective: null, category: null, detail: null,
     periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: '',
     comparison: null, assessmentId: null, evidenceId: null }
+}
+
+export function assessmentExplorerState(eventId, companies = []) {
+  if (!eventId) return initialExplorerState()
+  const validCompanies = (companies ?? []).filter(company => company?.companyId && company?.companyName)
+  const target = validCompanies.length === 1
+    ? { entityId: validCompanies[0].companyId, entityType: 'COMPANY', canonicalName: validCompanies[0].companyName }
+    : null
+  return { ...initialExplorerState(), step: 'Assess', target, perspective: '사건과 분석', eventId }
 }
 
 export function advance(state, step) {

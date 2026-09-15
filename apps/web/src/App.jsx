@@ -7,6 +7,7 @@ import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInteres
 import { getOrCreateBriefing } from './api/briefingApi.js'
 import { alertEmptyMessage } from './alertEmptyState.js'
 import { getAlert, reconcileAlerts } from './api/alertApi.js'
+import { assessmentExplorerState, EXPLORER_HISTORY_KEY } from './explorerState.js'
 
 const EVIDENCE_TYPE_LABELS = { ARTICLE: '기사', DISCLOSURE: '공시', IR: 'IR 자료', PRESS_RELEASE: '보도자료', OFFICIAL_DATA: '공식 데이터', OTHER: '기타' }
 const SOURCE_TYPE_LABELS = { NEWS: '뉴스', REGULATOR: '감독기관', EXCHANGE: '거래소', COMPANY_IR: '기업 IR', GOVERNMENT: '정부기관', OTHER: '기타' }
@@ -232,9 +233,13 @@ export default function App() {
   const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
   const [alertsState, setAlertsState] = useState({ loading: false, data: [], emptyReason: null, error: null })
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
-  const exploring = typeof window !== 'undefined' && window.location.pathname === '/explore'
+  const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
+  const exploring = routePath === '/explore'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [workflowContext, setWorkflowContext] = useState({ step: exploring ? 'MAIN' : null, hasTarget: false, hasEvent: false })
+  const [workflowContext, setWorkflowContext] = useState(() => {
+    const saved = exploring ? window.history.state?.[EXPLORER_HISTORY_KEY] : null
+    return { step: saved?.step ?? (exploring ? 'MAIN' : null), hasTarget: Boolean(saved?.target), hasEvent: Boolean(saved?.eventId) }
+  })
 
   const becomeAnonymous = useCallback((notice = null) => {
     for (const key of ['session', 'interests', 'briefing', 'alerts', 'alertDetail']) requestVersions.current[key] = (requestVersions.current[key] ?? 0) + 1
@@ -372,6 +377,24 @@ export default function App() {
   }
 
   useEffect(() => {
+    const syncRoute = () => {
+      const path = window.location.pathname
+      const saved = path === '/explore' ? window.history.state?.[EXPLORER_HISTORY_KEY] : null
+      setRoutePath(path)
+      setWorkflowContext({ step: saved?.step ?? (path === '/explore' ? 'MAIN' : null), hasTarget: Boolean(saved?.target), hasEvent: Boolean(saved?.eventId) })
+    }
+    window.addEventListener('popstate', syncRoute)
+    return () => window.removeEventListener('popstate', syncRoute)
+  }, [])
+
+  function openAssessmentInExplorer(eventId, companies = []) {
+    const next = assessmentExplorerState(eventId, companies)
+    window.history.pushState({ [EXPLORER_HISTORY_KEY]: next }, '', '/explore')
+    setWorkflowContext({ step: 'Assess', hasTarget: Boolean(next.target), hasEvent: true })
+    setRoutePath('/explore')
+  }
+
+  useEffect(() => {
     if (!exploring) return undefined
     const syncWorkflow = event => setWorkflowContext(current => typeof event.detail === 'string'
       ? { ...current, step: event.detail }
@@ -381,7 +404,7 @@ export default function App() {
   }, [exploring])
 
   function workflowStepDisabled(step) {
-    if (!exploring || step === 'MAIN') return false
+    if (!exploring || step === 'MAIN' || workflowContext.step === step) return false
     if (!workflowContext.hasTarget) return true
     return step === 'Assess' && !workflowContext.hasEvent
   }
@@ -457,7 +480,7 @@ export default function App() {
           </div>
           <aside className="briefing-side" aria-label="브리핑 근거와 이동"><p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
             <button type="button" className="secondary-action" onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
-            <p className="briefing-current-note">사건 상세에서는 현재 상태와 현재 판단을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button></div>
+            <p className="briefing-current-note">Assess에서는 현재 사건 사실과 현재 판단 근거를 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAssessmentInExplorer(item.eventId, item.companies)}>현재 판단 보기</button></div>
             {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
               <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
               <span>공시 접수번호 {reference.externalId}</span>
@@ -483,7 +506,7 @@ export default function App() {
             {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           </div>
           <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAlertDetail(item.alertId)}>알림 상세 보기</button>
-            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 사건 보기</button></div></aside>
+            <button type="button" className="secondary-action" onClick={() => openAssessmentInExplorer(item.eventId, item.companies)}>현재 판단 보기</button></div></aside>
         </article>)}</div>
         {alertDetailState.loading && <Status busy>정확한 알림 기록을 불러오는 중입니다.</Status>}
         {alertDetailState.error && <ErrorState error={alertDetailState.error} subject="알림 상세" retry={() => openAlertDetail(alertDetailState.alertId)} />}
@@ -503,7 +526,7 @@ export default function App() {
           <p className="insight-time">사건 발생 {formatDateTime(alertDetailState.data.occurredAt) ?? '발생시각 미상'}</p>
           {alertDetailState.data.completedAt && <p className="insight-time">판단 완료 {formatDateTime(alertDetailState.data.completedAt)}</p>}
           {alertDetailState.data.sentAt && <p className="insight-time">알림 전달 {formatDateTime(alertDetailState.data.sentAt)}</p>}
-          <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openEventDetail(alertDetailState.data.eventId, null)}>현재 사건 보기</button></div>
+          <div className="insight-actions"><button type="button" className="secondary-action" onClick={() => openAssessmentInExplorer(alertDetailState.data.eventId, alertDetailState.data.companies)}>현재 판단 보기</button></div>
           {alertDetailState.data.evidence.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
             <strong>{reference.sourceName}</strong>
             <span>근거 식별자 {reference.evidenceId}</span>
@@ -608,7 +631,7 @@ export default function App() {
       </>}
     </main>
     {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}
-    {window.location.pathname === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
+    {routePath === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
     {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
     {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}
   </>

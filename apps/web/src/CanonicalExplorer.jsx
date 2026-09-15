@@ -4,11 +4,10 @@ import { searchEntities, readFinancialExact, readFinancialComparison, readAssess
 import { getCompanyEvents } from './api/companyApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
-import { advance, contextTrail, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
+import { advance, contextTrail, EXPLORER_HISTORY_KEY, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
 import { formatQuantity, FinancialSplit, MarketOverview, MarketSeriesView, MarketPreviousView,
   OhlcCandle, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
 
-const KEY = 'airaCanonicalExplorer12B'
 const INSPECT_SECTIONS = [['fact', '확인된 사실'], ['evidence', '공식 근거'], ['history', '변경 이력'], ['compare', '기간 비교']]
 const RELATE_SECTIONS = [['confirmed', '확인된 연결'], ['correction', '정정 이력 연결'], ['review', '추가로 살펴볼 연결']]
 const ASSESS_SECTIONS = [['fact', '확인된 사실'], ['interpretation', 'AIRA 해석'], ['reason', '왜 이렇게 해석했나요?'],
@@ -47,7 +46,7 @@ function StateNotice({ state, lead, detail }) {
 }
 
 export default function CanonicalExplorer({ embedded = false, interest = null }) {
-  const [context, setContext] = useState(() => window.history.state?.[KEY] ?? initialExplorerState())
+  const [context, setContext] = useState(() => window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [results, setResults] = useState({ loading: false, state: null, entities: [] })
   const [data, setData] = useState({ loading: false, state: null, value: null })
@@ -65,7 +64,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const eventRequestNumber = useRef(0)
 
   useEffect(() => {
-    const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetail(null) }
+    const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetail(null) }
     window.addEventListener('popstate', restore)
     return () => window.removeEventListener('popstate', restore)
   }, [])
@@ -108,7 +107,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     if (next === context) return
     const stepChanged = next.step !== context.step
     requestNumber.current += 1
-    window.history.pushState({ ...window.history.state, [KEY]: next }, '', window.location.href)
+    window.history.pushState({ ...window.history.state, [EXPLORER_HISTORY_KEY]: next }, '', window.location.href)
     setContext(next)
     if (next.step !== 'MAIN') setResults({ loading: false, state: null, entities: [] })
     setData({ loading: false, state: null, value: null })
@@ -139,7 +138,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   function edit(next) {
     // Field typing is one selection in history; Back should return to the prior screen, not a prior character.
     requestNumber.current += 1
-    window.history.replaceState({ ...window.history.state, [KEY]: next }, '', window.location.href)
+    window.history.replaceState({ ...window.history.state, [EXPLORER_HISTORY_KEY]: next }, '', window.location.href)
     setContext(next)
     setData({ loading: false, state: null, value: null })
     setCompare(value => ({ ...value, loading: false, data: null, state: null }))
@@ -199,7 +198,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         const evidenceId = response.value?.facts?.[0]?.evidenceId ?? response.value?.evidenceIds?.[0] ?? context.evidenceId
         if (assessmentId !== context.assessmentId || evidenceId !== context.evidenceId) {
           const next = { ...context, assessmentId, evidenceId }
-          window.history.replaceState({ ...window.history.state, [KEY]: next }, '', window.location.href)
+          window.history.replaceState({ ...window.history.state, [EXPLORER_HISTORY_KEY]: next }, '', window.location.href)
           setContext(next)
         }
       }
@@ -305,8 +304,11 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const currentCategory = context.step === 'Relate' || context.step === 'Assess' ? '사건' : context.category
   const currentDetail = activeSectionLabel ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : detailLabel)
   const trailParts = activeSectionLabel ? [...contextTrail(context), activeSectionLabel] : contextTrail(context)
+  const eventCompanies = context.step === 'Assess' ? (eventDetail?.companies ?? []) : []
+  const targetContext = target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}`
+    : eventCompanies.length > 0 ? eventCompanies.map(company => company.companyName).join(' · ') : '선택 전'
   const contextNodes = [
-    { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
+    { label: target ? '대상' : context.step === 'Assess' ? '관련 대상' : '대상', value: targetContext, ready: Boolean(target) || eventCompanies.length > 0 },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
     { label: '분류', value: currentCategory ?? '선택 전', ready: Boolean(currentCategory) },
     { label: '세부', value: currentDetail ?? '선택 전', ready: Boolean(currentDetail) },

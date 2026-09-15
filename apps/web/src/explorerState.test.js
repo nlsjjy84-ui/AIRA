@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { advance, contextTrail, initialExplorerState, selectTarget, stateCopy } from './explorerState.js'
+import { advance, assessmentExplorerState, contextTrail, initialExplorerState, selectTarget, stateCopy } from './explorerState.js'
 
 describe('canonical exploration context', () => {
   const company = { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '같은 이름' }
@@ -30,6 +30,22 @@ describe('canonical exploration context', () => {
     expect(changed.receipt).toBe('')
     expect(changed.comparison).toBe(null)
     expect(changed.step).toBe('Ask')
+  })
+
+  it('deep-links Assess without inventing a company target for multi-company events', () => {
+    const single = assessmentExplorerState('event-1', [{ companyId: 'company-1', companyName: '회사 A' }])
+    expect(single.step).toBe('Assess')
+    expect(single.perspective).toBe('사건과 분석')
+    expect(single.eventId).toBe('event-1')
+    expect(single.target).toEqual({ entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사 A' })
+
+    const multiple = assessmentExplorerState('event-2', [
+      { companyId: 'company-1', companyName: '회사 A' },
+      { companyId: 'company-2', companyName: '회사 B' },
+    ])
+    expect(multiple.step).toBe('Assess')
+    expect(multiple.eventId).toBe('event-2')
+    expect(multiple.target).toBe(null)
   })
 
   it('requires an event before Assess and distinguishes API states', () => {
