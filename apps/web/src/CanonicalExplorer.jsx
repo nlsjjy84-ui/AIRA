@@ -131,8 +131,10 @@ export default function CanonicalExplorer({ embedded = false }) {
 
   useEffect(() => {
     if (!embedded) return
-    window.dispatchEvent(new CustomEvent('aira-workflow-context', { detail: context.step }))
-  }, [embedded, context.step])
+    window.dispatchEvent(new CustomEvent('aira-workflow-context', { detail: {
+      step: context.step, hasTarget: Boolean(context.target), hasEvent: Boolean(context.eventId),
+    } }))
+  }, [embedded, context.step, context.target, context.eventId])
 
   function edit(next) {
     // Field typing is one selection in history; Back should return to the prior screen, not a prior character.

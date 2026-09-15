@@ -245,7 +245,7 @@ export default function App() {
   const [highlightedEventId, setHighlightedEventId] = useState(null)
   const exploring = typeof window !== 'undefined' && window.location.pathname === '/explore'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [workflowStep, setWorkflowStep] = useState(exploring ? 'MAIN' : null)
+  const [workflowContext, setWorkflowContext] = useState({ step: exploring ? 'MAIN' : null, hasTarget: false, hasEvent: false })
 
   const becomeAnonymous = useCallback((notice = null) => {
     for (const key of ['session', 'interests', 'briefing', 'alerts', 'alertDetail']) requestVersions.current[key] = (requestVersions.current[key] ?? 0) + 1
@@ -442,10 +442,18 @@ export default function App() {
 
   useEffect(() => {
     if (!exploring) return undefined
-    const syncWorkflow = event => setWorkflowStep(event.detail)
+    const syncWorkflow = event => setWorkflowContext(current => typeof event.detail === 'string'
+      ? { ...current, step: event.detail }
+      : event.detail)
     window.addEventListener('aira-workflow-context', syncWorkflow)
     return () => window.removeEventListener('aira-workflow-context', syncWorkflow)
   }, [exploring])
+
+  function workflowStepDisabled(step) {
+    if (!exploring || step === 'MAIN') return false
+    if (!workflowContext.hasTarget) return true
+    return step === 'Assess' && !workflowContext.hasEvent
+  }
 
   function chooseWorkflowStep(step, hash) {
     if (exploring) {
@@ -473,7 +481,7 @@ export default function App() {
         {[['MAIN', '메인', 'MAIN', 'main'], ['Ask', '질문', 'A', 'ask'], ['Inspect', '살피기', 'I', 'companies'],
           ['Relate', '잇기', 'R', 'events'], ['Assess', '판단', 'A', 'event-detail']].map(([step, korean, code, hash]) => exploring
           ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
-              aria-current={workflowStep === step ? 'step' : undefined}
+              aria-current={workflowContext.step === step ? 'step' : undefined} disabled={workflowStepDisabled(step)}
               onClick={() => chooseWorkflowStep(step, hash)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
           : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} href={`#${hash}`} aria-label={`${step} ${korean}`}>
