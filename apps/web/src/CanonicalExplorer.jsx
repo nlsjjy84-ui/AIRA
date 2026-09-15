@@ -232,7 +232,7 @@ export default function CanonicalExplorer({ embedded = false }) {
     Ask: { eyebrow: 'ASK · 질문', title: '무엇을 볼지 먼저 정하세요.', copy: '질문을 입력하는 대신 같은 대상을 어떤 관점으로 확인할지 선택합니다.' },
     Inspect: { eyebrow: 'INSPECT · 살피기', title: '자료를 좁혀 정확한 관측까지 내려갑니다.', copy: '분류와 하위분류를 거쳐 값·기간·공시·공식 관측을 확인합니다.' },
     Relate: { eyebrow: 'RELATE · 잇기', title: '사건과 대상의 연결을 따라갑니다.', copy: '확인된 Event와 관련 대상을 근거가 있는 관계만 이어서 봅니다.' },
-    Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: 'Current와 Historical Exact를 구분하고 연결된 Evidence를 직접 확인합니다.' },
+    Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: '현재 판단(Current)과 당시 판단(Historical Exact)을 구분하고 연결된 공식 근거를 직접 확인합니다.' },
   })[context.step]
   const detailLabel = context.detail === 'Historical Exact' ? '정확한 기간·공시' : context.detail === 'KRX Current' ? '공식 거래일 현재값' : context.detail
   const contextNodes = [
@@ -316,16 +316,16 @@ export default function CanonicalExplorer({ embedded = false }) {
       {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 보기</button> : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
       {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
-      <p>Event ID {context.eventId}</p><button type="button" onClick={loadDetail}>Assessment 확인</button>
+      <p className="event-meta">사건 식별자 · {context.eventId}</p><button type="button" className="primary-action" onClick={loadDetail}>현재 판단 확인</button>
       {eventDetail && <div className="viz-block"><h3>사건 상세</h3><p>{eventDetail.title} · Event ID {eventDetail.eventId}</p>
-        {!eventDetail.assessment && <p>이 Event에 연결된 Assessment가 없습니다.</p>}
+        {!eventDetail.assessment && <p>이 사건에 연결된 현재 AIRA 판단이 없습니다.</p>}
         {(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" onClick={() => openEvidence(item.evidenceId,
-          { type: 'EVENT', label: eventDetail.eventId })}>Event Evidence ID {item.evidenceId}</button>)}</div>}
+          { type: 'EVENT', label: eventDetail.eventId })}>사건 근거 · Evidence ID {item.evidenceId}</button>)}</div>}
       <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
       {historical.loading && <p role="status">이전 Assessment 확인 중…</p>}
-      {historical.value && <div className="viz-block"><h3>이전 Historical Exact</h3><p>Assessment ID {historical.value.assessmentId} · Event ID {historical.value.eventId}</p>
+      {historical.value && <div className="viz-block"><h3>이전 당시 판단 · Historical Exact</h3><p>판단 식별자 {historical.value.assessmentId} · 사건 식별자 {historical.value.eventId}</p>
         {(historical.value.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => openEvidence(id,
-          { type: 'ASSESSMENT', label: historical.value.assessmentId })}>Evidence ID {id}</button>)}</div>}</section>}
+          { type: 'ASSESSMENT', label: historical.value.assessmentId })}>판단 근거 · Evidence ID {id}</button>)}</div>}</section>}
     {data.loading && <p role="status">자료를 확인하는 중…</p>}
     {!data.loading && data.state && data.state !== 'AVAILABLE' && <p role="status">{data.state}: {stateCopy(data.state)}</p>}
     {!data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">

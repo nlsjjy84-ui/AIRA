@@ -54,7 +54,7 @@ describe('evidence-linked visuals', () => {
         onHistorical={historical} onEvidence={evidence} /></>)
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('확정')
     expect(screen.getAllByRole('listitem')[1]).toHaveTextContent('발생시각 미상')
-    fireEvent.click(screen.getByRole('button', { name: /이전 · A1/ }))
+    fireEvent.click(screen.getByRole('button', { name: /이전 당시 판단.*A1/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Evidence ID E1' }))
     expect(historical).toHaveBeenCalledWith('A1')
     expect(evidence).toHaveBeenCalledWith('E1', { type: 'ASSESSMENT', label: 'A2' })

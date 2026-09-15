@@ -165,11 +165,11 @@ export function AssessmentFlow({ assessment, onHistorical, onEvidence }) {
   if (!assessment?.assessmentId) return null
   return <section className="viz-block viz-process" aria-label="Assessment 승계 흐름">
     <div className="viz-process-heading"><div><p className="eyebrow">ASSESSMENT FLOW</p><h3>현재 판단과 이전 판단의 연결</h3></div>
-      <p>Current를 최신이라고 추정하지 않고 API가 지정한 승계 관계만 표시합니다.</p></div>
+      <p>현재 판단을 단순한 최신 시각으로 추정하지 않고 저장된 승계 관계만 표시합니다.</p></div>
     <div className="viz-flow">{assessment.supersedesAssessmentId && <><button type="button" className="viz-flow-node previous"
-      onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>HISTORICAL EXACT</small><span>이전 · {assessment.supersedesAssessmentId}</span></button>
+      onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>이전 당시 판단 · HISTORICAL EXACT</small><span>{assessment.supersedesAssessmentId}</span></button>
       <span className="viz-flow-arrow" aria-hidden="true">→</span></>}
-      <strong className="viz-flow-node current"><small>CURRENT</small><span>현재 · {assessment.assessmentId}</span></strong></div>
+      <strong className="viz-flow-node current"><small>현재 판단 · CURRENT</small><span>{assessment.assessmentId}</span></strong></div>
     {(assessment.evidenceIds ?? []).length > 0 && <div className="viz-evidence-links"><span>판단 근거</span>
       {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => onEvidence(id,
         { type: 'ASSESSMENT', label: assessment.assessmentId })}>Evidence ID {id}</button>)}</div>}
