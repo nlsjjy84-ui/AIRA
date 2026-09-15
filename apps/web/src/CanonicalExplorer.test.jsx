@@ -251,4 +251,31 @@ describe('canonical explorer', () => {
     expect(screen.getByText('후속 공시는 아직 확인되지 않았습니다.')).toBeInTheDocument()
     expect(screen.queryByText('현재 AIRA 해석')).not.toBeInTheDocument()
   })
+  it('distinguishes Assess event loading, not-found and request failure', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Assess', target: null, perspective: '사건과 분석', category: null, detail: null,
+      periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: 'EV-ERR',
+      comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    let rejectEvent
+    vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve, reject) => { rejectEvent = reject })))
+    render(<CanonicalExplorer />)
+    expect(screen.getByText('사건 사실 확인 중…')).toBeInTheDocument()
+    rejectEvent({ status: 500 })
+    expect(await screen.findByRole('alert')).toHaveTextContent('사건 상세를 불러오지 못했습니다.')
+    expect(screen.getByRole('button', { name: 'AIRA 해석' })).toBeDisabled()
+  })
+
+  it('keeps a public not-found Assess event distinct from a request failure', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Assess', target: null, perspective: '사건과 분석', category: null, detail: null,
+      periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: 'EV-404',
+      comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) })))
+    render(<CanonicalExplorer />)
+    expect(await screen.findByText('이 사건은 현재 공개 상세로 제공되지 않습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
 })

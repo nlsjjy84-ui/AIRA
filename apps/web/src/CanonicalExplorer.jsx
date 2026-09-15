@@ -56,7 +56,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const [ohlc, setOhlc] = useState({ loading: false, values: null, state: null })
   const [historical, setHistorical] = useState({ loading: false, value: null, state: null })
   const [evidence, setEvidence] = useState({ loading: false, value: null, state: null })
-  const [eventDetail, setEventDetail] = useState(null)
+  const [eventDetailState, setEventDetailState] = useState({ loading: false, value: null, error: null })
   const [inspectSection, setInspectSection] = useState('fact')
   const [relateSection, setRelateSection] = useState('confirmed')
   const [assessSection, setAssessSection] = useState('fact')
@@ -64,7 +64,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const eventRequestNumber = useRef(0)
 
   useEffect(() => {
-    const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetail(null) }
+    const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetailState({ loading: false, value: null, error: null }) }
     window.addEventListener('popstate', restore)
     return () => window.removeEventListener('popstate', restore)
   }, [])
@@ -76,12 +76,13 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   }, [context.step, context.detail, context.eventId])
 
   useEffect(() => {
-    if (context.step !== 'Assess' || !context.eventId) { setEventDetail(null); return undefined }
+    if (context.step !== 'Assess' || !context.eventId) { setEventDetailState({ loading: false, value: null, error: null }); return undefined }
     const request = ++eventRequestNumber.current
+    setEventDetailState({ loading: true, value: null, error: null })
     getEventDetail(context.eventId).then(result => {
-      if (request === eventRequestNumber.current) setEventDetail(result)
-    }).catch(() => {
-      if (request === eventRequestNumber.current) setEventDetail(null)
+      if (request === eventRequestNumber.current) setEventDetailState({ loading: false, value: result, error: null })
+    }).catch(error => {
+      if (request === eventRequestNumber.current) setEventDetailState({ loading: false, value: null, error })
     })
     return () => { eventRequestNumber.current += 1 }
   }, [context.step, context.eventId])
@@ -117,7 +118,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     setOhlc({ loading: false, values: null, state: null })
     setHistorical({ loading: false, value: null, state: null })
     setEvidence({ loading: false, value: null, state: null })
-    setEventDetail(null)
+    setEventDetailState({ loading: false, value: null, error: null })
     if (stepChanged) requestAnimationFrame(() => document.querySelector('.canonical-explorer')?.scrollIntoView?.({ block: 'start' }))
   }
 
@@ -284,6 +285,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   }
 
   const target = context.target
+  const eventDetail = eventDetailState.value
   const selectedInterest = target?.entityType === 'COMPANY'
     ? interest?.items?.find(item => item.entityId === target.entityId)
     : null
@@ -416,15 +418,19 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p></div>}
     </section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
-      <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : '선택한 사건 확인 중…'}</p>
+      <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : eventDetailState.loading ? '선택한 사건 확인 중…'
+        : eventDetailState.error?.status === 404 ? '선택한 사건 · 현재 공개 상세 없음' : '선택한 사건 · 불러오기 실패'}</p>
       <nav className="subsection-nav assess-submenu" aria-label="Assess 하위 메뉴">{ASSESS_SECTIONS.map(([key, label]) => <button key={key} type="button"
-        aria-current={assessSection === key ? 'page' : undefined} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
+        aria-current={assessSection === key ? 'page' : undefined} disabled={!eventDetail} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
       {assessSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실">{eventDetail ? <>
         <h3>{eventDetail.title}</h3><dl className="assessment-facts"><div><dt>대상</dt><dd>{(eventDetail.companies ?? []).map(company => company.companyName).join(' · ')}</dd></div>
           <div><dt>사건 유형</dt><dd>{EVENT_TYPE_LABEL[eventDetail.eventType] ?? eventDetail.eventType}</dd></div><div><dt>발생일</dt><dd>{eventDetail.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</dd></div></dl>
         <div className="relation-actions">{(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" className="secondary-action"
           onClick={() => openEvidence(item.evidenceId, { type: 'EVENT', label: eventDetail.eventId })}>공식 근거 · {item.sourceName}</button>)}</div></>
-        : <LoadingNotice>사건 사실 확인 중…</LoadingNotice>}</div>}
+        : eventDetailState.loading ? <LoadingNotice>사건 사실 확인 중…</LoadingNotice>
+          : eventDetailState.error?.status === 404 ? <p className="state-message">이 사건은 현재 공개 상세로 제공되지 않습니다.</p>
+            : eventDetailState.error ? <div className="state-message" role="alert">사건 상세를 불러오지 못했습니다.</div>
+              : <p className="state-message">현재 확인할 사건 상세가 없습니다.</p>}</div>}
       {assessSection === 'interpretation' && <div className="subsection-panel" aria-label="AIRA 해석">{eventDetail?.assessment ? <>
         <p className="assessment-summary">{eventDetail.assessment.summary}</p><button type="button" className="primary-action" onClick={loadDetail}>현재·이전 판단 연결 확인</button>
         <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
