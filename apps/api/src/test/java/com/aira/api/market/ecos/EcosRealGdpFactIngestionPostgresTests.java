@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class EcosRealGdpFactIngestionPostgresTests {
     @Autowired EcosRealGdpFactIngestionService service;
+    @Autowired EntityManager em;
     @Autowired JdbcTemplate jdbc;
 
     @Test
@@ -65,6 +67,7 @@ class EcosRealGdpFactIngestionPostgresTests {
         var sameValue = service.ingest(
                 result("2032Q1", "2032Q2", observation("2032Q2", "530000.00")),
                 collectedAt.plusMinutes(1));
+        em.flush();
 
         assertEquals(first.factIds().getFirst(), sameValue.factIds().getFirst());
         assertNotEquals(first.evidenceId(), sameValue.evidenceId());
@@ -76,6 +79,7 @@ class EcosRealGdpFactIngestionPostgresTests {
         var changed = service.ingest(
                 result("2032Q2", "2032Q3", observation("2032Q2", "531000.0")),
                 collectedAt.plusMinutes(2));
+        em.flush();
         assertEquals(first.factIds().getFirst(), changed.factIds().getFirst());
         assertEquals("CONFLICTING", jdbc.queryForObject(
                 "SELECT status FROM fact WHERE id=?", String.class, first.factIds().getFirst()));

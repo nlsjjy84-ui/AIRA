@@ -26,7 +26,7 @@ class PersonalBriefingServiceTests {
     void candidateContractUsesCatchUpReadinessBoundariesAndNoAlertRanking() {
         String sql = PersonalBriefingService.CANDIDATE_SQL;
 
-        assertTrue(sql.contains("en.entity_type='COMPANY'"));
+        assertTrue(sql.contains("en.entity_type IN ('COMPANY','SECURITY')"));
         assertTrue(sql.contains("ev.status='CONFIRMED'"));
         assertFalse(sql.contains("CANDIDATE"));
         assertTrue(sql.contains("a.status='COMPLETED'"));

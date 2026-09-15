@@ -19,6 +19,7 @@ import org.springframework.web.context.WebApplicationContext;
         "aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 @EnabledIfEnvironmentVariable(named = "DB_PASSWORD", matches = ".+")
+@EnabledIfEnvironmentVariable(named = "AIRA_EXISTING_SAMSUNG_FACTS_E2E", matches = "true")
 class CompanyFinancialFactsApiPostgresE2ETests {
     @Autowired private WebApplicationContext context;
     private MockMvc mvc;

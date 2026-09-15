@@ -114,7 +114,8 @@ class KoreaCountryBootstrapPostgresTests {
             base.migrate();
             try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {
                 connection.setSchema(schema);
-                sql.execute("""
+                try {
+                    sql.execute("""
                         INSERT INTO entity(
                             id,entity_type,canonical_name,canonical_key,country_code)
                         VALUES ('00000000-0000-0000-0000-000000000001','COUNTRY',
@@ -129,7 +130,7 @@ class KoreaCountryBootstrapPostgresTests {
 
                 var upgrade = Flyway.configure().dataSource(dataSource)
                         .schemas(schema).defaultSchema(schema).load();
-                assertEquals(1, upgrade.migrate().migrationsExecuted);
+                assertEquals(5, upgrade.migrate().migrationsExecuted);
                 upgrade.validate();
                 try (var rows = sql.executeQuery("""
                         SELECT
@@ -152,7 +153,9 @@ class KoreaCountryBootstrapPostgresTests {
                     assertTrue(index.next());
                     assertEquals(1, index.getInt(1));
                 }
-                connection.setSchema("public");
+                } finally {
+                    connection.setSchema("public");
+                }
             }
         } finally {
             try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {

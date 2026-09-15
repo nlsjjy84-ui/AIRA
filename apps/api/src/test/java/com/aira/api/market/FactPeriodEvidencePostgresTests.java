@@ -136,7 +136,8 @@ class FactPeriodEvidencePostgresTests {
             base.migrate();
             try (var connection = dataSource.getConnection(); var sql = connection.createStatement()) {
                 connection.setSchema(schema);
-                sql.execute("INSERT INTO entity(id,entity_type,canonical_name,canonical_key) VALUES ('00000000-0000-0000-0000-000000000001','COMPANY','Existing','existing')");
+                try {
+                    sql.execute("INSERT INTO entity(id,entity_type,canonical_name,canonical_key) VALUES ('00000000-0000-0000-0000-000000000001','COMPANY','Existing','existing')");
                 sql.execute("INSERT INTO source(id,source_type,name) VALUES ('00000000-0000-0000-0000-000000000002','REGULATOR','Existing')");
                 sql.execute("INSERT INTO evidence(id,source_id,evidence_type,original_url,content_hash,collected_at,status) VALUES ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000002','OFFICIAL_DATA','https://example.org',decode('01','hex'),CURRENT_TIMESTAMP,'ACTIVE')");
                 connection.setAutoCommit(false);
@@ -145,7 +146,7 @@ class FactPeriodEvidencePostgresTests {
                 connection.commit();
                 connection.setAutoCommit(true);
                 var upgrade = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load();
-                assertEquals(5, upgrade.migrate().migrationsExecuted);
+                assertEquals(7, upgrade.migrate().migrationsExecuted);
                 upgrade.validate();
                 try (var rows = sql.executeQuery("SELECT (SELECT count(*) FROM fact_period_evidence), (SELECT count(*) FROM fact_assertion), (SELECT count(*) FROM evidence), value_number, period_start, period_end FROM fact")) {
                     assertTrue(rows.next());
@@ -156,7 +157,9 @@ class FactPeriodEvidencePostgresTests {
                     assertEquals(start, rows.getObject(5, LocalDate.class));
                     assertEquals(end, rows.getObject(6, LocalDate.class));
                 }
-                connection.setSchema("public");
+                } finally {
+                    connection.setSchema("public");
+                }
             }
         } finally {
             // Only this randomly named test schema is removed; never the application schema.

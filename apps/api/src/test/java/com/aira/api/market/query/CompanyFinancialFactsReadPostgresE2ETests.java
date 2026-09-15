@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
         "aira.auth.recovery-email.lookup-key=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="
 })
 @EnabledIfEnvironmentVariable(named = "DB_PASSWORD", matches = ".+")
+@EnabledIfEnvironmentVariable(named = "AIRA_EXISTING_SAMSUNG_FACTS_E2E", matches = "true")
 class CompanyFinancialFactsReadPostgresE2ETests {
     private static final UUID SAMSUNG_ID =
             UUID.fromString("5eafc0b5-c163-4cea-8dbd-131265004e95");
