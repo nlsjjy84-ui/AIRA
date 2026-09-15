@@ -1324,3 +1324,23 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 @media (max-width: 40rem) {
   .brand img { height: 2.5rem; }
 }
+
+/* Global account feedback stays readable without competing with page content. */
+.session-notice {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  min-height: 3rem;
+  padding-top: .55rem;
+  padding-bottom: .55rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 18%, var(--line));
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: .9rem;
+}
+.session-notice button {
+  min-height: auto;
+  padding: .15rem .25rem;
+}
+@media (max-width: 40rem) {
+  .session-notice { min-height: 2.75rem; flex-wrap: wrap; }
+}
