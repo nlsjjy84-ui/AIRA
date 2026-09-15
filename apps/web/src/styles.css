@@ -107,7 +107,6 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 .interest-list a { display: flex; align-items: center; justify-content: space-between; gap: .8rem; width: 100%; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); background: var(--surface); cursor: pointer; text-align: left; text-decoration: none; }
 .interest-list a:hover { border-color: var(--accent); }
 .interest-list span { color: var(--accent); font-size: .9rem; font-weight: 700; }
-.event-list { display: grid; gap: .75rem; }
 .briefing-list { display: grid; gap: .75rem; }
 .briefing-card { border: 1px solid var(--line); border-radius: 1rem; padding: 1.25rem; background: var(--paper); }
 .alert-list { display: grid; gap: .75rem; }
@@ -118,16 +117,8 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 .official-evidence-action { color: var(--accent); font-weight: 700; }
 .personalization-empty { padding-bottom: 1rem; }
 .personalization-empty .status { margin-bottom: .25rem; }
-.event-card.insight-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.event-card:focus-visible { outline: 3px solid #267c5d; outline-offset: 3px; }
-.event-card { padding: clamp(.95rem, 2vw, 1.25rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
-.event-card h3 { margin: .25rem 0; font-size: 1.25rem; }
-.event-card h4 { margin: 1rem 0 .25rem; }
 .event-meta, .assessment-meta { color: var(--muted); font-size: .9rem; }
 .assessment { margin: .85rem 0; padding: .8rem 1rem; border-left: 3px solid var(--accent); background: var(--paper); }
-.event-evidence { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
-.event-evidence span { color: var(--muted); }
-.event-evidence a { margin-left: auto; color: var(--accent); font-weight: 700; }
 .fact-list { margin: 1.25rem 0 2rem; border-top: 1px solid var(--ink); }
 .fact-row { display: grid; grid-template-columns: minmax(8rem, 1fr) 2fr; align-items: baseline; padding: 1rem 0; border-bottom: 1px solid var(--line); }
 .fact-row dt { font-weight: 700; }
@@ -932,29 +923,6 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 @media (max-width: 52rem) {
   .briefing-card, .alert-card { grid-template-columns: 1fr; gap: .8rem; }
   .briefing-side, .alert-side { padding: .8rem 0 0; border-left: 0; border-top: 1px dashed var(--line); }
-}
-
-/* Event detail: facts/judgment lead; evidence supports in the narrower rail. */
-.event-detail-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(15rem, .9fr);
-  gap: 1.25rem 1.5rem;
-  align-items: start;
-}
-.event-detail-main, .event-detail-side { min-width: 0; }
-.event-assessment-panel { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-.event-detail-side {
-  padding-left: 1rem;
-  border-left: 1px solid var(--line);
-}
-.event-detail-side section + section { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
-.event-detail-side h3 { margin: 0 0 .65rem; }
-.event-detail-side .event-evidence { align-items: flex-start; flex-direction: column; gap: .35rem; }
-.event-detail-side .event-evidence a { margin-left: 0; }
-.event-detail-side .event-evidence button { width: 100%; justify-content: center; }
-@media (max-width: 52rem) {
-  .event-detail-grid { grid-template-columns: 1fr; gap: .9rem; }
-  .event-detail-side { padding: .9rem 0 0; border-left: 0; border-top: 1px solid var(--line); }
 }
 
 /* Mobile personal summaries: keep evidence visible, trim repeated helper copy. */
