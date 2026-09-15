@@ -106,7 +106,7 @@ describe('authenticated interest and return experience', () => {
     const user = userEvent.setup()
     render(<App />)
     const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
-    expect(within(flow).getAllByRole('link').map(link => link.textContent)).toEqual(['MAIN', 'Ask', 'Inspect', 'Relate', 'Assess'])
+    expect(within(flow).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['MAIN 메인', 'Ask 질문', 'Inspect 살피기', 'Relate 잇기', 'Assess 판단'])
     const ask = screen.getByRole('region', { name: 'Ask — 확인할 관점' })
     expect(within(ask).queryByRole('textbox')).not.toBeInTheDocument()
     await user.click(within(ask).getByRole('radio', { name: '사건과 관련 회사' }))
@@ -119,6 +119,20 @@ describe('authenticated interest and return experience', () => {
     expect(within(picker).queryByRole('button')).not.toBeInTheDocument()
     await user.clear(screen.getByRole('searchbox', { name: '검색' }))
     expect(await within(picker).findByRole('button', { name: /삼성전자/ })).toBeInTheDocument()
+  })
+
+  it('keeps the shared shell on explore without duplicate search or step navigation', async () => {
+    window.history.replaceState({}, '', '/explore')
+    global.fetch = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } }).fetch
+    const user = userEvent.setup()
+    render(<App />)
+    expect(screen.getAllByRole('search')).toHaveLength(1)
+    const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
+    expect(within(flow).queryAllByRole('link')).toHaveLength(0)
+    expect(within(flow).getAllByRole('button')).toHaveLength(5)
+    expect(screen.queryByRole('navigation', { name: '탐색 단계' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '사이드바 접기' }))
+    expect(document.querySelector('.workflow-sidebar')).toHaveClass('collapsed')
   })
 
   it('opens the briefing assessment by exact identity without substituting Current', async () => {

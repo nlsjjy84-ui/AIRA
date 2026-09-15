@@ -10,7 +10,7 @@ import { FinancialOverview, FinancialSplit, MarketOverview, MarketSeriesView, Ma
 
 const KEY = 'airaCanonicalExplorer12B'
 
-export default function CanonicalExplorer() {
+export default function CanonicalExplorer({ embedded = false }) {
   const [context, setContext] = useState(() => window.history.state?.[KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [results, setResults] = useState({ loading: false, state: null, entities: [] })
@@ -56,6 +56,13 @@ export default function CanonicalExplorer() {
     setEvidence({ loading: false, value: null, state: null })
     setEventDetail(null)
   }
+
+  useEffect(() => {
+    if (!embedded) return undefined
+    const moveFromShell = event => navigate(advance(context, event.detail))
+    window.addEventListener('aira-workflow-step', moveFromShell)
+    return () => window.removeEventListener('aira-workflow-step', moveFromShell)
+  }, [embedded, context])
 
   function edit(next) {
     // Field typing is one selection in history; Back should return to the prior screen, not a prior character.
@@ -213,15 +220,15 @@ export default function CanonicalExplorer() {
   }
 
   const target = context.target
-  return <div className="canonical-explorer">
+  return <div className={`canonical-explorer ${embedded ? 'embedded' : ''}`}>
     <header className="explorer-head"><p className="eyebrow">AIRA · MAIN</p><h1>대상을 찾고 근거를 따라 확인하세요.</h1>
       <p>기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.</p></header>
-    <form role="search" onSubmit={submitSearch} className="explorer-search">
+    {!embedded && <form role="search" onSubmit={submitSearch} className="explorer-search">
       <label htmlFor="canonical-search">기업·종목 찾기</label>
       <input id="canonical-search" type="search" value={term} onChange={event => setTerm(event.target.value)}
         placeholder="기업명·종목명·종목코드 검색" />
       <button type="submit">검색</button>
-    </form>
+    </form>}
     {results.loading && <p role="status">검색 중…</p>}
     {!results.loading && results.state && results.state !== 'AVAILABLE' && <p role="status">{stateCopy(results.state)}</p>}
     {results.entities.length > 0 && <ul className="explorer-results">{results.entities.map(item => <li key={`${item.entityType}:${item.entityId}`}>
@@ -230,10 +237,10 @@ export default function CanonicalExplorer() {
       </button></li>)}</ul>}
 
     <nav aria-label="현재 탐색 경로" className="explorer-trail">{contextTrail(context).map((part, index) => <span key={index}>{index > 0 && ' › '}{part}</span>)}</nav>
-    <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
+    {!embedded && <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
       aria-current={context.step === step ? 'step' : undefined}
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
-      onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>
+      onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
     {context.step !== 'MAIN' && <button type="button" className="secondary-action" onClick={() => window.history.back()}>이전 상태로</button>}
 
     {context.step === 'MAIN' && <p>검색 결과에서 정확한 기업 또는 종목을 선택하세요.</p>}

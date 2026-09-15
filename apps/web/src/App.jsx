@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
+import CanonicalExplorer from './CanonicalExplorer.jsx'
 import { getCompanies, getCompanyEvents, getFinancialFacts, getFinancialPeriods } from './api/companyApi.js'
 import { getEventDetail, getRecentEvents } from './api/eventApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
@@ -233,6 +234,8 @@ export default function App() {
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
   const [pendingInsightTarget, setPendingInsightTarget] = useState(null)
   const [highlightedEventId, setHighlightedEventId] = useState(null)
+  const exploring = typeof window !== 'undefined' && window.location.pathname === '/explore'
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const becomeAnonymous = useCallback((notice = null) => {
     for (const key of ['session', 'interests', 'briefing', 'alerts', 'alertDetail']) requestVersions.current[key] = (requestVersions.current[key] ?? 0) + 1
@@ -427,6 +430,14 @@ export default function App() {
     catch (error) { setSession(current => ({ ...current, loading: false, error })) }
   }
 
+  function chooseWorkflowStep(step, hash) {
+    if (exploring) {
+      window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
+      return
+    }
+    window.location.hash = hash
+  }
+
   return <>
     <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈">AIRA</a>
       <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
@@ -435,16 +446,29 @@ export default function App() {
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href="#my-interests">관심회사</a><a href="#my-briefing">브리핑</a><a href="#my-alerts">알림</a><a href="#user">사용자 {session.user.nickname}</a><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><a href={exploring ? '/#user' : '#user'}>사용자 {session.user.nickname}</a><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
-    <aside className="workflow-sidebar" aria-label="탐색 단계">
-      <nav aria-label="AIRA 흐름"><a href="#main">MAIN</a><a href="#ask">Ask</a><a href="#companies">Inspect</a><a href="#events">Relate</a><a href="#event-detail">Assess</a></nav>
-      <button className="settings-action" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>Settings</button>
+    <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
+      <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+        onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? '›' : '‹'}</button>
+      <nav aria-label="AIRA 흐름">
+        {[['MAIN', '메인', 'MAIN', 'main'], ['Ask', '질문', 'A', 'ask'], ['Inspect', '살피기', 'I', 'companies'],
+          ['Relate', '잇기', 'R', 'events'], ['Assess', '판단', 'A', 'event-detail']].map(([step, korean, code, hash]) => exploring
+          ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} aria-label={`${step} ${korean}`}
+              onClick={() => chooseWorkflowStep(step, hash)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
+              <span className="workflow-label" aria-hidden="true">{korean}</span></button>
+          : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} href={`#${hash}`} aria-label={`${step} ${korean}`}>
+              <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
+              <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
+      </nav>
+      <button className="settings-action" aria-label="설정" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>
+        <span aria-hidden="true">{sidebarCollapsed ? '⚙' : '설정'}</span></button>
     </aside>
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
+      {exploring ? <CanonicalExplorer embedded /> : <>
       <section id="ask" className="content-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
         <fieldset><legend>선택한 회사에서 무엇을 확인할까요?</legend>
           <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
@@ -656,8 +680,9 @@ export default function App() {
             <a href={reference.originalUrl} target="_blank" rel="noopener noreferrer">근거 원문 확인 <span aria-hidden="true">↗</span></a></div>)}
         </article>)}</div>
       </section>}
+      </>}
     </main>
-    <footer><span>AIRA</span><p>공식 시장정보를 근거와 함께 제공합니다.</p></footer>
+    {window.location.pathname === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
     {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
     {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}
   </>

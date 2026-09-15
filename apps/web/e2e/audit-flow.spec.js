@@ -27,7 +27,7 @@ test('AIRA perspective, Current, Historical Exact and settings work in the brows
   await expect(page.getByRole('region', { name: 'Event 상세' })).toContainText('현재 표시할 AIRA 해석이 없습니다.')
   await page.getByRole('button', { name: '당시 Assessment 보기' }).click()
   await expect(page.getByRole('region', { name: 'Historical Exact Assessment' })).toContainText('당시 불확실성')
-  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('button', { name: '설정', exact: true }).click()
   await expect(page.getByRole('heading', { name: '계정 복구 이메일' })).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.locator('body')).toHaveJSProperty('scrollWidth', 390)

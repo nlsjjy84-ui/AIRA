@@ -205,3 +205,97 @@ footer p { margin: 0; }
   .workflow-sidebar .settings-action { margin-top: auto; align-self: stretch; }
   main { padding-left: 8rem; }
 }
+
+
+/* Shared AIRA shell: header owns search/account; sidebar owns the exploration workflow. */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.site-header form[role="search"] { flex: 1; max-width: 30rem; }
+.site-header form[role="search"] label { font-weight: 700; }
+.site-header input[type="search"] {
+  width: 100%;
+  min-width: 12rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: .45rem;
+  background: var(--surface);
+  color: var(--ink);
+}
+.workflow-sidebar { background: var(--paper); z-index: 15; }
+.workflow-sidebar nav button,
+.workflow-sidebar .sidebar-toggle,
+.workflow-sidebar .settings-action {
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.workflow-sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .65rem .55rem;
+  border-radius: .45rem;
+  text-align: left;
+}
+.workflow-sidebar nav button:hover,
+.workflow-sidebar nav button:focus-visible { background: var(--accent-soft); }
+.workflow-code { min-width: 3.2rem; font-weight: 800; color: var(--accent); }
+.workflow-label { color: var(--muted); font-size: .86rem; }
+.sidebar-toggle { align-self: flex-end; width: 2rem; height: 2rem; border-radius: 50%; font-size: 1.35rem; }
+.settings-action { padding: .6rem; border-radius: .45rem; font-weight: 700; }
+.canonical-explorer.embedded { max-width: none; padding: 1.5rem 0 5rem; }
+.canonical-explorer.embedded .explorer-head { padding: 1rem 0 1.5rem; }
+
+@media (min-width: 1000px) {
+  .workflow-sidebar {
+    top: 5.6rem;
+    bottom: 0;
+    width: 11rem;
+    padding: 1rem .75rem;
+    border-right: 1px solid var(--line);
+    transition: width .16s ease;
+  }
+  .workflow-sidebar nav { justify-content: center; gap: .35rem; }
+  .workflow-sidebar.collapsed { width: 4.25rem; }
+  .workflow-sidebar.collapsed .workflow-label { display: none; }
+  .workflow-sidebar.collapsed .workflow-main { display: none; }
+  .workflow-sidebar.collapsed nav button { justify-content: center; padding-inline: .35rem; }
+  .workflow-sidebar.collapsed .workflow-code { min-width: 0; text-align: center; }
+  .workflow-sidebar ~ main { padding-left: 11.5rem; transition: padding-left .16s ease; }
+  .workflow-sidebar.collapsed ~ main { padding-left: 4.75rem; }
+}
+
+@media (max-width: 999px) {
+  .workflow-sidebar { position: static; border-bottom: 1px solid var(--line); }
+  .workflow-sidebar .sidebar-toggle { display: none; }
+  .workflow-sidebar nav { justify-content: center; }
+  .workflow-sidebar nav button { width: auto; }
+  .workflow-label { display: none; }
+}
+
+.workflow-sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  width: 100%;
+  padding: .65rem .55rem;
+  border-radius: .45rem;
+  text-align: left;
+  text-decoration: none;
+}
+.workflow-sidebar nav a:hover,
+.workflow-sidebar nav a:focus-visible { background: var(--accent-soft); }
+@media (min-width: 1000px) {
+  .workflow-sidebar.collapsed nav a { justify-content: center; padding-inline: .35rem; }
+}
+@media (max-width: 999px) {
+  .workflow-sidebar nav a { width: auto; }
+}
