@@ -10,6 +10,23 @@ import { FinancialOverview, FinancialSplit, MarketOverview, MarketSeriesView, Ma
 
 const KEY = 'airaCanonicalExplorer12B'
 
+const STATE_PRESENTATION = {
+  NO_DATA: ['결과 없음', 'neutral'], PARTIAL: ['일부 확인', 'attention'], STALE: ['갱신 확인 필요', 'attention'],
+  CONFLICTING: ['자료 충돌', 'danger'], BLOCKED: ['근거 확인 필요', 'attention'],
+  UNSUPPORTED: ['조건 확인 필요', 'neutral'], UNAVAILABLE: ['조회 불가', 'danger'],
+}
+
+function LoadingNotice({ children }) {
+  return <p role="status" className="explorer-loading"><span aria-hidden="true" />{children}</p>
+}
+
+function StateNotice({ state, lead, detail }) {
+  const [label, tone] = STATE_PRESENTATION[state] ?? ['상태 확인', 'neutral']
+  return <div role="status" className={`explorer-notice notice-${tone}`}>
+    <strong>{lead ?? label}</strong><span>{stateCopy(state)}{detail ? ` ${detail}` : ''}</span>
+  </div>
+}
+
 export default function CanonicalExplorer({ embedded = false }) {
   const [context, setContext] = useState(() => window.history.state?.[KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
@@ -250,8 +267,8 @@ export default function CanonicalExplorer({ embedded = false }) {
         placeholder="기업명·종목명·종목코드 검색" />
       <button type="submit">검색</button>
     </form>}
-    {results.loading && <p role="status">검색 중…</p>}
-    {!results.loading && results.state && results.state !== 'AVAILABLE' && <p role="status">{stateCopy(results.state)}</p>}
+    {results.loading && <LoadingNotice>검색 중…</LoadingNotice>}
+    {!results.loading && results.state && results.state !== 'AVAILABLE' && <StateNotice state={results.state} />}
     {results.entities.length > 0 && <section className="search-results-panel" aria-labelledby="search-results-title">
       <div className="search-results-heading"><div><p className="eyebrow">SEARCH RESULT</p><h2 id="search-results-title">정확한 대상을 선택하세요.</h2></div>
         <p>{results.entities.length}개 결과 · 이름과 식별자를 확인한 뒤 선택합니다.</p></div>
@@ -294,14 +311,13 @@ export default function CanonicalExplorer({ embedded = false }) {
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
       onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
     {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
-      <p className="panel-lead">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       <div className="explorer-options branch-options"><button type="button" className="choice-card ask-choice inspect-choice" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>
           <span className="choice-route">INSPECT · 살피기</span><strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
         <button type="button" className="choice-card ask-choice relate-choice" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
-          <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div></section>}
+          <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 Event와 관련 회사, 현재 Assessment의 근거를 잇습니다.</small></button></div>
+      <p className="panel-lead panel-note">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p></section>}
     {context.step === 'Inspect' && target && <section className="explorer-panel"><p className="eyebrow">INSPECT · 살피기</p><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
-      <p className="panel-lead">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p>
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
       {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
       {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{detailLabel}</strong></p>
@@ -309,11 +325,12 @@ export default function CanonicalExplorer({ embedded = false }) {
           <label>기간 종료 <input type="date" value={context.periodEnd} onChange={event => edit({ ...context, periodEnd: event.target.value })} /></label>
           <label>공시 접수번호 <input value={context.receipt} onChange={event => edit({ ...context, receipt: event.target.value })} /></label></div>
           : <label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label>}
-        <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}</section>}
+        <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}
+      <p className="panel-lead panel-note">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p></section>}
     {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>관련 사건과 대상을 연결해 확인하세요.</h2>
-      <p className="panel-lead">선택한 대상에 공식 근거로 연결된 Event만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 보기</button> : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
+      <p className="panel-lead panel-note">선택한 대상에 공식 근거로 연결된 Event만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
       {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
       <p className="event-meta">사건 식별자 · {context.eventId}</p><button type="button" className="primary-action" onClick={loadDetail}>현재 판단 확인</button>
@@ -322,12 +339,12 @@ export default function CanonicalExplorer({ embedded = false }) {
         {(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" onClick={() => openEvidence(item.evidenceId,
           { type: 'EVENT', label: eventDetail.eventId })}>사건 근거 · Evidence ID {item.evidenceId}</button>)}</div>}
       <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
-      {historical.loading && <p role="status">이전 Assessment 확인 중…</p>}
+      {historical.loading && <LoadingNotice>이전 당시 판단 확인 중…</LoadingNotice>}
       {historical.value && <div className="viz-block"><h3>이전 당시 판단 · Historical Exact</h3><p>판단 식별자 {historical.value.assessmentId} · 사건 식별자 {historical.value.eventId}</p>
         {(historical.value.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => openEvidence(id,
           { type: 'ASSESSMENT', label: historical.value.assessmentId })}>판단 근거 · Evidence ID {id}</button>)}</div>}</section>}
-    {data.loading && <p role="status">자료를 확인하는 중…</p>}
-    {!data.loading && data.state && data.state !== 'AVAILABLE' && <p role="status">{data.state}: {stateCopy(data.state)}</p>}
+    {data.loading && <LoadingNotice>자료를 확인하는 중…</LoadingNotice>}
+    {!data.loading && data.state && data.state !== 'AVAILABLE' && <StateNotice state={data.state} />}
     {!data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
       <p>{data.selection ?? context.detail} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`} {data.receipt && `· receipt ${data.receipt}`}</p>
       {data.value.facts && <FinancialOverview observation={data} onEvidence={openEvidence} />}
@@ -341,8 +358,8 @@ export default function CanonicalExplorer({ embedded = false }) {
           <label>B 기간 종료 <input type="date" value={compare.periodEnd} onChange={event => changeCompareField('periodEnd', event.target.value)} /></label>
           <label>B 공시 접수번호 <input value={compare.receipt} onChange={event => changeCompareField('receipt', event.target.value)} /></label>
           <button type="submit">B 관측값 확인</button></form>
-          {compare.loading && <p role="status">B 관측값 확인 중…</p>}
-          {compare.state && compare.state !== 'AVAILABLE' && <p role="status">비교 불가 · {compare.state}: {stateCopy(compare.state)} {compare.data?.reason}</p>}
+          {compare.loading && <LoadingNotice>B 관측값 확인 중…</LoadingNotice>}
+          {compare.state && compare.state !== 'AVAILABLE' && <StateNotice state={compare.state} lead="비교할 수 없습니다." detail={compare.data?.reason} />}
           {compare.data?.state === 'AVAILABLE' && <FinancialSplit comparison={compare.data} onEvidence={openEvidence} />}</>}
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && context.detail &&
@@ -352,26 +369,26 @@ export default function CanonicalExplorer({ embedded = false }) {
           <label>시작일 <input type="date" value={marketRange.from} onChange={event => changeRangeField('from', event.target.value)} /></label>
           <label>종료일 <input type="date" value={marketRange.to} onChange={event => changeRangeField('to', event.target.value)} /></label>
           <button type="submit">공식 시계열 확인</button></form>
-          {marketRange.loading && <p role="status">공식 관측일을 불러오는 중…</p>}
-          {marketRange.state && marketRange.state !== 'AVAILABLE' && <p role="status">시계열 {marketRange.state}: {stateCopy(marketRange.state)} {marketRange.data?.reason}</p>}
+          {marketRange.loading && <LoadingNotice>공식 관측일을 불러오는 중…</LoadingNotice>}
+          {marketRange.state && marketRange.state !== 'AVAILABLE' && <StateNotice state={marketRange.state} lead="관측 흐름을 표시할 수 없습니다." detail={marketRange.data?.reason} />}
           <MarketSeriesView series={marketRange.data} onEvidence={openEvidence} /></>}
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
       <section className="viz-block"><button type="button" onClick={loadPrevious}>D와 직전 실제 관측일 비교</button>
-        {previous.loading && <p role="status">직전 공식 관측값 확인 중…</p>}
-        {previous.state && previous.state !== 'AVAILABLE' && <p role="status">직전 비교 불가 · {previous.state}: {stateCopy(previous.state)} {previous.data?.reason}</p>}
+        {previous.loading && <LoadingNotice>직전 공식 관측값 확인 중…</LoadingNotice>}
+        {previous.state && previous.state !== 'AVAILABLE' && <StateNotice state={previous.state} lead="직전 관측과 비교할 수 없습니다." detail={previous.data?.reason} />}
         <MarketPreviousView comparison={previous.data} onEvidence={openEvidence} />
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
       <section className="viz-block"><button type="button" onClick={loadOhlc}>같은 공식 거래일 OHLC 확인</button>
-        {ohlc.loading && <p role="status">OHLC 확인 중…</p>}
-        {ohlc.state === 'NO_DATA' && <p role="status">OHLC 네 값이 모두 확인되지 않아 캔들을 표시하지 않습니다.</p>}
+        {ohlc.loading && <LoadingNotice>시가·고가·저가·종가 확인 중…</LoadingNotice>}
+        {ohlc.state === 'NO_DATA' && <div role="status" className="explorer-notice notice-neutral"><strong>캔들 표시 불가</strong><span>같은 공식 거래일의 시가·고가·저가·종가가 모두 확인되지 않았습니다.</span></div>}
         <OhlcCandle observations={ohlc.values} />
         {ohlc.values?.TRADING_VOLUME?.state === 'AVAILABLE' && ohlc.values.TRADING_VOLUME.periodStart === data.periodStart &&
           <p>거래량 {ohlc.values.TRADING_VOLUME.value.value}주 · 공식 거래일 {ohlc.values.TRADING_VOLUME.periodStart}</p>}
       </section>}
-    {evidence.loading && <p role="status">Evidence 확인 중…</p>}
-    {evidence.state === 'UNAVAILABLE' && <p role="status">Evidence를 불러올 수 없습니다.</p>}
+    {evidence.loading && <LoadingNotice>공식 근거 확인 중…</LoadingNotice>}
+    {evidence.state === 'UNAVAILABLE' && <StateNotice state="UNAVAILABLE" lead="공식 근거를 불러올 수 없습니다." />}
     <EvidenceChain evidence={evidence.value} relation={evidence.relation} />
   </div>
 }
