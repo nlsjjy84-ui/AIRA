@@ -606,3 +606,43 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .viz-series-axis { grid-column: 1; }
   .viz-series-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Workflow identity: each step has a restrained, meaningful visual signature. */
+.stage-main { --stage-color: #173f55; --stage-soft: #e8eff2; }
+.stage-ask { --stage-color: #0f5963; --stage-soft: #e4f0ef; }
+.stage-inspect { --stage-color: #3f787a; --stage-soft: #e8f2f0; }
+.stage-relate { --stage-color: #8b6b3f; --stage-soft: #f4eee5; }
+.stage-assess { --stage-color: #685f88; --stage-soft: #efedf5; }
+.stage-hero {
+  position: relative;
+  padding-left: 1rem;
+  border-left: 4px solid var(--stage-color);
+}
+.stage-hero .eyebrow { color: var(--stage-color); }
+.stage-hero h1 { max-width: 47rem; }
+.explorer-head-copy { max-width: 44rem; color: var(--muted); font-size: 1.02rem; }
+.canonical-explorer:not(.stage-main) .stage-hero h1 { font-size: clamp(2rem, 4.8vw, 3.25rem); }
+.canonical-explorer .context-stage strong { color: var(--stage-color); }
+.canonical-explorer .context-branch li.ready { border-top-color: var(--stage-color); }
+.canonical-explorer .explorer-panel { border-top: 2px solid color-mix(in srgb, var(--stage-color) 52%, var(--line)); }
+.canonical-explorer .explorer-panel > .eyebrow { color: var(--stage-color); }
+
+.canonical-explorer .choice-card:hover,
+.canonical-explorer .choice-card:focus-visible {
+  border-color: var(--stage-color);
+  background: var(--stage-soft);
+}
+.canonical-explorer .classification-path strong { color: var(--stage-color); }
+.canonical-explorer .explorer-detail > button { background: var(--stage-color); border-color: var(--stage-color); }
+.workflow-sidebar [data-workflow-step="MAIN"] { --item-stage: #173f55; }
+.workflow-sidebar [data-workflow-step="Ask"] { --item-stage: #0f5963; }
+.workflow-sidebar [data-workflow-step="Inspect"] { --item-stage: #3f787a; }
+.workflow-sidebar [data-workflow-step="Relate"] { --item-stage: #8b6b3f; }
+.workflow-sidebar [data-workflow-step="Assess"] { --item-stage: #685f88; }
+.workflow-sidebar [data-workflow-step] .workflow-code { color: var(--item-stage); }
+.workflow-sidebar [data-workflow-step][aria-current="step"] {
+  color: var(--item-stage);
+  background: color-mix(in srgb, var(--item-stage) 10%, transparent);
+  box-shadow: inset 3px 0 0 var(--item-stage);
+}
+.workflow-sidebar [data-workflow-step][aria-current="step"] .workflow-label { color: var(--item-stage); font-weight: 750; }

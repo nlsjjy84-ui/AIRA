@@ -226,15 +226,22 @@ export default function CanonicalExplorer({ embedded = false }) {
 
   const target = context.target
   const stepCopy = ({ MAIN: '대상 찾기', Ask: '관점 선택', Inspect: '자료 살피기', Relate: '관계 잇기', Assess: '판단 근거 확인' })[context.step]
+  const stageVisual = ({
+    MAIN: { eyebrow: 'AIRA · MAIN', title: '대상을 찾고 근거를 따라 확인하세요.', copy: '기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.' },
+    Ask: { eyebrow: 'ASK · 질문', title: '무엇을 볼지 먼저 정하세요.', copy: '질문을 입력하는 대신 같은 대상을 어떤 관점으로 확인할지 선택합니다.' },
+    Inspect: { eyebrow: 'INSPECT · 살피기', title: '자료를 좁혀 정확한 관측까지 내려갑니다.', copy: '분류와 하위분류를 거쳐 값·기간·공시·공식 관측을 확인합니다.' },
+    Relate: { eyebrow: 'RELATE · 잇기', title: '사건과 대상의 연결을 따라갑니다.', copy: '확인된 Event와 관련 대상을 근거가 있는 관계만 이어서 봅니다.' },
+    Assess: { eyebrow: 'ASSESS · 판단', title: '현재 분석과 판단 근거를 분리해 봅니다.', copy: 'Current와 Historical Exact를 구분하고 연결된 Evidence를 직접 확인합니다.' },
+  })[context.step]
   const contextNodes = [
     { label: '대상', value: target ? `${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}` : '선택 전', ready: Boolean(target) },
     { label: '관점', value: context.perspective ?? '선택 전', ready: Boolean(context.perspective) },
     { label: '분류', value: context.category ?? (context.step === 'Relate' || context.step === 'Assess' ? '사건' : '선택 전'), ready: Boolean(context.category || context.step === 'Relate' || context.step === 'Assess') },
     { label: '세부', value: context.detail ?? (context.step === 'Relate' ? '관련 사건' : context.step === 'Assess' ? '현재 분석' : '선택 전'), ready: Boolean(context.detail || context.step === 'Relate' || context.step === 'Assess') },
   ]
-  return <div className={`canonical-explorer ${embedded ? 'embedded' : ''}`}>
-    <header className="explorer-head"><p className="eyebrow">AIRA · MAIN</p><h1>대상을 찾고 근거를 따라 확인하세요.</h1>
-      <p>기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.</p></header>
+  return <div className={`canonical-explorer ${embedded ? 'embedded' : ''} stage-${context.step.toLowerCase()}`}>
+    <header className="explorer-head stage-hero"><p className="eyebrow">{stageVisual.eyebrow}</p><h1>{stageVisual.title}</h1>
+      <p className="explorer-head-copy">{stageVisual.copy}</p></header>
     {!embedded && <form role="search" onSubmit={submitSearch} className="explorer-search">
       <label htmlFor="canonical-search">기업·종목 찾기</label>
       <input id="canonical-search" type="search" value={term} onChange={event => setTerm(event.target.value)}

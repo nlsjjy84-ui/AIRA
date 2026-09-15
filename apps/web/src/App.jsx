@@ -464,11 +464,11 @@ export default function App() {
       <nav aria-label="AIRA 흐름">
         {[['MAIN', '메인', 'MAIN', 'main'], ['Ask', '질문', 'A', 'ask'], ['Inspect', '살피기', 'I', 'companies'],
           ['Relate', '잇기', 'R', 'events'], ['Assess', '판단', 'A', 'event-detail']].map(([step, korean, code, hash]) => exploring
-          ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} aria-label={`${step} ${korean}`}
+          ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
               aria-current={workflowStep === step ? 'step' : undefined}
               onClick={() => chooseWorkflowStep(step, hash)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
-          : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} href={`#${hash}`} aria-label={`${step} ${korean}`}>
+          : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} href={`#${hash}`} aria-label={`${step} ${korean}`}>
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
