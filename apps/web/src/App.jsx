@@ -406,13 +406,14 @@ export default function App() {
 
   useEffect(() => { if (session.user && !interestsState.loading) loadAlerts() }, [session.user, interestsState.loading, interestsState.data, loadAlerts])
 
-  async function changeInterest(remove = false) {
+  async function changeInterest(remove = false, entityId = selectedCompany?.companyId) {
+    if (!entityId) return
     if (!session.user) { setAuthMode('login'); return }
-    const retry = () => changeInterest(remove)
+    const retry = () => changeInterest(remove, entityId)
     setInterestAction({ loading: true, error: null, retry: null })
     try {
-      if (remove) await removeInterest(selectedCompany.companyId)
-      else await addInterest(selectedCompany.companyId)
+      if (remove) await removeInterest(entityId)
+      else await addInterest(entityId)
       setInterestAction({ loading: false, error: null, retry: null })
       loadInterests()
     } catch (error) {
@@ -421,15 +422,16 @@ export default function App() {
     }
   }
 
-  async function changeAlertSetting(enabled) {
+  async function changeAlertSetting(enabled, entityId = selectedCompany?.companyId) {
+    if (!entityId) return
     setInterestAction({ loading: true, error: null, retry: null })
     try {
-      if (enabled) await enableInterestAlert(selectedCompany.companyId)
-      else await disableInterestAlert(selectedCompany.companyId)
+      if (enabled) await enableInterestAlert(entityId)
+      else await disableInterestAlert(entityId)
       setInterestAction({ loading: false, error: null, retry: null }); loadInterests()
     } catch (error) {
       if (error.status === 401 || error.status === 403) becomeAnonymous('세션이 만료되었습니다. 다시 로그인해 주세요.')
-      else setInterestAction({ loading: false, error, retry: () => changeAlertSetting(enabled) })
+      else setInterestAction({ loading: false, error, retry: () => changeAlertSetting(enabled, entityId) })
     }
   }
 
@@ -490,7 +492,11 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {exploring ? <CanonicalExplorer embedded /> : <>
+      {exploring ? <CanonicalExplorer embedded interest={{
+        user: session.user, items: interestsState.data, loading: interestAction.loading, error: interestAction.error, retry: interestAction.retry,
+        onLogin: () => setAuthMode('login'), onSave: entityId => changeInterest(false, entityId),
+        onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),
+      }} /> : <>
       <div className="home-orientation">
         <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
       </div>

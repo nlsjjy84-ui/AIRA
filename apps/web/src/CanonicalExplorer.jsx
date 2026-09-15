@@ -46,7 +46,7 @@ function StateNotice({ state, lead, detail }) {
   </div>
 }
 
-export default function CanonicalExplorer({ embedded = false }) {
+export default function CanonicalExplorer({ embedded = false, interest = null }) {
   const [context, setContext] = useState(() => window.history.state?.[KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [results, setResults] = useState({ loading: false, state: null, entities: [] })
@@ -285,6 +285,9 @@ export default function CanonicalExplorer({ embedded = false }) {
   }
 
   const target = context.target
+  const selectedInterest = target?.entityType === 'COMPANY'
+    ? interest?.items?.find(item => item.entityId === target.entityId)
+    : null
   const stepCopy = ({ MAIN: '대상 찾기', Ask: '관점 선택', Inspect: '자료 살피기', Relate: '관계 잇기', Assess: '판단 근거 확인' })[context.step]
   const stageVisual = ({
     MAIN: { eyebrow: 'AIRA · MAIN', title: '대상을 찾고 근거를 따라 확인하세요.', copy: '기업·종목을 식별한 뒤 관점, 자료, 사건, 분석 순서로 살펴봅니다.' },
@@ -360,6 +363,19 @@ export default function CanonicalExplorer({ embedded = false }) {
       aria-current={context.step === step ? 'step' : undefined}
       disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
       onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
+    {context.step !== 'MAIN' && target?.entityType === 'COMPANY' && interest && <section className="explorer-interest" aria-label="선택한 회사 관심 설정">
+      <div><span>관심회사</span><strong>{target.canonicalName}</strong></div>
+      <div className="explorer-interest-actions">
+        <button type="button" className={selectedInterest ? 'saved-action' : 'secondary-action'} disabled={interest.loading}
+          onClick={() => !interest.user ? interest.onLogin() : selectedInterest ? interest.onRemove(target.entityId) : interest.onSave(target.entityId)}>
+          {interest.loading ? '처리 중…' : selectedInterest ? '관심회사에서 삭제' : interest.user ? '관심회사에 저장' : '로그인하고 관심회사에 저장'}</button>
+        {selectedInterest && <button type="button" className="secondary-action" disabled={interest.loading}
+          onClick={() => interest.onAlert(target.entityId, !selectedInterest.alertEnabled)}>
+          {selectedInterest.alertEnabled ? '앱 알림 끄기' : '앱 알림 켜기'}</button>}
+      </div>
+      {interest.error && <div className="explorer-interest-error" role="alert"><span>관심회사 요청을 처리하지 못했습니다.</span>
+        {interest.retry && <button type="button" onClick={interest.retry}>다시 시도</button>}</div>}
+    </section>}
     {context.step === 'Ask' && target && <section className="explorer-panel"><p className="eyebrow">ASK · 질문</p><h2>어떤 관점으로 볼지 선택하세요.</h2>
       <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
       <div className="explorer-options branch-options"><button type="button" className="choice-card ask-choice inspect-choice" aria-label="공식 사실과 근거" onClick={() => navigate({ ...context, perspective: '공식 사실과 근거', step: 'Inspect', category: null, detail: null })}>

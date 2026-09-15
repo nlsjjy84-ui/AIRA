@@ -148,6 +148,27 @@ describe('authenticated interest and return experience', () => {
     expect(screen.queryByRole('dialog', { name: '계정 복구 이메일' })).not.toBeInTheDocument()
   })
 
+  it('uses the same interest identity from the staged company explorer', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Ask', target: { entityId: company.companyId, entityType: 'COMPANY', canonicalName: company.canonicalName },
+      perspective: null, category: null, detail: null, periodStart: '', periodEnd: '', receipt: '',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+    const interestRegion = screen.getByRole('region', { name: '선택한 회사 관심 설정' })
+    expect(within(interestRegion).getByText(company.canonicalName)).toBeInTheDocument()
+    expect(container).not.toHaveTextContent(company.companyId)
+    await user.click(await within(interestRegion).findByRole('button', { name: '관심회사에 저장' }))
+    expect(await within(interestRegion).findByRole('button', { name: '관심회사에서 삭제' })).toBeInTheDocument()
+    await user.click(within(interestRegion).getByRole('button', { name: '앱 알림 켜기' }))
+    expect(await within(interestRegion).findByRole('button', { name: '앱 알림 끄기' })).toBeInTheDocument()
+    await user.click(within(interestRegion).getByRole('button', { name: '관심회사에서 삭제' }))
+    expect(await within(interestRegion).findByRole('button', { name: '관심회사에 저장' })).toBeInTheDocument()
+  })
+
   it('opens the briefing assessment by exact identity without substituting Current', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
       'GET /api/assessments/assessment-1': () => json({ assessmentId: 'assessment-1', eventId: 'event-1', analysisVersion: 'old-v1', method: 'RULE', confidence: 'LOW', uncertainty: 'Old uncertainty', completedAt: '2026-08-22T01:00:00Z', evidenceIds: ['old-evidence'] }),

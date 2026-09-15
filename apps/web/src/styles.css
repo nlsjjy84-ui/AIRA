@@ -320,6 +320,27 @@ footer p { margin: 0; }
   background: var(--accent-soft);
   box-shadow: inset 3px 0 0 var(--accent);
 }
+.explorer-interest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  margin: .35rem 0 .85rem;
+  padding: .65rem 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.explorer-interest > div:first-child { display: grid; gap: .05rem; }
+.explorer-interest > div:first-child span { color: var(--muted); font-size: .75rem; font-weight: 700; }
+.explorer-interest-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .45rem; }
+.explorer-interest-error { flex-basis: 100%; display: flex; justify-content: flex-end; gap: .5rem; color: var(--error); font-size: .84rem; }
+.explorer-interest-error button { border: 0; color: inherit; background: transparent; text-decoration: underline; cursor: pointer; }
+@media (max-width: 40rem) {
+  .explorer-interest { align-items: stretch; flex-direction: column; }
+  .explorer-interest-actions { justify-content: flex-start; }
+  .explorer-interest-error { justify-content: flex-start; }
+}
+
 .explorer-context {
   position: sticky;
   top: 6.25rem;
