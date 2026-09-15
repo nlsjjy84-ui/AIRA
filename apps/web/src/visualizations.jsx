@@ -25,18 +25,25 @@ export function FinancialOverview({ observation, onEvidence }) {
   const [expanded, setExpanded] = useState(null)
   const facts = observation?.value?.facts ?? []
   if (!facts.length) return null
-  return <section className="viz-block" aria-label="재무 한눈에 보기"><h3>한눈에 · 재무</h3>
-    <p>{observation.periodStart} — {observation.periodEnd} · 공시 {observation.receipt}</p>
-    <div className="viz-cards">{facts.map(fact => <article key={`${fact.predicate}:${fact.evidenceId}`}>
-      <h4>{FACT_LABEL[fact.predicate] ?? fact.predicate}</h4><strong>{formatQuantity(fact.value, fact.currency)}</strong>
-      <button type="button" onClick={() => setExpanded(expanded === fact.predicate ? null : fact.predicate)}>상세 {expanded === fact.predicate ? '닫기' : '보기'}</button>
-      {expanded === fact.predicate && <dl><dt>정확한 값</dt><dd>{fact.value} {fact.currency}</dd>
-        <dt>기간</dt><dd>{fact.periodStart} — {fact.periodEnd}</dd>
-        <dt>Evidence ID</dt><dd>{fact.evidenceId}</dd>
-        <dt>출처</dt><dd>{fact.sourceName}</dd></dl>}
-      {expanded === fact.predicate && fact.evidenceId && <button type="button" onClick={() => onEvidence(fact.evidenceId,
-        { type: 'FACT', label: `${fact.predicate} · ${fact.periodStart} — ${fact.periodEnd}` })}>근거 확인</button>}
-    </article>)}</div></section>
+  return <section className="viz-block viz-overview" aria-label="재무 한눈에 보기">
+    <div className="viz-heading"><div><p className="eyebrow">EXACT FINANCIALS</p><h3>재무 핵심값</h3></div>
+      <p>{observation.periodStart} — {observation.periodEnd}<br />공시 {observation.receipt}</p></div>
+    <div className="viz-metrics" role="list">{facts.map(fact => {
+      const key = `${fact.predicate}:${fact.evidenceId}`
+      const open = expanded === key
+      return <div className={`viz-metric ${open ? 'expanded' : ''}`} role="listitem" key={key}>
+        <div className="viz-metric-line"><div><span>{FACT_LABEL[fact.predicate] ?? fact.predicate}</span>
+          <strong>{formatQuantity(fact.value, fact.currency)}</strong></div>
+          <button type="button" aria-expanded={open} onClick={() => setExpanded(open ? null : key)}>{open ? '상세 닫기' : '상세 보기'}</button></div>
+        {open && <div className="viz-metric-detail"><dl><div><dt>정확한 값</dt><dd>{fact.value} {fact.currency}</dd></div>
+          <div><dt>기간</dt><dd>{fact.periodStart} — {fact.periodEnd}</dd></div>
+          <div><dt>Evidence ID</dt><dd>{fact.evidenceId}</dd></div>
+          <div><dt>출처</dt><dd>{fact.sourceName}</dd></div></dl>
+          {fact.evidenceId && <button type="button" onClick={() => onEvidence(fact.evidenceId,
+            { type: 'FACT', label: `${fact.predicate} · ${fact.periodStart} — ${fact.periodEnd}` })}>근거 확인</button>}</div>}
+      </div>
+    })}</div>
+  </section>
 }
 
 export function FinancialSplit({ comparison, onEvidence }) {
