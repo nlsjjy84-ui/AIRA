@@ -485,11 +485,11 @@ export default function App() {
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
       {exploring ? <CanonicalExplorer embedded /> : <>
-      <section id="ask" className="content-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
-        <fieldset><legend>선택한 회사에서 무엇을 확인할까요?</legend>
+      <section id="ask" className="content-section ask-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
+        <fieldset className="ask-perspective"><legend>어떤 관점으로 먼저 볼까요?</legend>
           <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
           <label><input type="radio" name="perspective" checked={perspective === 'event'} onChange={() => setPerspective('event')} />사건과 관련 회사</label>
-        </fieldset><a href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인</a>
+        </fieldset><a className="ask-go" href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인 →</a>
       </section>
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
       <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
