@@ -1160,6 +1160,9 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .assessment-limit-label { color: var(--stage-color); font-size: .76rem; font-weight: 800; letter-spacing: .08em; }
 .assessment-limit .uncertainty-copy { margin: .25rem 0 .4rem; padding: 0; border: 0; font-size: 1.08rem; font-weight: 720; }
 .assessment-limit-note { max-width: 50rem; margin: 0; color: var(--muted); font-size: .84rem; }
+.confidence-boundary { max-width: 50rem; margin: .2rem 0 .8rem; padding: .15rem 0 .15rem .9rem; border-left: 3px solid var(--stage-color); }
+.confidence-boundary strong { color: var(--stage-color); font-size: .78rem; }
+.confidence-boundary p { margin: .25rem 0 0; color: var(--muted); font-size: .84rem; }
 @media (max-width: 40rem) {
   .subsection-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .subsection-nav button { font-size: .82rem; }

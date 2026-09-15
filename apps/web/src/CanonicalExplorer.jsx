@@ -446,9 +446,9 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         : <p className="state-message">현재 표시할 판단 근거가 없습니다.</p>}</div>}
       {assessSection === 'path' && <div className="subsection-panel subview-empty" aria-label="가능한 연결 경로"><strong>현재 저장된 연결 경로가 없습니다.</strong>
         <p>확인되지 않은 인과관계는 만들지 않습니다. 근거가 있는 연결 경로가 등록된 경우에만 표시합니다.</p></div>}
-      {assessSection === 'confidence' && <div className="subsection-panel" aria-label="신뢰 수준">{eventDetail?.assessment ? <dl className="assessment-facts">
+      {assessSection === 'confidence' && <div className="subsection-panel" aria-label="신뢰 수준">{eventDetail?.assessment ? <><div className="confidence-boundary"><strong>분석 메타데이터</strong><p>신뢰 수준은 사실 확률이나 미래 수익 확률이 아니며, 중요도는 추천 순위나 매매 강도가 아닙니다.</p></div><dl className="assessment-facts">
         <div><dt>확신</dt><dd>{CONFIDENCE_LABEL[eventDetail.assessment.confidence] ?? eventDetail.assessment.confidence}</dd></div><div><dt>중요도</dt><dd>{IMPORTANCE_LABEL[eventDetail.assessment.importance] ?? eventDetail.assessment.importance}</dd></div>
-        <div><dt>분석 방법</dt><dd>{METHOD_LABEL[eventDetail.assessment.method] ?? eventDetail.assessment.method}</dd></div><div><dt>분석 버전</dt><dd>{eventDetail.assessment.analysisVersion}</dd></div></dl>
+        <div><dt>분석 방법</dt><dd>{METHOD_LABEL[eventDetail.assessment.method] ?? eventDetail.assessment.method}</dd></div><div><dt>분석 버전</dt><dd>{eventDetail.assessment.analysisVersion}</dd></div></dl></>
         : <p className="state-message">현재 표시할 신뢰 수준이 없습니다.</p>}</div>}
       {assessSection === 'unknown' && <div className="subsection-panel assessment-limit" aria-label="아직 모르는 것"><span className="assessment-limit-label">판단의 한계</span><p className="uncertainty-copy">{eventDetail?.assessment?.uncertainty ?? '현재 저장된 미확인 정보가 없습니다.'}</p><p className="assessment-limit-note">확인되지 않은 정보는 현재 판단의 근거로 취급하지 않습니다. 이 영역은 현재 판단이 설명하지 못하는 범위를 표시합니다.</p></div>}
     </section>}
