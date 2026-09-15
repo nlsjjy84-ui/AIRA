@@ -175,7 +175,7 @@ function RecoveryPanel({ mode, token, setMode, close, completeLink }) {
   </div>
 }
 
-function RecoveryEmailSettings() {
+function RecoveryEmailSettings({ close }) {
   const [email, setEmail] = useState('')
   const [state, setState] = useState({ loading: false, error: null, notice: null })
   async function submit(event) {
@@ -189,17 +189,20 @@ function RecoveryEmailSettings() {
       setState({ loading: false, error: '확인 메일을 보내지 못했습니다. 주소와 메일 전송 설정을 확인해 주세요.', notice: null })
     }
   }
-  return <section id="account-recovery" className="content-section recovery-section" aria-labelledby="account-recovery-title">
-    <div className="section-heading"><span>ACCOUNT</span><h2 id="account-recovery-title">계정 복구 이메일</h2></div>
-    <p className="status">비밀번호를 잊었을 때 사용할 이메일을 확인합니다. 현재 주소는 개인정보 보호를 위해 화면에 표시하지 않습니다.</p>
-    <form className="recovery-email-form" onSubmit={submit}>
-      <label htmlFor="recovery-email">복구 이메일</label>
-      <input id="recovery-email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength="254" required autoComplete="email" />
-      <button className="secondary-action" disabled={state.loading}>{state.loading ? '처리 중…' : '확인 메일 보내기'}</button>
-    </form>
-    {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
-    {state.error && <p className="form-error" role="alert">{state.error}</p>}
-  </section>
+  return <div className="auth-overlay" role="presentation">
+    <section id="account-recovery" className="auth-panel recovery-section" role="dialog" aria-modal="true" aria-labelledby="account-recovery-title" onKeyDown={event => { if (event.key === 'Escape') close() }}>
+      <button type="button" className="close-button" onClick={close} aria-label="계정 설정 닫기" autoFocus>×</button>
+      <div className="section-heading"><span>ACCOUNT</span><h2 id="account-recovery-title">계정 복구 이메일</h2></div>
+      <p className="status">비밀번호를 잊었을 때 사용할 이메일을 확인합니다. 현재 주소는 개인정보 보호를 위해 화면에 표시하지 않습니다.</p>
+      <form className="recovery-email-form" onSubmit={submit}>
+        <label htmlFor="recovery-email">복구 이메일</label>
+        <input id="recovery-email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength="254" required autoComplete="email" />
+        <button className="secondary-action" disabled={state.loading}>{state.loading ? '처리 중…' : '확인 메일 보내기'}</button>
+      </form>
+      {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
+      {state.error && <p className="form-error" role="alert">{state.error}</p>}
+    </section>
+  </div>
 }
 
 function initialRecoveryEntry() {
@@ -461,7 +464,7 @@ export default function App() {
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><a href={exploring ? '/#user' : '#user'}>사용자 {session.user.nickname}</a><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><button type="button" aria-label="계정 설정 열기" onClick={() => setSettingsOpen(true)}>사용자 {session.user.nickname}</button><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
     <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
@@ -485,14 +488,16 @@ export default function App() {
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
       {exploring ? <CanonicalExplorer embedded /> : <>
-      <section id="ask" className="content-section ask-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
-        <fieldset className="ask-perspective"><legend>어떤 관점으로 먼저 볼까요?</legend>
-          <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
-          <label><input type="radio" name="perspective" checked={perspective === 'event'} onChange={() => setPerspective('event')} />사건과 관련 회사</label>
-        </fieldset><a className="ask-go" href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인 →</a>
-      </section>
+      <div className="home-orientation">
+        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
+        <section id="ask" className="ask-section" aria-labelledby="ask-title"><h2 id="ask-title">Ask — 확인할 관점</h2>
+          <fieldset className="ask-perspective"><legend>어떤 관점으로 먼저 볼까요?</legend>
+            <label><input type="radio" name="perspective" checked={perspective === 'evidence'} onChange={() => setPerspective('evidence')} />공식 사실과 근거</label>
+            <label><input type="radio" name="perspective" checked={perspective === 'event'} onChange={() => setPerspective('event')} />사건과 관련 회사</label>
+          </fieldset><a className="ask-go" href={perspective === 'evidence' ? '#companies' : '#events'}>선택한 관점으로 확인 →</a>
+        </section>
+      </div>
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
-      <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">현재 제공되는 기업을 선택하면 정확한 보고 기간의 핵심 재무정보와 원문 공시를 볼 수 있습니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">
         <div className="section-heading"><span>MY</span><h2 id="interests-title">내 관심회사</h2></div>
@@ -501,9 +506,6 @@ export default function App() {
         {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <div className="personalization-empty"><Status>아직 저장한 관심회사가 없습니다. 회사를 탐색하고 관심회사로 저장해 보세요.</Status><a className="secondary-action" href="#companies">회사 탐색하기</a></div>}
         <div className="interest-list">{interestsState.data.map(item => <button type="button" key={item.entityId} onClick={() => selectCompany({ companyId: item.entityId, canonicalName: item.canonicalName, countryCode: item.countryCode })}><strong>{item.canonicalName}</strong><span>재무정보 다시 보기 →</span></button>)}</div>
       </section>}
-
-      {session.user && <section id="user" className="content-section" aria-label="사용자"><h2>{session.user.nickname}</h2><button onClick={() => setSettingsOpen(true)}>계정 설정 열기</button></section>}
-      {session.user && settingsOpen && <><button onClick={() => setSettingsOpen(false)}>설정 닫기</button><RecoveryEmailSettings /></>}
 
       {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
         <div className="section-heading"><span>BRIEFING</span><h2 id="briefing-title">내 브리핑</h2></div>
@@ -514,19 +516,21 @@ export default function App() {
         {briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
-          <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
-          <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
-          <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-          <p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
-          <button onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
-          <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
-            <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
-          <p>사건 상세에서는 현재 상태와 현재 판단을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button></div>
-          {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
-            <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
-            <span>공시 접수번호 {reference.externalId}</span>
-            <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
-          </div>)}
+          <div className="briefing-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
+            <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
+            <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+            <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
+              <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
+          </div>
+          <aside className="briefing-side" aria-label="브리핑 근거와 이동"><p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
+            <button type="button" className="secondary-action" onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
+            <p className="briefing-current-note">사건 상세에서는 현재 상태와 현재 판단을 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openEventDetail(item.eventId, null)}>사건 상세 보기</button></div>
+            {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
+              <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
+              <span>공시 접수번호 {reference.externalId}</span>
+              <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
+            </div>)}
+          </aside>
         </article>)}</div>
       </section>}
 
@@ -536,14 +540,17 @@ export default function App() {
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
         {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status><a className="secondary-action" href="#companies">회사와 알림 설정 보기</a></div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
-          <p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
-          <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
-          <p className="insight-time">사건 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>
-          {item.completedAt && <p className="insight-time">판단 완료 {formatDateTime(item.completedAt)}</p>}
-          {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
-          <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
+          <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
+            <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
+            <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
+          </div>
+          <aside className="alert-side" aria-label="알림 시각과 이동"><div className="alert-times">
+            <p className="insight-time">사건 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>
+            {item.completedAt && <p className="insight-time">판단 완료 {formatDateTime(item.completedAt)}</p>}
+            {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
+          </div>
           <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAlertDetail(item.alertId)}>알림 상세 보기</button>
-            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 사건 보기</button></div>
+            <button type="button" className="secondary-action" onClick={() => openEventDetail(item.eventId, null)}>현재 사건 보기</button></div></aside>
         </article>)}</div>
         {alertDetailState.loading && <Status busy>정확한 알림 기록을 불러오는 중입니다.</Status>}
         {alertDetailState.error && <ErrorState error={alertDetailState.error} subject="알림 상세" retry={() => openAlertDetail(alertDetailState.alertId)} />}
@@ -599,35 +606,39 @@ export default function App() {
           {eventDetailState.error && eventDetailState.error.status !== 404 &&
             <ErrorState error={eventDetailState.error} subject="사건 상세"
               retry={() => openEventDetail(eventDetailState.eventId, eventDetailState.contextCompanyId)} />}
-          {eventDetailState.data && <article className="event-detail">
-            <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT · 사건 사실</p>
-              <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
-              <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
-              <p className="event-meta">{EVENT_TYPE_LABELS[eventDetailState.data.eventType] ?? eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-            </section>
-            <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
-              {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
-                <strong>{item.sourceName}</strong><span>{item.title}</span>
-                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 보기 <span aria-hidden="true">↗</span></a>
-                <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
-              </div>)}
-            </section>
-            <section aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 판단</h3><p>현재 판단</p>
-              {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 판단이 없습니다.</Status>}
-              {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
-                <p>판단 식별자 {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
-                <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
-                <p className="assessment-meta">중요도 {IMPORTANCE_LABELS[eventDetailState.data.assessment.importance] ?? eventDetailState.data.assessment.importance} · 확신 {CONFIDENCE_LABELS[eventDetailState.data.assessment.confidence] ?? eventDetailState.data.assessment.confidence} · {ASSESSMENT_METHOD_LABELS[eventDetailState.data.assessment.method] ?? eventDetailState.data.assessment.method}</p>
-              </div>}
-            </section>
-            {eventDetailState.data.assessment && <section aria-labelledby="assessment-evidence-title">
-              <h3 id="assessment-evidence-title">판단 근거</h3>
-              {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
-                <strong>{item.sourceName}</strong><span>{item.title}</span>
-                <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">판단에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
-                <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
-              </div>)}
-            </section>}
+          {eventDetailState.data && <article className="event-detail event-detail-grid">
+            <div className="event-detail-main">
+              <section aria-labelledby="event-fact-title"><p className="eyebrow">EVENT FACT · 사건 사실</p>
+                <h3 id="event-fact-title">{eventDetailState.data.title}</h3>
+                <p>{eventDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
+                <p className="event-meta">{EVENT_TYPE_LABELS[eventDetailState.data.eventType] ?? eventDetailState.data.eventType} · {eventDetailState.data.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
+              </section>
+              <section className="event-assessment-panel" aria-labelledby="aira-assessment-title"><h3 id="aira-assessment-title">AIRA 판단</h3><p>현재 판단</p>
+                {!eventDetailState.data.assessment && <Status>현재 표시할 AIRA 판단이 없습니다.</Status>}
+                {eventDetailState.data.assessment && <div className="assessment"><p>{eventDetailState.data.assessment.summary}</p>
+                  <p className="insight-identity">판단 식별자 {eventDetailState.data.assessment.assessmentId} · {eventDetailState.data.assessment.analysisVersion}</p>
+                  <h4>아직 확인할 점</h4><p>{eventDetailState.data.assessment.uncertainty}</p>
+                  <p className="assessment-meta">중요도 {IMPORTANCE_LABELS[eventDetailState.data.assessment.importance] ?? eventDetailState.data.assessment.importance} · 확신 {CONFIDENCE_LABELS[eventDetailState.data.assessment.confidence] ?? eventDetailState.data.assessment.confidence} · {ASSESSMENT_METHOD_LABELS[eventDetailState.data.assessment.method] ?? eventDetailState.data.assessment.method}</p>
+                </div>}
+              </section>
+            </div>
+            <aside className="event-detail-side" aria-label="사건과 판단의 근거">
+              <section aria-labelledby="official-evidence-title"><h3 id="official-evidence-title">공식 근거</h3>
+                {eventDetailState.data.eventEvidence.map(item => <div className="event-evidence" key={item.evidenceId}>
+                  <strong>{item.sourceName}</strong><span>{item.title}</span>
+                  <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">공식 원문 보기 <span aria-hidden="true">↗</span></a>
+                  <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
+                </div>)}
+              </section>
+              {eventDetailState.data.assessment && <section aria-labelledby="assessment-evidence-title">
+                <h3 id="assessment-evidence-title">판단 근거</h3>
+                {eventDetailState.data.assessment.evidence.map(item => <div className="event-evidence" key={item.evidenceId}>
+                  <strong>{item.sourceName}</strong><span>{item.title}</span>
+                  <a href={item.originalUrl} target="_blank" rel="noopener noreferrer">판단에 사용된 원문 보기 <span aria-hidden="true">↗</span></a>
+                  <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(item.evidenceId)}>공식 자료 상세</button>
+                </div>)}
+              </section>}
+            </aside>
           </article>}
         </section>}
 
@@ -640,21 +651,24 @@ export default function App() {
           {officialEvidenceState.error && officialEvidenceState.error.status !== 404 &&
             <ErrorState error={officialEvidenceState.error} subject="공식 자료"
               retry={() => openOfficialEvidence(officialEvidenceState.evidenceId)} />}
-          {officialEvidenceState.data && <article>
-            <p className="eyebrow">{officialEvidenceState.data.source.sourceName}</p>
-            <h3>{officialEvidenceState.data.title}</h3>
-            <p>문서 식별자 {officialEvidenceState.data.externalId}</p>
-            <p>자료 유형 {EVIDENCE_TYPE_LABELS[officialEvidenceState.data.evidenceType] ?? officialEvidenceState.data.evidenceType} · 출처 유형 {SOURCE_TYPE_LABELS[officialEvidenceState.data.source.sourceType] ?? officialEvidenceState.data.source.sourceType}</p>
-            {officialEvidenceState.data.source.canonicalDomain && <p>출처 도메인 {officialEvidenceState.data.source.canonicalDomain}</p>}
-            <p>공식 자료 발행 {formatDateTime(officialEvidenceState.data.publishedAt) ?? '저장된 발행 시각 없음'}</p>
-            <p>AIRA 자료 수집 {formatDateTime(officialEvidenceState.data.collectedAt) ?? '저장된 수집 시각 없음'}</p>
-            <p>근거 개정 번호 {officialEvidenceState.data.revision}</p>
-            {officialEvidenceState.data.locator && <p>자료 위치 {officialEvidenceState.data.locator}</p>}
+          {officialEvidenceState.data && <article className="official-evidence-record">
+            <div className="official-evidence-lead"><div><p className="eyebrow">{officialEvidenceState.data.source.sourceName}</p>
+              <h3>{officialEvidenceState.data.title}</h3></div>
+              {officialEvidenceState.data.originalUrl
+                ? <a className="official-evidence-action primary-evidence-link" href={officialEvidenceState.data.originalUrl}
+                  target="_blank" rel="noopener noreferrer">공식 원문 열기 <span aria-hidden="true">↗</span></a>
+                : <Status>저장된 공식 원문 링크가 없습니다.</Status>}
+            </div>
+            <dl className="evidence-metadata">
+              <div><dt>문서 식별자</dt><dd>{officialEvidenceState.data.externalId}</dd></div>
+              <div><dt>자료·출처 유형</dt><dd>{EVIDENCE_TYPE_LABELS[officialEvidenceState.data.evidenceType] ?? officialEvidenceState.data.evidenceType} · {SOURCE_TYPE_LABELS[officialEvidenceState.data.source.sourceType] ?? officialEvidenceState.data.source.sourceType}</dd></div>
+              {officialEvidenceState.data.source.canonicalDomain && <div><dt>출처 도메인</dt><dd>{officialEvidenceState.data.source.canonicalDomain}</dd></div>}
+              <div><dt>공식 자료 발행</dt><dd>{formatDateTime(officialEvidenceState.data.publishedAt) ?? '저장된 발행 시각 없음'}</dd></div>
+              <div><dt>AIRA 자료 수집</dt><dd>{formatDateTime(officialEvidenceState.data.collectedAt) ?? '저장된 수집 시각 없음'}</dd></div>
+              <div><dt>근거 개정 번호</dt><dd>{officialEvidenceState.data.revision}</dd></div>
+              {officialEvidenceState.data.locator && <div><dt>자료 위치</dt><dd>{officialEvidenceState.data.locator}</dd></div>}
+            </dl>
             {officialEvidenceState.data.excerpt && <blockquote>{officialEvidenceState.data.excerpt}</blockquote>}
-            {officialEvidenceState.data.originalUrl
-              ? <a className="official-evidence-action" href={officialEvidenceState.data.originalUrl}
-                target="_blank" rel="noopener noreferrer">공식 원문 열기 <span aria-hidden="true">↗</span></a>
-              : <Status>저장된 공식 원문 링크가 없습니다.</Status>}
           </article>}
         </section>}
 
@@ -698,6 +712,7 @@ export default function App() {
       </section>}
       </>}
     </main>
+    {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}
     {window.location.pathname === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
     {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
     {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}

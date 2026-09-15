@@ -133,6 +133,11 @@ describe('authenticated interest and return experience', () => {
     expect(screen.queryByRole('navigation', { name: '탐색 단계' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '사이드바 접기' }))
     expect(document.querySelector('.workflow-sidebar')).toHaveClass('collapsed')
+    await user.click(screen.getByRole('button', { name: '설정' }))
+    expect(screen.getByRole('dialog', { name: '계정 복구 이메일' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '계정 설정 닫기' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('dialog', { name: '계정 복구 이메일' })).not.toBeInTheDocument()
   })
 
   it('opens the briefing assessment by exact identity without substituting Current', async () => {
@@ -284,7 +289,8 @@ describe('authenticated interest and return experience', () => {
     const detail = (await screen.findByRole('heading', { name: '공식 자료' })).closest('section')
     expect(await within(detail).findByRole('heading', { name: 'Stored official document' })).toBeInTheDocument()
     expect(within(detail).getByText('Official Registry')).toBeInTheDocument()
-    expect(within(detail).getByText(/자료 유형 공시 · 출처 유형 감독기관/)).toBeInTheDocument()
+    expect(within(detail).getByText('자료·출처 유형')).toBeInTheDocument()
+    expect(within(detail).getByText('공시 · 감독기관')).toBeInTheDocument()
     expect(within(detail).queryByText(/DISCLOSURE|REGULATOR/)).not.toBeInTheDocument()
     expect(within(detail).getByText(/공식 자료 발행/)).toBeInTheDocument()
     expect(within(detail).getByText(/AIRA 자료 수집/)).toBeInTheDocument()
@@ -434,7 +440,7 @@ describe('authenticated interest and return experience', () => {
     await user.click(within(dialog).getByRole('button', { name: '로그인' }))
     expect(await screen.findByText(/아직 저장한 관심회사가 없습니다/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '회사 탐색하기' })).toHaveAttribute('href', '#companies')
-    expect(screen.getByText('ReturnUser')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '계정 설정 열기' })).toHaveTextContent('ReturnUser')
     expect(backend.fetch.mock.calls.filter(([path]) => path === '/api/me')).toHaveLength(2)
   })
 
@@ -443,7 +449,7 @@ describe('authenticated interest and return experience', () => {
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByText('ReturnUser')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '계정 설정 열기' })).toHaveTextContent('ReturnUser')
     const section = screen.getByRole('heading', { name: '내 관심회사' }).closest('section')
     await user.click(await within(section).findByRole('button', { name: /삼성전자.*재무정보 다시 보기/ }))
     expect(await screen.findByText('333,605,938,000,000')).toBeInTheDocument()
