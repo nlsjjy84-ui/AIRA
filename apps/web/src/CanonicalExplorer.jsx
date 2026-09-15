@@ -311,7 +311,9 @@ export default function CanonicalExplorer({ embedded = false }) {
           : <label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label>}
         <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>}</section>}
     {context.step === 'Relate' && target && <section className="explorer-panel"><p className="eyebrow">RELATE · 잇기</p><h2>관련 사건과 대상을 연결해 확인하세요.</h2>
-      {target.entityType === 'COMPANY' ? <button type="button" onClick={loadDetail}>사건 목록 확인</button> : <p>종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
+      <p className="panel-lead">선택한 대상에 공식 근거로 연결된 Event만 확인합니다. 관계가 확인되지 않은 대상을 임의로 이어 붙이지 않습니다.</p>
+      <p className="context-subject">현재 대상 · <strong>{target.canonicalName}</strong> · {target.entityType === 'COMPANY' ? '기업' : '종목'}</p>
+      {target.entityType === 'COMPANY' ? <button type="button" className="primary-action" onClick={loadDetail}>확인된 사건 보기</button> : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
       {Array.isArray(data.value) && <EventTimeline events={data.value} onSelect={selectEvent} />}</section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><p className="eyebrow">ASSESS · 판단</p><h2>현재 분석과 그 판단 근거를 확인하세요.</h2>
       <p>Event ID {context.eventId}</p><button type="button" onClick={loadDetail}>Assessment 확인</button>
