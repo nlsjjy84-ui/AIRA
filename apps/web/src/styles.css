@@ -1296,3 +1296,31 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   border-color: var(--accent-strong);
   background: color-mix(in srgb, var(--accent-strong) 6%, transparent);
 }
+
+/* Header hierarchy: keep search primary and account actions compact. */
+.site-header {
+  gap: 1.25rem;
+  padding-top: .85rem;
+  padding-bottom: .85rem;
+}
+.brand img { height: 2.65rem; }
+.site-header form[role="search"] { max-width: 32rem; }
+.account-nav { gap: .15rem; }
+.account-nav button,
+.account-nav a {
+  padding: .4rem .45rem;
+  color: var(--muted);
+  font-size: .88rem;
+  font-weight: 650;
+}
+.account-nav button:hover,
+.account-nav button:focus-visible,
+.account-nav a:hover,
+.account-nav a:focus-visible { color: var(--ink); }
+.account-nav .nav-signup {
+  padding-inline: .7rem;
+  color: white;
+}
+@media (max-width: 40rem) {
+  .brand img { height: 2.5rem; }
+}
