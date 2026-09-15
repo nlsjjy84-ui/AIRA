@@ -11,9 +11,9 @@
   --accent-faint: #eef5f4;
   --focus: #0b6972;
   --series-a: #173f55;
-  --series-b: #3f787a;
+  --series-b: #356b6e;
   --series-neutral: #879590;
-  --series-c: #8b6b3f;
+  --series-c: #775a32;
   --series-d: #685f88;
   --error: #9e342c;
   --content: 70rem;
@@ -613,8 +613,8 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 /* Workflow identity: each step has a restrained, meaningful visual signature. */
 .stage-main { --stage-color: #173f55; --stage-soft: #e8eff2; }
 .stage-ask { --stage-color: #0f5963; --stage-soft: #e4f0ef; }
-.stage-inspect { --stage-color: #3f787a; --stage-soft: #e8f2f0; }
-.stage-relate { --stage-color: #8b6b3f; --stage-soft: #f4eee5; }
+.stage-inspect { --stage-color: var(--series-b); --stage-soft: #e8f2f0; }
+.stage-relate { --stage-color: var(--series-c); --stage-soft: #f4eee5; }
 .stage-assess { --stage-color: #685f88; --stage-soft: #efedf5; }
 .stage-hero {
   position: relative;
@@ -639,8 +639,8 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .canonical-explorer .explorer-detail > button { background: var(--stage-color); border-color: var(--stage-color); }
 .workflow-sidebar [data-workflow-step="MAIN"] { --item-stage: #173f55; }
 .workflow-sidebar [data-workflow-step="Ask"] { --item-stage: #0f5963; }
-.workflow-sidebar [data-workflow-step="Inspect"] { --item-stage: #3f787a; }
-.workflow-sidebar [data-workflow-step="Relate"] { --item-stage: #8b6b3f; }
+.workflow-sidebar [data-workflow-step="Inspect"] { --item-stage: var(--series-b); }
+.workflow-sidebar [data-workflow-step="Relate"] { --item-stage: var(--series-c); }
 .workflow-sidebar [data-workflow-step="Assess"] { --item-stage: #685f88; }
 .workflow-sidebar [data-workflow-step] .workflow-code { color: var(--item-stage); }
 .workflow-sidebar [data-workflow-step][aria-current="step"] {
@@ -669,7 +669,7 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .main-path-step strong { font-size: 1rem; }
 .main-path-step small { color: var(--muted); font-size: .78rem; }
 .main-path-main { --path-color: #173f55; } .main-path-ask { --path-color: #0f5963; }
-.main-path-inspect { --path-color: #3f787a; } .main-path-relate { --path-color: #8b6b3f; } .main-path-assess { --path-color: #685f88; }
+.main-path-inspect { --path-color: var(--series-b); } .main-path-relate { --path-color: var(--series-c); } .main-path-assess { --path-color: #685f88; }
 .main-path-branch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
 .main-path-note { margin: .7rem 0 0; color: var(--muted); font-size: .82rem; }
 @media (max-width: 52rem) { .main-entry-copy { grid-template-columns: 1fr; gap: .75rem; } .main-entry-copy .eyebrow { margin-bottom: 0; } .main-path { grid-template-columns: 1fr; } .main-path > i { transform: rotate(90deg); } .main-path-branch { grid-template-columns: 1fr 1fr; } }
@@ -726,8 +726,8 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 /* Ask choices preview the next branch without making the decision for the user. */
 .explorer-options .ask-choice { border-top: 3px solid var(--choice-color); }
 .ask-choice .choice-route { color: var(--choice-color); font-size: .7rem; font-weight: 850; letter-spacing: .08em; }
-.ask-choice.inspect-choice { --choice-color: #3f787a; }
-.ask-choice.relate-choice { --choice-color: #8b6b3f; }
+.ask-choice.inspect-choice { --choice-color: var(--series-b); }
+.ask-choice.relate-choice { --choice-color: var(--series-c); }
 .explorer-options .ask-choice:hover,
 .explorer-options .ask-choice:focus-visible { border-color: var(--choice-color); background: color-mix(in srgb, var(--choice-color) 8%, var(--surface)); }
 
@@ -1280,4 +1280,19 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 }
 .secondary-action:disabled {
   background: transparent;
+}
+
+/* Saved interests read as a list, not a stack of cards. */
+.interest-list a {
+  padding: .8rem .65rem;
+  border: 0;
+  border-left: 3px solid var(--accent-strong);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.interest-list a:hover,
+.interest-list a:focus-visible {
+  border-color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent-strong) 6%, transparent);
 }
