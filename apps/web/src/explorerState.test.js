@@ -10,6 +10,7 @@ describe('canonical exploration context', () => {
       category: '재무', detail: 'Historical Exact', periodStart: '2025-01-01', periodEnd: '2025-12-31',
       receipt: '20260101000001', comparison: '전년' }
     const inspect = advance(selected, 'Inspect')
+    expect(advance(inspect, 'Inspect')).toBe(inspect)
     expect(contextTrail(inspect)).toContain('2025-01-01 — 2025-12-31')
     expect(contextTrail(inspect)).toContain('비교 전년')
     const relate = advance(selected, 'Relate')

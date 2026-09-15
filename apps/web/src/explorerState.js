@@ -8,7 +8,7 @@ export function initialExplorerState() {
 }
 
 export function advance(state, step) {
-  if (!STEPS.includes(step)) return state
+  if (!STEPS.includes(step) || state.step === step) return state
   // A change of subject meaning requires an explicit new selection, not context propagation.
   if (step === 'Assess' && !state.eventId) return state
   return { ...state, step }
