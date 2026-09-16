@@ -101,10 +101,16 @@ describe('evidence-linked visuals', () => {
     const response = { state: 'AVAILABLE', predicate: 'CLOSE_PRICE', changeAmount: '200', changePercent: '20.0000',
       current: { tradingDate: '2026-09-14', factId: 'F2', value: '1200', evidenceIds: ['E2'] },
       previous: { tradingDate: '2026-09-10', factId: 'F1', value: '1000', evidenceIds: ['E1'] } }
-    render(<MarketPreviousView comparison={response} onEvidence={vi.fn()} />)
+    const onEvidence = vi.fn()
+    render(<MarketPreviousView comparison={response} onEvidence={onEvidence} />)
     expect(screen.getByText(/직전 관측 · 2026-09-10/)).toBeInTheDocument()
     expect(screen.getByText('증감액 200원')).toBeInTheDocument()
     expect(screen.getByText('증감률 20%')).toBeInTheDocument()
+    const evidenceActions = screen.getAllByRole('button', { name: /근거 식별자/ })
+    expect(evidenceActions).toHaveLength(2)
+    evidenceActions.forEach(action => expect(action).toHaveClass('viz-evidence-action'))
+    fireEvent.click(screen.getByRole('button', { name: 'D 근거 식별자 · E2' }))
+    expect(onEvidence).toHaveBeenCalledWith('E2', { type: 'FACT', label: 'CLOSE_PRICE · 2026-09-14 · F2' })
     expect(screen.getAllByRole('meter')).toHaveLength(2)
   })
 })

@@ -128,9 +128,9 @@ export function MarketPreviousView({ comparison, onEvidence }) {
   return <section className="viz-block comparison-result market-previous" aria-label="D와 직전 공식 관측 비교"><h3>비교 · D와 직전 실제 관측일</h3>
     <div className="viz-split">{[['직전 관측', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
       <article className={`viz-side ${label === 'D' ? 'viz-side-b' : 'viz-side-a'}`} key={label}><small>{label} · {point.tradingDate} · 관측 식별자 · {point.factId}</small><strong>{formatQuantity(point.value, unit)}</strong>
-        {point.evidenceIds.map(id => <button key={id} type="button" onClick={() => onEvidence(id,
-          { type: 'FACT', label: `${comparison.predicate} · ${point.tradingDate} · ${point.factId}` })}>
-          근거 식별자 · {id}</button>)}</article>)}</div>
+        <div className="viz-evidence-links"><span>근거 식별자</span>{point.evidenceIds.map(id => <button key={id} type="button" className="viz-evidence-action"
+          aria-label={`${label} 근거 식별자 · ${id}`} onClick={() => onEvidence(id,
+          { type: 'FACT', label: `${comparison.predicate} · ${point.tradingDate} · ${point.factId}` })}>{id}</button>)}</div></article>)}</div>
     <p className="viz-change-summary"><span>증감액 {formatQuantity(comparison.changeAmount, unit)}</span>
       <span>증감률 {comparison.changePercent == null ? `계산 불가 (${comparison.percentReason})` : formatQuantity(comparison.changePercent, '%')}</span></p>
     {values.every(value => Number.isFinite(value) && value >= 0) && <div className="viz-bars" aria-label="직전 관측과 D 값 막대">{[['직전', comparison.previous], ['D', comparison.current]].map(([label, point]) =>
