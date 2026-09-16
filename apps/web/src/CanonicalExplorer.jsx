@@ -486,7 +486,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       </section></div>}
     </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && context.detail &&
-      <section className="viz-block"><button type="button" onClick={() => setMarketRange(value => ({ ...value, open: !value.open }))}>
+      <section className="viz-block"><button type="button" className="market-support-action" onClick={() => setMarketRange(value => ({ ...value, open: !value.open }))}>
         공식 관측 흐름 {marketRange.open ? '닫기' : '열기'}</button>
         {marketRange.open && <><form onSubmit={loadMarketRange} className="explorer-fields" aria-label="시장 시계열 날짜 범위">
           <label>시작일 <input type="date" value={marketRange.from} onChange={event => changeRangeField('from', event.target.value)} /></label>
@@ -497,13 +497,13 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           <MarketSeriesView series={marketRange.data} onEvidence={openEvidence} /></>}
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
-      <section className="viz-block"><button type="button" onClick={loadPrevious}>D와 직전 실제 관측일 비교</button>
+      <section className="viz-block"><button type="button" className="market-support-action" onClick={loadPrevious}>D와 직전 실제 관측일 비교</button>
         {previous.loading && <LoadingNotice>직전 공식 관측값 확인 중…</LoadingNotice>}
         {previous.state && previous.state !== 'AVAILABLE' && <StateNotice state={previous.state} lead="직전 관측과 비교할 수 없습니다." />}
         <MarketPreviousView comparison={previous.data} onEvidence={openEvidence} />
       </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && data.value?.tradingDate &&
-      <section className="viz-block"><button type="button" onClick={loadOhlc}>같은 공식 거래일 OHLC 확인</button>
+      <section className="viz-block"><button type="button" className="market-support-action" onClick={loadOhlc}>같은 공식 거래일 OHLC 확인</button>
         {ohlc.loading && <LoadingNotice>시가·고가·저가·종가 확인 중…</LoadingNotice>}
         {ohlc.state === 'NO_DATA' && <div role="status" className="explorer-notice notice-neutral"><strong>캔들 표시 불가</strong><span>같은 공식 거래일의 시가·고가·저가·종가가 모두 확인되지 않았습니다.</span></div>}
         <OhlcCandle observations={ohlc.values} />

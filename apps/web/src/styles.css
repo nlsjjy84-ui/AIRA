@@ -1125,6 +1125,10 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .viz-ohlc-values > div { grid-template-columns: 2.5rem minmax(0, 1fr); }
 }
 
+.viz-block .market-support-action { margin: 0; border: 0; padding: .4rem 0; color: var(--accent-strong); background: transparent; cursor: pointer; font: inherit; font-weight: 720; text-align: left; text-decoration: underline; text-underline-offset: .18em; }
+.viz-block .market-support-action:hover, .viz-block .market-support-action:focus-visible { color: var(--stage-color, var(--accent)); }
+@media (max-width: 40rem) { .viz-block .market-support-action { min-height: 2.75rem; } }
+
 /* Market series behaves like a data strip, not a pile of cards. */
 .viz-series-list button {
   border: 0;

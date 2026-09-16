@@ -161,6 +161,9 @@ describe('canonical explorer', () => {
     await screen.findByText(/KRX 공식 거래일 2026-09-14/)
     expect(screen.getByText(/공식 거래일 현재값.*2026-09-14 — 2026-09-14/)).toBeInTheDocument()
     expect(screen.queryByText(/LATEST_OFFICIAL_MARKET_D/)).not.toBeInTheDocument()
+    for (const name of ['공식 관측 흐름 열기', 'D와 직전 실제 관측일 비교', '같은 공식 거래일 OHLC 확인']) {
+      expect(screen.getByRole('button', { name })).toHaveClass('market-support-action')
+    }
     fireEvent.click(screen.getByRole('button', { name: '공식 관측 흐름 열기' }))
     fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2026-09-10' } })
     fireEvent.change(screen.getByLabelText('종료일'), { target: { value: '2026-09-14' } })
