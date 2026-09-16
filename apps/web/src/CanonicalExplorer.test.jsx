@@ -89,7 +89,7 @@ describe('canonical explorer', () => {
     expect(screen.queryByRole('button', { name: '공식 근거 상세' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '공식 근거' }))
     expect(screen.getByRole('button', { name: '공식 근거' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('button', { name: '공식 근거 상세' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '공식 근거 상세' })).toHaveClass('inspect-evidence-action')
     expect(screen.queryByText('100원')).not.toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: '기간 비교' }))

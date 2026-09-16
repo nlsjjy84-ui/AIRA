@@ -468,7 +468,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       </div>)}</div></div>}
       {inspectSection === 'evidence' && <div className="subsection-panel" aria-label="공식 근거"><div className="inspect-evidence-list">{[...new Map(data.value.facts.filter(fact => fact.evidenceId).map(fact => [fact.evidenceId, fact])).values()].map(fact => <div className="inspect-evidence-row" key={fact.evidenceId}>
         <div><strong>{fact.sourceName ?? '공식 출처'}</strong><span>공시 접수번호 {fact.evidenceExternalId ?? data.receipt}</span><small>근거 식별자 · {fact.evidenceId}</small></div>
-        <button type="button" className="secondary-action" onClick={() => openEvidence(fact.evidenceId, { type: 'FACT', label: `${target.canonicalName} · ${data.periodStart} — ${data.periodEnd}` })}>공식 근거 상세</button>
+        <button type="button" className="inspect-evidence-action" onClick={() => openEvidence(fact.evidenceId, { type: 'FACT', label: `${target.canonicalName} · ${data.periodStart} — ${data.periodEnd}` })}>공식 근거 상세</button>
       </div>)}</div></div>}
       {inspectSection === 'history' && <div className="subsection-panel subview-empty" aria-label="변경 이력"><strong>현재 확인된 변경 이력이 없습니다.</strong>
         <p>정정·변경 관계가 공식 데이터로 확인될 때만 이력으로 연결합니다. 이름이나 revision만으로 변경 계보를 만들지 않습니다.</p></div>}
