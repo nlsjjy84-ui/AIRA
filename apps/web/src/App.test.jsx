@@ -169,7 +169,7 @@ describe('authenticated interest and return experience', () => {
 
   it('opens the briefing assessment by exact identity without substituting Current', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
-      'GET /api/assessments/assessment-1': () => json({ assessmentId: 'assessment-1', eventId: 'event-1', analysisVersion: 'old-v1', method: 'RULE', confidence: 'LOW', uncertainty: 'Old uncertainty', completedAt: '2026-08-22T01:00:00Z', evidenceIds: ['old-evidence'] }),
+      'GET /api/assessments/assessment-1': () => json({ assessmentId: 'assessment-1', eventId: 'event-1', analysisVersion: 'old-v1', method: 'RULE', confidence: 'LOW', uncertainty: 'Old uncertainty', completedAt: '2026-08-22T01:00:00Z', evidenceIds: ['old-evidence', 'old-evidence-2', 'old-evidence-3', 'old-evidence-4'] }),
     } })
     global.fetch = backend.fetch
     const user = userEvent.setup()
@@ -180,7 +180,11 @@ describe('authenticated interest and return experience', () => {
     expect(within(historical).getByText(/규칙 기반 · 확신 낮음/)).toBeInTheDocument()
     expect(within(historical).queryByText(/RULE|LOW/)).not.toBeInTheDocument()
     expect(within(historical).queryByText('Current AIRA context')).not.toBeInTheDocument()
-    await user.click(within(historical).getByRole('button', { name: '당시 근거 · old-evidence' }))
+    expect(within(historical).getByText('당시 근거 식별자')).toBeInTheDocument()
+    const historicalEvidence = within(historical).getAllByRole('button', { name: /old-evidence/ })
+    expect(historicalEvidence).toHaveLength(4)
+    historicalEvidence.forEach(action => expect(action).toHaveClass('viz-evidence-action'))
+    await user.click(within(historical).getByRole('button', { name: 'old-evidence' }))
     expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/old-evidence', expect.anything())
   })
 

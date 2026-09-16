@@ -28,7 +28,7 @@ export default function HistoricalAssessment({ assessmentId, openEvidence }) {
       <p>아직 확인할 점: {state.data.uncertainty}</p>
       <p>판단 완료 {state.data.completedAt}</p>
       {state.data.supersedesAssessmentId && <p>대체한 이전 판단 식별자 {state.data.supersedesAssessmentId}</p>}
-      {state.data.evidenceIds.map(id => <button key={id} onClick={() => openEvidence(id)}>당시 근거 · {id}</button>)}
+      {state.data.evidenceIds.length > 0 && <div className="viz-evidence-links historical-evidence-links"><span>당시 근거 식별자</span>{state.data.evidenceIds.map(id => <button key={id} type="button" className="viz-evidence-action" onClick={() => openEvidence(id)}>{id}</button>)}</div>}
     </>}
   </section>
 }
