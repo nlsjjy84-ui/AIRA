@@ -454,12 +454,12 @@ export default function App() {
               <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
           </div>
           <aside className="briefing-side" aria-label="브리핑 근거와 이동"><p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
-            <button type="button" className="secondary-action" onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
+            <button type="button" className="briefing-support-action" onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
             <p className="briefing-current-note">Assess에서는 현재 사건 사실과 현재 판단 근거를 표시합니다.</p><div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAssessmentInExplorer(item.eventId, item.companies)}>현재 판단 보기</button></div>
             {item.evidence?.map(reference => <div className="evidence-reference" key={reference.evidenceId}>
               <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">{reference.sourceName} 공식 근거 원문 <span aria-hidden="true">↗</span></a>
               <span>공시 접수번호 {reference.externalId}</span>
-              <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
+              <button type="button" className="briefing-support-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
             </div>)}
           </aside>
         </article>)}</div>
