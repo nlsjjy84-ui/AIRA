@@ -211,6 +211,18 @@ function initialRecoveryEntry() {
   return { mode: null, token: '' }
 }
 
+function PrivacyPage() {
+  return <section className="privacy-page" aria-labelledby="privacy-title">
+    <div className="privacy-lead"><p className="eyebrow">PRIVACY · 이용자 보호</p><h1 id="privacy-title">개인정보와 이용자 보호 원칙</h1>
+      <p>AIRA는 계정 운영과 명시된 기능에 필요한 최소한의 사용자 데이터만 수집합니다.</p></div>
+    <div className="privacy-principles">
+      <section><span>01</span><div><h2>필요한 만큼만 수집합니다.</h2><p>새로운 사용자 데이터 수집 전 목적, 최소 대안, 저장 위치, 접근자, 보존 기간과 삭제 시점을 검토합니다.</p></div></section>
+      <section><span>02</span><div><h2>필요하지 않은 추적 정보는 수집하지 않습니다.</h2><p>필요성이 없다면 실명·성별·생년월일·주소·직업·전화번호를 수집하지 않습니다. Wi-Fi·Bluetooth 물리 식별정보, 접속 이력, 이동 경로와 과거 접속 장소도 기본적으로 수집·저장하지 않습니다.</p></div></section>
+      <section><span>03</span><div><h2>수집 확대는 자동으로 허용되지 않습니다.</h2><p>보안이나 모니터링을 이유로 영구적인 사용자 추적 데이터를 만들지 않습니다. 신규 수집은 목적과 수명주기를 문서화하고, 비수집 정책 변경은 Architecture 검토와 ADR을 거칩니다.</p></div></section>
+    </div>
+  </section>
+}
+
 export default function App() {
   const [search, setSearch] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -420,7 +432,7 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {exploring ? <CanonicalExplorer embedded interest={{
+      {routePath === '/privacy' ? <PrivacyPage /> : exploring ? <CanonicalExplorer embedded interest={{
         user: session.user, items: interestsState.data, loading: interestAction.loading, error: interestAction.error, retry: interestAction.retry,
         onLogin: () => setAuthMode('login'), onSave: entityId => changeInterest(false, entityId),
         onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),

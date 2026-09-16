@@ -213,6 +213,24 @@ describe('authenticated interest and return experience', () => {
     await waitFor(() => expect(screen.queryByText('Previous user private detail')).not.toBeInTheDocument())
     expect(screen.queryByRole('heading', { name: '정확한 알림 상세' })).not.toBeInTheDocument()
   })
+  it('keeps the privacy footer off ordinary MAIN', async () => {
+    global.fetch = server().fetch
+    render(<App />)
+    await screen.findByRole('link', { name: '단계별 탐색 시작' })
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+  })
+
+  it('renders the approved privacy principles instead of the MAIN body on /privacy', async () => {
+    window.history.replaceState({}, '', '/privacy')
+    global.fetch = server().fetch
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: '개인정보와 이용자 보호 원칙' })).toBeInTheDocument()
+    expect(screen.getByText(/계정 운영과 명시된 기능에 필요한 최소한의 사용자 데이터만 수집/)).toBeInTheDocument()
+    expect(screen.getByText(/Wi-Fi·Bluetooth 물리 식별정보/)).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '공식 데이터와 근거를 함께 확인하세요.' })).not.toBeInTheDocument()
+    expect(screen.getByRole('contentinfo')).toHaveTextContent('개인정보와 이용자 보호 원칙')
+  })
+
   it('preserves anonymous access to staged public exploration', async () => {
     global.fetch = server().fetch
     render(<App />)

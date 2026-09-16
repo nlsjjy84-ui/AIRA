@@ -133,6 +133,16 @@ h2 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
 footer { display: flex; justify-content: space-between; gap: 1rem; padding: 2rem max(2rem, calc((100vw - var(--content)) / 2)); border-top: 1px solid var(--line); color: var(--muted); }
 footer span { color: var(--ink); font-weight: 800; letter-spacing: .14em; }
 footer p { margin: 0; }
+.privacy-page { max-width: 64rem; margin: 0 auto; padding: clamp(3rem, 7vw, 6rem) 0 clamp(4rem, 8vw, 7rem); }
+.privacy-lead { max-width: 52rem; padding-left: 1.1rem; border-left: 4px solid var(--accent-strong); }
+.privacy-lead h1 { margin: .2rem 0 .8rem; font-size: clamp(2rem, 5vw, 3.7rem); line-height: 1.05; letter-spacing: -.045em; }
+.privacy-lead > p:last-child { max-width: 44rem; margin: 0; color: var(--muted); font-size: 1.04rem; line-height: 1.7; }
+.privacy-principles { margin-top: clamp(2.5rem, 6vw, 4.5rem); border-top: 2px solid var(--accent-strong); }
+.privacy-principles section { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr); gap: 1rem; padding: 1.45rem 0; border-bottom: 1px solid var(--line); }
+.privacy-principles section > span { color: var(--accent-strong); font-size: .76rem; font-weight: 850; letter-spacing: .08em; }
+.privacy-principles h2 { margin: 0 0 .35rem; font-size: 1.15rem; }
+.privacy-principles p { max-width: 48rem; margin: 0; color: var(--muted); line-height: 1.7; }
+@media (max-width: 40rem) { .privacy-page { padding-top: 2rem; } .privacy-principles section { grid-template-columns: 2rem minmax(0, 1fr); gap: .65rem; } }
 
 .auth-overlay { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 1rem; background: rgb(23 33 28 / .55); }
 .auth-panel { position: relative; width: min(100%, 30rem); max-height: calc(100vh - 2rem); overflow-y: auto; padding: clamp(1.5rem, 5vw, 2.5rem); border-radius: var(--radius); background: var(--surface); box-shadow: 0 1.5rem 5rem rgb(0 0 0 / .2); }
