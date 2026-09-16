@@ -488,6 +488,7 @@ describe('authenticated interest and return experience', () => {
     expect(within(detail).queryByText(/MEDIUM|RULE/)).not.toBeInTheDocument()
     expect(within(detail).getAllByText(/근거 식별자 event-evidence-/)).toHaveLength(2)
     expect(within(detail).getAllByRole('link', { name: /공식 근거 원문/ })).toHaveLength(2)
+    within(detail).getAllByRole('button', { name: '공식 자료 상세' }).forEach(action => expect(action).toHaveClass('alert-evidence-action'))
     expect(backend.fetch).toHaveBeenCalledWith(`/api/me/alerts/${alertItem.alertId}`, expect.objectContaining({ method: 'GET' }))
     await user.click(within(detail).getAllByRole('button', { name: '공식 자료 상세' })[0])
     expect(await screen.findByRole('heading', { name: '공식 자료' })).toBeInTheDocument()

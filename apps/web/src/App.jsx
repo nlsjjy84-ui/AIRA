@@ -510,7 +510,7 @@ export default function App() {
             {reference.publishedAt && <span>근거 자료 발행 {formatDateTime(reference.publishedAt)}</span>}
             <span>근거 개정 번호 {reference.revision}</span>
             <a className="official-evidence-action" href={reference.originalUrl} target="_blank" rel="noopener noreferrer">공식 근거 원문 <span aria-hidden="true">↗</span></a>
-            <button type="button" className="secondary-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
+            <button type="button" className="alert-evidence-action" onClick={() => openOfficialEvidence(reference.evidenceId)}>공식 자료 상세</button>
           </div>)}
         </article>}
       </section>}
