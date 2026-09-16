@@ -474,6 +474,8 @@ describe('authenticated interest and return experience', () => {
     expect(within(alerts).getByText(/판단 완료/)).toBeInTheDocument()
     expect(within(alerts).getByText(/알림 전달/)).toBeInTheDocument()
     expect(within(alerts).queryByText(/알림 생성/)).not.toBeInTheDocument()
+    expect(within(alerts).getByRole('button', { name: '알림 상세 보기' })).toHaveClass('primary-action')
+    expect(within(alerts).getByRole('button', { name: '현재 판단 보기' })).toHaveClass('alert-support-action')
     await user.click(within(alerts).getByRole('button', { name: '알림 상세 보기' }))
     const detail = (await screen.findByRole('heading', { name: '정확한 알림 상세' })).closest('article')
     expect(within(detail).getByText(alertItem.assessmentId)).toBeInTheDocument()

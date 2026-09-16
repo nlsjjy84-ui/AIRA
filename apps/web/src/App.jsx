@@ -481,7 +481,7 @@ export default function App() {
             {item.sentAt && <p className="insight-time">알림 전달 {formatDateTime(item.sentAt)}</p>}
           </div>
           <div className="insight-actions"><button type="button" className="primary-action" onClick={() => openAlertDetail(item.alertId)}>알림 상세 보기</button>
-            <button type="button" className="secondary-action" onClick={() => openAssessmentInExplorer(item.eventId, item.companies)}>현재 판단 보기</button></div></aside>
+            <button type="button" className="alert-support-action" onClick={() => openAssessmentInExplorer(item.eventId, item.companies)}>현재 판단 보기</button></div></aside>
         </article>)}</div>
         {alertDetailState.loading && <Status busy>정확한 알림 기록을 불러오는 중입니다.</Status>}
         {alertDetailState.error && <ErrorState error={alertDetailState.error} subject="알림 상세" retry={() => openAlertDetail(alertDetailState.alertId)} />}

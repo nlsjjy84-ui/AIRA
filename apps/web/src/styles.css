@@ -923,6 +923,8 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .briefing-side .insight-actions > *, .alert-side .insight-actions > * { justify-content: center; }
 .briefing-support-action { border: 0; padding: .2rem 0; color: var(--accent-strong); background: transparent; cursor: pointer; font: inherit; font-weight: 720; text-align: left; text-decoration: underline; text-underline-offset: .18em; }
 .briefing-support-action:hover, .briefing-support-action:focus-visible { color: var(--personal-color, var(--accent)); }
+.alert-support-action { align-self: flex-start; border: 0; padding: .2rem 0; color: var(--accent-strong); background: transparent; cursor: pointer; font: inherit; font-weight: 720; text-align: left; text-decoration: underline; text-underline-offset: .18em; }
+.alert-support-action:hover, .alert-support-action:focus-visible { color: var(--personal-color, var(--accent)); }
 @media (max-width: 52rem) {
   .briefing-card, .alert-card { grid-template-columns: 1fr; gap: .8rem; }
   .briefing-side, .alert-side { padding: .8rem 0 0; border-left: 0; border-top: 1px dashed var(--line); }
