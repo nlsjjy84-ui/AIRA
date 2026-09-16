@@ -424,8 +424,8 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {assessSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실">{eventDetail ? <>
         <h3>{eventDetail.title}</h3><dl className="assessment-facts"><div><dt>대상</dt><dd>{(eventDetail.companies ?? []).map(company => company.companyName).join(' · ')}</dd></div>
           <div><dt>사건 유형</dt><dd>{EVENT_TYPE_LABEL[eventDetail.eventType] ?? eventDetail.eventType}</dd></div><div><dt>발생일</dt><dd>{eventDetail.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</dd></div></dl>
-        <div className="relation-actions">{(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" className="secondary-action"
-          onClick={() => openEvidence(item.evidenceId, { type: 'EVENT', label: eventDetail.eventId })}>공식 근거 · {item.sourceName}</button>)}</div></>
+        {(eventDetail.eventEvidence ?? []).length > 0 && <div className="assessment-fact-evidence"><span>공식 근거 {(eventDetail.eventEvidence ?? []).length}건</span><div>{(eventDetail.eventEvidence ?? []).map(item => <button key={item.evidenceId} type="button" className="assessment-fact-evidence-action"
+          onClick={() => openEvidence(item.evidenceId, { type: 'EVENT', label: eventDetail.eventId })}>{item.sourceName}</button>)}</div></div>}</>
         : eventDetailState.loading ? <LoadingNotice>사건 사실 확인 중…</LoadingNotice>
           : eventDetailState.error?.status === 404 ? <p className="state-message">이 사건은 현재 공개 상세로 제공되지 않습니다.</p>
             : eventDetailState.error ? <div className="state-message" role="alert">사건 상세를 불러오지 못했습니다.</div>

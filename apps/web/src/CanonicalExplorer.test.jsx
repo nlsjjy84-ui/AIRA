@@ -232,7 +232,7 @@ describe('canonical explorer', () => {
       predicate: 'CLOSE_PRICE', eventId: 'EV-1', comparison: null, assessmentId: null, evidenceId: null,
     } }, '', '/explore')
     const detail = { eventId: 'EV-1', eventType: 'EARNINGS', title: '확인된 실적 공시', occurredAt: '2026-01-02T00:00:00Z',
-      companies: [{ companyName: '회사' }], eventEvidence: [], assessment: { assessmentId: 'A2', summary: '현재 AIRA 해석',
+      companies: [{ companyName: '회사' }], eventEvidence: [{ evidenceId: 'EV-E1', sourceName: 'OpenDART' }, { evidenceId: 'EV-E2', sourceName: '공식 첨부문서' }], assessment: { assessmentId: 'A2', summary: '현재 AIRA 해석',
         uncertainty: '후속 공시는 아직 확인되지 않았습니다.', confidence: 'HIGH', importance: 'MEDIUM', method: 'RULE', analysisVersion: 'v2', evidence: [] } }
     const current = { state: 'AVAILABLE', value: { assessmentId: 'A2', eventId: 'EV-1', analysisVersion: 'v2', method: 'RULE', confidence: 'HIGH',
       uncertainty: detail.assessment.uncertainty, completedAt: '2026-01-03T00:00:00Z', supersedesAssessmentId: 'A1', evidenceIds: [] } }
@@ -245,6 +245,9 @@ describe('canonical explorer', () => {
     expect(screen.queryByText(/사건 식별자/)).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('현재 분석')
     expect(screen.getByRole('button', { name: '확인된 사실' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByText('공식 근거 2건')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'OpenDART' })).toHaveClass('assessment-fact-evidence-action')
+    expect(screen.getByRole('button', { name: '공식 첨부문서' })).toHaveClass('assessment-fact-evidence-action')
     fireEvent.click(screen.getByRole('button', { name: 'AIRA 해석' }))
     expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('현재 분석')
     expect(screen.getByRole('button', { name: 'AIRA 해석' })).toHaveAttribute('aria-current', 'page')
