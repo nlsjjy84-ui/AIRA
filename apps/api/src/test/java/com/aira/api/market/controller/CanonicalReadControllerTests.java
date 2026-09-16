@@ -40,13 +40,14 @@ class CanonicalReadControllerTests {
         when(search.find("Same")).thenReturn(new EntitySearchResponse(CanonicalDataState.AVAILABLE,
                 List.of(new EntitySearchResponse.Item(company,
                         com.aira.api.market.domain.EntityType.COMPANY, "COMPANY:" + company,
-                        "Same", null, null),
+                        "Same", null, null, "00126380"),
                         new EntitySearchResponse.Item(security,
                                 com.aira.api.market.domain.EntityType.SECURITY, "SECURITY:" + security,
-                                "Same", "KOSPI", "000001"))));
+                                "Same", "KOSPI", "000001", null))));
         mvc.perform(get("/api/search").param("query", "Same"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.entities.length()").value(2))
                 .andExpect(jsonPath("$.entities[0].entityType").value("COMPANY"))
+                .andExpect(jsonPath("$.entities[0].externalIdentifier").value("00126380"))
                 .andExpect(jsonPath("$.entities[1].entityType").value("SECURITY"));
     }
 

@@ -20,6 +20,7 @@ class CanonicalEntitySearchPostgresTests {
     @Test void sameDisplayNameReturnsDistinctTypedCanonicalIdentities() {
         UUID company = UUID.randomUUID(), security = UUID.randomUUID();
         String name = "Search" + company.toString().replace("-", "").substring(0, 12);
+        String corpCode = company.toString().replace("-", "").substring(0, 8);
         try {
             jdbc.update("INSERT INTO entity(id,entity_type,canonical_name,canonical_key,active) VALUES(?,'COMPANY',?,?,true)",
                     company, name, "COMPANY:" + company);
@@ -27,6 +28,7 @@ class CanonicalEntitySearchPostgresTests {
                     INSERT INTO entity(id,entity_type,canonical_name,canonical_key,market_code,symbol,active)
                     VALUES(?,'SECURITY',?,?,'KOSPI','123456',true)
                     """, security, name, "SECURITY:" + security);
+            jdbc.update("INSERT INTO entity_external_identifier(entity_id,namespace,identifier_type,identifier_value) VALUES(?,'OPENDART','CORP_CODE',?)", company, corpCode);
             var result = search.find(name);
             assertEquals(CanonicalDataState.AVAILABLE, result.state());
             assertEquals(2, result.entities().size());
@@ -34,9 +36,11 @@ class CanonicalEntitySearchPostgresTests {
                     .map(item -> item.entityId()).collect(java.util.stream.Collectors.toSet()));
             assertEquals(java.util.Set.of("COMPANY", "SECURITY"), result.entities().stream()
                     .map(item -> item.entityType().name()).collect(java.util.stream.Collectors.toSet()));
+            assertEquals(corpCode, result.entities().stream().filter(item -> item.entityId().equals(company)).findFirst().orElseThrow().externalIdentifier());
             assertEquals(CanonicalDataState.NO_DATA, search.find(name + "missing").state());
             assertEquals(CanonicalDataState.UNSUPPORTED, search.find(" ").state());
         } finally {
+            jdbc.update("DELETE FROM entity_external_identifier WHERE entity_id=?", company);
             jdbc.update("DELETE FROM entity WHERE id IN (?,?)", company, security);
         }
     }

@@ -21,14 +21,17 @@ public class CanonicalEntitySearchQuery {
                 .replace("_", "\\_");
         // Neutral deterministic identity lookup, not a relevance or investment ranking.
         var entities = jdbc.query("""
-                SELECT id,entity_type,canonical_key,canonical_name,market_code,symbol
-                FROM entity
-                WHERE active=true AND entity_type IN ('COMPANY','SECURITY')
-                  AND (lower(canonical_name) LIKE lower(?) ESCAPE '\\' OR lower(symbol)=lower(?))
-                ORDER BY entity_type,canonical_key LIMIT 50
+                SELECT e.id,e.entity_type,e.canonical_key,e.canonical_name,e.market_code,e.symbol,
+                       (SELECT x.identifier_value FROM entity_external_identifier x
+                        WHERE x.entity_id=e.id AND x.namespace='OPENDART' AND x.identifier_type='CORP_CODE'
+                        ORDER BY x.created_at DESC, x.identifier_value LIMIT 1) AS external_identifier
+                FROM entity e
+                WHERE e.active=true AND e.entity_type IN ('COMPANY','SECURITY')
+                  AND (lower(e.canonical_name) LIKE lower(?) ESCAPE '\\' OR lower(e.symbol)=lower(?))
+                ORDER BY e.entity_type,e.canonical_key LIMIT 50
                 """, (rs, n) -> new Item(rs.getObject(1, java.util.UUID.class),
                 EntityType.valueOf(rs.getString(2)), rs.getString(3), rs.getString(4),
-                rs.getString(5), rs.getString(6)), escaped + "%", term.strip());
+                rs.getString(5), rs.getString(6), rs.getString(7)), escaped + "%", term.strip());
         return new EntitySearchResponse(entities.isEmpty() ? CanonicalDataState.NO_DATA
                 : CanonicalDataState.AVAILABLE, entities);
     }

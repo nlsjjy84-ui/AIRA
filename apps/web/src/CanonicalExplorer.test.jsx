@@ -18,14 +18,17 @@ describe('canonical explorer', () => {
   it('searches for typed identities and restores selected context on browser back', async () => {
     vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, status: 200, json: async () => path.startsWith('/api/search')
       ? { state: 'AVAILABLE', entities: [
-        { entityId: '00000000-0000-0000-0000-000000000001', entityType: 'COMPANY', canonicalName: '삼성', canonicalKey: 'COMPANY:1' },
+        { entityId: '00000000-0000-0000-0000-000000000001', entityType: 'COMPANY', canonicalName: '삼성', canonicalKey: 'COMPANY:1', externalIdentifier: '00126380' },
         { entityId: '00000000-0000-0000-0000-000000000002', entityType: 'SECURITY', canonicalName: '삼성', canonicalKey: 'SECURITY:2', symbol: '005930' },
       ] } : {} })))
     render(<CanonicalExplorer />)
     expect(screen.getByPlaceholderText('기업명·종목명·종목코드 검색')).toBeInTheDocument()
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: '삼성' } })
     fireEvent.click(screen.getByRole('button', { name: '검색' }))
-    expect(await screen.findByRole('button', { name: /삼성 종목.*005930/ })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /삼성 기업.*00126380/ })).toBeInTheDocument()
+    expect(screen.getByText('OpenDART 00126380')).toBeInTheDocument()
+    expect(document.body).not.toHaveTextContent('COMPANY:1')
+    expect(screen.getByRole('button', { name: /삼성 종목.*005930/ })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /삼성 종목/ }))
     expect(screen.queryByRole('heading', { name: '정확한 대상을 선택하세요.' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /어떤 관점으로 볼지 선택하세요/ })).toBeInTheDocument()

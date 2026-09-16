@@ -327,11 +327,12 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         <p>{results.entities.length}개 결과 · 이름과 식별자를 확인한 뒤 선택합니다.</p></div>
       <ul className="explorer-results">{results.entities.map(item => {
         const typeLabel = item.entityType === 'COMPANY' ? '기업' : '종목'
-        const identifier = item.symbol ?? item.canonicalKey
+        const identifier = item.symbol ?? item.externalIdentifier
+        const identifierLabel = item.entityType === 'COMPANY' && item.externalIdentifier ? `OpenDART ${item.externalIdentifier}` : identifier
         return <li key={`${item.entityType}:${item.entityId}`}><button type="button" className={`search-result ${item.entityType.toLowerCase()}`}
-          aria-label={`${item.canonicalName} ${typeLabel} · ${identifier} 선택`} onClick={() => navigate(selectTarget(context, item))}>
+          aria-label={`${item.canonicalName} ${typeLabel}${identifier ? ` · ${identifier}` : ''} 선택`} onClick={() => navigate(selectTarget(context, item))}>
           <span className="result-identity"><strong>{item.canonicalName}</strong><small>{typeLabel}</small></span>
-          <span className="result-key">{identifier}</span><span className="result-action" aria-hidden="true">선택 →</span>
+          {identifierLabel && <span className="result-key">{identifierLabel}</span>}<span className="result-action" aria-hidden="true">선택 →</span>
         </button></li>
       })}</ul>
     </section>}

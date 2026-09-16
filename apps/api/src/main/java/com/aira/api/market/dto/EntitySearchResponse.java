@@ -7,5 +7,5 @@ import java.util.UUID;
 public record EntitySearchResponse(CanonicalDataState state, List<Item> entities) {
     public EntitySearchResponse { entities = List.copyOf(entities); }
     public record Item(UUID entityId, EntityType entityType, String canonicalKey,
-            String canonicalName, String marketCode, String symbol) {}
+            String canonicalName, String marketCode, String symbol, String externalIdentifier) {}
 }
