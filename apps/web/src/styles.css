@@ -790,7 +790,8 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .site-header .account-nav {
     grid-area: account; width: auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; gap: .05rem;
   }
-  .account-nav button, .account-nav a, .account-nav .session-user { padding: .28rem .3rem; font-size: .78rem; white-space: nowrap; }
+  .account-nav button, .account-nav a, .account-nav .session-user { padding: .28rem .18rem; font-size: .75rem; white-space: nowrap; }
+  .account-nav .session-user { min-width: 0; max-width: 5.4rem; overflow: hidden; text-overflow: ellipsis; }
   .workflow-sidebar {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
     gap: .2rem; padding-top: .45rem; padding-bottom: .45rem;
