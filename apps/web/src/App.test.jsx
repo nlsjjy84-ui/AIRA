@@ -180,6 +180,8 @@ describe('authenticated interest and return experience', () => {
     expect(within(historical).getByText('당시 분석 메타데이터')).toBeInTheDocument()
     expect(within(historical).getByText(/미래 수익 확률이 아니며/)).toBeInTheDocument()
     expect(within(historical).getByText(/규칙 기반 · 확신 낮음/)).toBeInTheDocument()
+    expect(within(historical).getByText(/판단 완료/)).toBeInTheDocument()
+    expect(within(historical).queryByText('2026-08-22T01:00:00Z')).not.toBeInTheDocument()
     expect(within(historical).queryByText(/RULE|LOW/)).not.toBeInTheDocument()
     expect(within(historical).queryByText('Current AIRA context')).not.toBeInTheDocument()
     expect(within(historical).getByText('당시 근거 식별자')).toBeInTheDocument()
