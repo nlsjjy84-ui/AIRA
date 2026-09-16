@@ -442,7 +442,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         : <p className="state-message">이 사건에 연결된 현재 AIRA 판단이 없습니다.</p>}</div>}
       {assessSection === 'reason' && <div className="subsection-panel" aria-label="왜 이렇게 해석했나요?">{(eventDetail?.assessment?.evidence ?? []).length > 0
         ? <div className="assessment-evidence-list">{eventDetail.assessment.evidence.map(item => <div className="assessment-evidence-row" key={item.evidenceId}><div><strong>{item.sourceName}</strong><span>{item.title}</span></div>
-          <button type="button" className="secondary-action" onClick={() => openEvidence(item.evidenceId, { type: 'ASSESSMENT', label: eventDetail.assessment.assessmentId })}>근거 상세</button></div>)}</div>
+          <button type="button" className="assessment-evidence-action" onClick={() => openEvidence(item.evidenceId, { type: 'ASSESSMENT', label: eventDetail.assessment.assessmentId })}>근거 상세</button></div>)}</div>
         : <p className="state-message">현재 표시할 판단 근거가 없습니다.</p>}</div>}
       {assessSection === 'path' && <div className="subsection-panel subview-empty" aria-label="가능한 연결 경로"><strong>현재 저장된 연결 경로가 없습니다.</strong>
         <p>확인되지 않은 인과관계는 만들지 않습니다. 근거가 있는 연결 경로가 등록된 경우에만 표시합니다.</p></div>}

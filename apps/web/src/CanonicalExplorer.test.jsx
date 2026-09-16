@@ -233,7 +233,7 @@ describe('canonical explorer', () => {
     } }, '', '/explore')
     const detail = { eventId: 'EV-1', eventType: 'EARNINGS', title: '확인된 실적 공시', occurredAt: '2026-01-02T00:00:00Z',
       companies: [{ companyName: '회사' }], eventEvidence: [{ evidenceId: 'EV-E1', sourceName: 'OpenDART' }, { evidenceId: 'EV-E2', sourceName: '공식 첨부문서' }], assessment: { assessmentId: 'A2', summary: '현재 AIRA 해석',
-        uncertainty: '후속 공시는 아직 확인되지 않았습니다.', confidence: 'HIGH', importance: 'MEDIUM', method: 'RULE', analysisVersion: 'v2', evidence: [] } }
+        uncertainty: '후속 공시는 아직 확인되지 않았습니다.', confidence: 'HIGH', importance: 'MEDIUM', method: 'RULE', analysisVersion: 'v2', evidence: [{ evidenceId: 'A-E1', sourceName: 'OpenDART', title: '반기보고서' }, { evidenceId: 'A-E2', sourceName: '공식 첨부문서', title: '주석 자료' }] } }
     const current = { state: 'AVAILABLE', value: { assessmentId: 'A2', eventId: 'EV-1', analysisVersion: 'v2', method: 'RULE', confidence: 'HIGH',
       uncertainty: detail.assessment.uncertainty, completedAt: '2026-01-03T00:00:00Z', supersedesAssessmentId: 'A1', evidenceIds: [] } }
     const historical = { assessmentId: 'A1', eventId: 'EV-1', analysisVersion: 'v1', method: 'RULE', confidence: 'MEDIUM',
@@ -252,6 +252,11 @@ describe('canonical explorer', () => {
     expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('현재 분석')
     expect(screen.getByRole('button', { name: 'AIRA 해석' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('현재 AIRA 해석')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '왜 이렇게 해석했나요?' }))
+    const reasonActions = screen.getAllByRole('button', { name: '근거 상세' })
+    expect(reasonActions).toHaveLength(2)
+    reasonActions.forEach(action => expect(action).toHaveClass('assessment-evidence-action'))
+    fireEvent.click(screen.getByRole('button', { name: 'AIRA 해석' }))
     fireEvent.click(screen.getByRole('button', { name: '신뢰 수준' }))
     expect(screen.getByRole('button', { name: '신뢰 수준' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByText('분석 메타데이터')).toBeInTheDocument()
