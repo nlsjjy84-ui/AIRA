@@ -22,6 +22,7 @@ public class PersonalFinanceDataDeletionService {
         if (userId == null) throw new IllegalArgumentException("Finance data owner is required");
 
         // Child-first deletion keeps ownership/FK constraints enabled throughout the erase.
+        jdbc.update("DELETE FROM ai_execution WHERE personal_finance_user_id=? AND task_type='PERSONAL_FINANCE_EXPLANATION'", userId);
         jdbc.update("DELETE FROM monthly_budget WHERE user_id=?", userId);
         jdbc.update("DELETE FROM personal_finance_transaction WHERE user_id=?", userId);
         jdbc.update("DELETE FROM personal_finance_account WHERE user_id=?", userId);

@@ -36,6 +36,7 @@ class PersonalFinanceDataDeletionPostgresTests {
             assertEquals(0, count("personal_finance_consent", owner));
             assertEquals(0, count("personal_finance_access_grant", owner));
             assertEquals(0, count("personal_finance_reauth_guard", owner));
+            assertEquals(0, countAiExecutions(owner));
             assertEquals(1, count("app_user", owner));
 
             assertEquals(1, count("personal_finance_consent", other));
@@ -45,9 +46,14 @@ class PersonalFinanceDataDeletionPostgresTests {
             assertEquals(1, count("monthly_budget", other));
             assertEquals(1, count("personal_finance_access_grant", other));
             assertEquals(1, count("personal_finance_reauth_guard", other));
+            assertEquals(1, countAiExecutions(other));
         } finally {
             jdbc.update("DELETE FROM app_user WHERE id IN (?,?)", owner, other);
         }
+    }
+
+    private int countAiExecutions(UUID userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM ai_execution WHERE personal_finance_user_id=?", Integer.class, userId);
     }
 
     private int count(String table, UUID userId) {
@@ -113,6 +119,13 @@ class PersonalFinanceDataDeletionPostgresTests {
                 VALUES (?,?,?,decode(?,'hex'),CURRENT_TIMESTAMP,
                         CURRENT_TIMESTAMP + interval '10 minutes')
                 """, UUID.randomUUID(), userId, session, hex + "ff");
+        jdbc.update("""
+                INSERT INTO ai_execution(
+                    id,provider_key,model_key,task_type,prompt_version,personal_finance_user_id,
+                    input_fingerprint,cache_key,cache_hit,status,started_at,completed_at)
+                VALUES (? ,'TEST','test-model','PERSONAL_FINANCE_EXPLANATION','test-v1',?,
+                        decode(? ,'hex'),decode(? ,'hex'),false,'SUCCEEDED',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+                """, UUID.randomUUID(), userId, hex + "aa", hex + "bb");
         jdbc.update("""
                 INSERT INTO personal_finance_reauth_guard(user_id,failed_attempts,updated_at)
                 VALUES (?,2,CURRENT_TIMESTAMP)
