@@ -24,6 +24,7 @@ export default function HistoricalAssessment({ assessmentId, openEvidence }) {
     {state.error && <div role="alert"><p>{state.error.status === 404 ? '이 분석 기록은 공개 조회할 수 없습니다.' : '분석 기록을 불러오지 못했습니다.'}</p><button onClick={() => setAttempt(value => value + 1)}>다시 시도</button></div>}
     {state.data && <>
       <p>사건 식별자 {state.data.eventId}</p>
+      <div className="historical-metadata-boundary"><strong>당시 분석 메타데이터</strong><p>확신 수준은 사실 확률이나 미래 수익 확률이 아니며, 당시 저장된 분석 조건을 설명합니다.</p></div>
       <p>분석 버전 {state.data.analysisVersion} · {ASSESSMENT_METHOD_LABELS[state.data.method] ?? state.data.method} · 확신 {CONFIDENCE_LABELS[state.data.confidence] ?? state.data.confidence}</p>
       <p>아직 확인할 점: {state.data.uncertainty}</p>
       <p>판단 완료 {state.data.completedAt}</p>
