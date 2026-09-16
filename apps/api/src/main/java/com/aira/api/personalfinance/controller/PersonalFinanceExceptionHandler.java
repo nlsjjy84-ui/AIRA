@@ -3,6 +3,7 @@ package com.aira.api.personalfinance.controller;
 import com.aira.api.personalfinance.exception.FinanceAccessRequiredException;
 import com.aira.api.personalfinance.exception.FinanceConsentAlreadyActiveException;
 import com.aira.api.personalfinance.exception.FinanceConsentNotFoundException;
+import com.aira.api.personalfinance.exception.FinanceConsentRequiredException;
 import com.aira.api.personalfinance.exception.FinanceReauthenticationFailedException;
 import com.aira.api.personalfinance.exception.InvalidFinanceConsentException;
 import org.springframework.http.HttpStatus;
@@ -25,7 +26,7 @@ public class PersonalFinanceExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public void invalidConsent() {}
 
-    @ExceptionHandler(FinanceConsentAlreadyActiveException.class)
+    @ExceptionHandler({FinanceConsentAlreadyActiveException.class, FinanceConsentRequiredException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
     public void consentConflict() {}
 

@@ -29,7 +29,8 @@ This extension supports the final-project themes of personalized budget/spending
 
 ## Delivery sequence
 1. PF-1 foundation schema + JPA/repository integrity.
-2. PF-2 authenticated demo import + monthly summary/budget APIs.
-3. PF-3 spending-pattern events and evidence-linked RULE analysis.
-4. PF-4 actual AI explanation adapter + AIExecution provenance.
-5. PF-5 personal-finance UI integrated without replacing MAIN/Ask/Inspect/Relate/Assess.
+2. PF-2A authenticated, consent-scoped demo import.
+3. PF-2B user-set budget + monthly spending summary APIs.
+4. PF-3 spending-pattern events and evidence-linked RULE analysis.
+5. PF-4 actual AI explanation adapter + AIExecution provenance.
+6. PF-5 personal-finance UI integrated without replacing MAIN/Ask/Inspect/Relate/Assess.
