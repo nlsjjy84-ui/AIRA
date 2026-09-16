@@ -490,6 +490,17 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getAllByRole('link', { name: '회사 탐색하기' })).toHaveLength(1)
   })
 
+  it('offers alert settings only when no interested company has alerts enabled', async () => {
+    const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [{ ...interest, alertEnabled: false }], overrides: {
+      'POST /api/me/alerts/reconcile': () => json({ alerts: [], emptyReason: 'NO_ALERT_ENABLED_INTERESTS' }),
+    } })
+    global.fetch = backend.fetch
+    render(<App />)
+    const alerts = (await screen.findByRole('heading', { name: '관심회사 알림' })).closest('section')
+    expect(await within(alerts).findByText('아직 알림을 켠 관심 회사가 없습니다.')).toBeInTheDocument()
+    expect(within(alerts).getByRole('link', { name: '회사와 알림 설정 보기' })).toHaveAttribute('href', '/explore')
+  })
+
   it('describes an empty catch-up window without claiming that no facts exist', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, interests: [interest], overrides: {
       'POST /api/me/briefings/current': () => json({ briefingId: null, title: '내 브리핑', status: 'EMPTY',
@@ -501,6 +512,8 @@ describe('authenticated interest and return experience', () => {
     expect(await screen.findByText('이 브리핑 기간에 새로 정리된 변화가 없습니다.')).toBeInTheDocument()
     expect(screen.queryByText(/아무 변화가 없습니다|새로운 일이 없습니다|공시가 없습니다/)).not.toBeInTheDocument()
     expect(screen.getByText(/정리 기간/)).toBeInTheDocument()
+    const alerts = screen.getByRole('heading', { name: '관심회사 알림' }).closest('section')
+    expect(within(alerts).queryByRole('link', { name: '회사와 알림 설정 보기' })).not.toBeInTheDocument()
   })
 
   it('opens exact historical alert context and keeps current Event separate', async () => {

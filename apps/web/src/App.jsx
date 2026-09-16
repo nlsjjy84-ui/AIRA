@@ -245,6 +245,7 @@ export default function App() {
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
   const exploring = routePath === '/explore'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const shouldOfferAlertSettings = interestsState.data.length > 0 && (alertsState.emptyReason === 'NO_ALERT_ENABLED_INTERESTS' || (!alertsState.emptyReason && !interestsState.data.some(item => item.alertEnabled)))
   const [workflowContext, setWorkflowContext] = useState(() => {
     const saved = exploring ? window.history.state?.[EXPLORER_HISTORY_KEY] : null
     return { step: saved?.step ?? (exploring ? 'MAIN' : null), hasTarget: Boolean(saved?.target), hasEvent: Boolean(saved?.eventId) }
@@ -481,7 +482,7 @@ export default function App() {
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
-        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{interestsState.data.length > 0 && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{shouldOfferAlertSettings && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
             <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
