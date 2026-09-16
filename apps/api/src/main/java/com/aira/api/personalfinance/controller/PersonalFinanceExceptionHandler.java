@@ -6,6 +6,7 @@ import com.aira.api.personalfinance.exception.FinanceConsentNotFoundException;
 import com.aira.api.personalfinance.exception.FinanceConsentRequiredException;
 import com.aira.api.personalfinance.exception.FinanceReauthenticationFailedException;
 import com.aira.api.personalfinance.exception.InvalidFinanceConsentException;
+import com.aira.api.personalfinance.exception.InvalidPersonalFinanceRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -22,9 +23,9 @@ public class PersonalFinanceExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public void accessRequired() {}
 
-    @ExceptionHandler(InvalidFinanceConsentException.class)
+    @ExceptionHandler({InvalidFinanceConsentException.class, InvalidPersonalFinanceRequestException.class})
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public void invalidConsent() {}
+    public void invalidRequest() {}
 
     @ExceptionHandler({FinanceConsentAlreadyActiveException.class, FinanceConsentRequiredException.class})
     @ResponseStatus(HttpStatus.CONFLICT)
