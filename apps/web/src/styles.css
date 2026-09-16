@@ -376,6 +376,8 @@ footer p { margin: 0; }
 .split-mode-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
 .split-mode-heading h3 { margin: 0; }
 .split-mode-heading p:not(.eyebrow) { margin: .35rem 0 0; color: var(--muted); }
+.split-toggle-action { flex: 0 0 auto; border: 0; padding: .25rem 0; color: var(--accent-strong); background: transparent; cursor: pointer; font: inherit; font-weight: 720; text-decoration: underline; text-underline-offset: .18em; }
+.split-toggle-action:hover, .split-toggle-action:focus-visible { color: var(--stage-color, var(--accent)); }
 .compare-fields { max-width: none; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: .75rem; }
 .compare-fields button { align-self: end; }
 @media (max-width: 52rem) {

@@ -473,7 +473,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {inspectSection === 'history' && <div className="subsection-panel subview-empty" aria-label="변경 이력"><strong>현재 확인된 변경 이력이 없습니다.</strong>
         <p>정정·변경 관계가 공식 데이터로 확인될 때만 이력으로 연결합니다. 이름이나 revision만으로 변경 계보를 만들지 않습니다.</p></div>}
       {inspectSection === 'compare' && <div className="subsection-panel" aria-label="기간 비교"><section className="comparison-workspace"><div className="split-mode-heading"><div><p className="eyebrow">SPLIT VIEW · 비교</p><h3>A ↔ B 분할 비교</h3>
-          <p>A의 현재 문맥을 유지한 채 B의 정확한 기간·공시를 옆에 놓고 비교합니다.</p></div><button type="button" onClick={() => setCompare(value => ({ ...value, open: !value.open }))}>{compare.open ? '분할보기 닫기' : '분할보기 열기'}</button></div>
+          <p>A의 현재 문맥을 유지한 채 B의 정확한 기간·공시를 옆에 놓고 비교합니다.</p></div><button type="button" className="split-toggle-action" onClick={() => setCompare(value => ({ ...value, open: !value.open }))}>{compare.open ? '분할보기 닫기' : '분할보기 열기'}</button></div>
         {compare.open && <><form onSubmit={loadComparison} className="explorer-fields compare-fields" aria-label="B 정확한 기간 선택">
           <label>B 기간 시작 <input type="date" value={compare.periodStart} onChange={event => changeCompareField('periodStart', event.target.value)} /></label>
           <label>B 기간 종료 <input type="date" value={compare.periodEnd} onChange={event => changeCompareField('periodEnd', event.target.value)} /></label>
