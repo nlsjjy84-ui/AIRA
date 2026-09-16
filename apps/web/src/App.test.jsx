@@ -480,6 +480,7 @@ describe('authenticated interest and return experience', () => {
     const detail = (await screen.findByRole('heading', { name: '정확한 알림 상세' })).closest('article')
     expect(within(detail).getByText(alertItem.assessmentId)).toBeInTheDocument()
     expect(within(detail).getByText(alertItem.analysisVersion)).toBeInTheDocument()
+    expect(within(detail).getByRole('button', { name: '당시 판단 보기' })).toHaveClass('alert-history-action')
     expect(within(detail).getByText('규칙 기반')).toBeInTheDocument()
     expect(within(detail).getByText('보통')).toBeInTheDocument()
     expect(within(detail).getByText('높음')).toBeInTheDocument()

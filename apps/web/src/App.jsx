@@ -489,7 +489,7 @@ export default function App() {
           <h3 id="alert-detail-title">정확한 알림 상세</h3>
           <p className="eyebrow">관련 회사: {alertDetailState.data.companies.map(company => company.companyName).join(' · ')}</p>
           <h4>{alertDetailState.data.eventTitle}</h4><p>{alertDetailState.data.summary}</p>
-          <p>알림 전달 당시 판단</p><button onClick={() => setHistoricalId(alertDetailState.data.assessmentId)}>당시 판단 보기</button>
+          <p>알림 전달 당시 판단</p><button type="button" className="alert-history-action" onClick={() => setHistoricalId(alertDetailState.data.assessmentId)}>당시 판단 보기</button>
           <div className="alert-metadata-boundary"><strong>분석 메타데이터</strong><p>확신 수준은 사실 확률이나 미래 수익 확률이 아니며, 중요도는 추천 순위나 매매 강도가 아닙니다.</p></div>
           <dl className="fact-list">
             <div className="fact-row"><dt>판단 식별자</dt><dd>{alertDetailState.data.assessmentId}</dd></div>
