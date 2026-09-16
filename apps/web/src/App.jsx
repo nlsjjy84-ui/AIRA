@@ -455,7 +455,7 @@ export default function App() {
         {briefingState.loading && <Status busy>관심회사에서 확인된 내용을 모으는 중입니다.</Status>}
         {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
         {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
-          <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '아직 관심 회사가 없습니다.' : '이 브리핑 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason === 'NO_INTERESTS' && <p>계속 확인하고 싶은 회사를 저장하면 이후 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.</p>}<a className="secondary-action" href="/explore">관심회사 살펴보기</a></div>}
+          <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '관심회사를 저장하면 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.' : '이 브리핑 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason !== 'NO_INTERESTS' && <a className="secondary-action" href="/explore">관심회사 살펴보기</a>}</div>}
         {briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
@@ -481,7 +481,7 @@ export default function App() {
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
-        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status><a className="secondary-action" href="/explore">회사와 알림 설정 보기</a></div>}
+        {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{interestsState.data.length > 0 && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
             <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
