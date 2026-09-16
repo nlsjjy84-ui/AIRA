@@ -396,7 +396,7 @@ export default function App() {
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><button type="button" aria-label="계정 설정 열기" onClick={() => setSettingsOpen(true)}>사용자 {session.user.nickname}</button><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><span className="session-user">사용자 {session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
     <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
