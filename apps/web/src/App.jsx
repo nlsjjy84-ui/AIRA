@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
+import PersonalFinance from './PersonalFinance.jsx'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
@@ -244,6 +245,7 @@ export default function App() {
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
   const exploring = routePath === '/explore'
+  const finance = routePath === '/finance'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const shouldOfferAlertSettings = interestsState.data.length > 0 && (alertsState.emptyReason === 'NO_ALERT_ENABLED_INTERESTS' || (!alertsState.emptyReason && !interestsState.data.some(item => item.alertEnabled)))
   const [workflowContext, setWorkflowContext] = useState(() => {
@@ -409,7 +411,7 @@ export default function App() {
       <nav className="account-nav" aria-label="계정 메뉴">
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href={exploring ? '/#my-interests' : '#my-interests'}>관심회사</a><a href={exploring ? '/#my-briefing' : '#my-briefing'}>브리핑</a><a href={exploring ? '/#my-alerts' : '#my-alerts'}>알림</a><span className="session-user">사용자 {session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
+        {!session.loading && session.user && <><a href={routePath === '/' ? '#my-interests' : '/#my-interests'}>관심회사</a><a href={routePath === '/' ? '#my-briefing' : '/#my-briefing'}>브리핑</a><a href={routePath === '/' ? '#my-alerts' : '/#my-alerts'}>알림</a><span className="session-user">사용자 {session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
       </nav>
     </header>
     <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
@@ -423,17 +425,20 @@ export default function App() {
               onClick={() => chooseWorkflowStep(step)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
           : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step}
-              href={step === 'MAIN' ? '#main' : '/explore'} aria-label={`${step} ${korean}`}>
+              href={step === 'MAIN' ? (routePath === '/' ? '#main' : '/') : '/explore'} aria-label={`${step} ${korean}`}>
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
+      <a className="finance-sidebar-entry" href="/finance" aria-current={finance ? 'page' : undefined} aria-label="내 금융">
+        <span aria-hidden="true">{sidebarCollapsed ? '₩' : '내 금융'}</span>
+      </a>
       <button className="settings-action" aria-label="설정" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>
         <span aria-hidden="true">{sidebarCollapsed ? '⚙' : '설정'}</span></button>
     </aside>
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/privacy' ? <PrivacyPage /> : exploring ? <CanonicalExplorer embedded interest={{
+      {routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
         user: session.user, items: interestsState.data, loading: interestAction.loading, error: interestAction.error, retry: interestAction.retry,
         onLogin: () => setAuthMode('login'), onSave: entityId => changeInterest(false, entityId),
         onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),

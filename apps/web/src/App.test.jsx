@@ -556,4 +556,44 @@ describe('authenticated interest and return experience', () => {
     expect(await screen.findByRole('heading', { name: '현재 분석과 판단 근거를 분리해 봅니다.' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Assess 판단' })).toHaveAttribute('aria-current', 'step')
   })
+
+  it('keeps personal finance outside the five-step company workflow', async () => {
+    window.history.replaceState({}, '', '/finance')
+    global.fetch = server().fetch
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: /내 금융은/ })).toBeInTheDocument()
+    const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
+    expect(within(flow).getAllByRole('link').map(link => link.getAttribute('aria-label')))
+      .toEqual(['MAIN 메인', 'Ask 질문', 'Inspect 살피기', 'Relate 잇기', 'Assess 판단'])
+    expect(screen.getByRole('link', { name: '내 금융' })).toHaveAttribute('aria-current', 'page')
+    expect(within(flow).queryByRole('link', { name: '내 금융' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '설정', exact: true })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '공식 데이터와 근거를 함께 확인하세요.' })).not.toBeInTheDocument()
+  })
+
+  it('requires a separate protection check before rendering personal finance data', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
+      'GET /api/me/finance/access': () => json({ authorized: false }),
+      'POST /api/me/finance/access/reauthenticate': () => json({ authorized: true }),
+    } })
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      if (path === '/api/me/finance/consents') return json([])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 0, totalBudget: null, totalRemaining: null, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
+    expect(screen.queryByText('사용자 소유 데이터')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('AIRA 비밀번호'), 'long-secure-password')
+    await user.click(screen.getByRole('button', { name: '내 금융 열기' }))
+    expect(await screen.findByRole('heading', { name: '내 금융', exact: true })).toBeInTheDocument()
+    expect(screen.getByText(/대신 판단하거나 지출을 추천하지 않습니다/)).toBeInTheDocument()
+    expect(screen.getByText('실제 MyData')).toBeInTheDocument()
+  })
 })
