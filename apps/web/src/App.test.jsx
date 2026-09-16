@@ -483,6 +483,8 @@ describe('authenticated interest and return experience', () => {
     expect(within(detail).getByText('규칙 기반')).toBeInTheDocument()
     expect(within(detail).getByText('보통')).toBeInTheDocument()
     expect(within(detail).getByText('높음')).toBeInTheDocument()
+    expect(within(detail).getByText('분석 메타데이터')).toBeInTheDocument()
+    expect(within(detail).getByText(/미래 수익 확률이 아니며/)).toBeInTheDocument()
     expect(within(detail).queryByText(/MEDIUM|RULE/)).not.toBeInTheDocument()
     expect(within(detail).getAllByText(/근거 식별자 event-evidence-/)).toHaveLength(2)
     expect(within(detail).getAllByRole('link', { name: /공식 근거 원문/ })).toHaveLength(2)
