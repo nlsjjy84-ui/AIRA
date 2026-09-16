@@ -231,6 +231,13 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByRole('contentinfo')).toHaveTextContent('개인정보와 이용자 보호 원칙')
   })
 
+  it('preserves the current explore query in the header search field', async () => {
+    window.history.replaceState({}, '', '/explore?q=' + encodeURIComponent('삼성전자'))
+    global.fetch = vi.fn(async path => ({ ok: true, status: 200, json: async () => String(path).startsWith('/api/search') ? { state: 'NO_DATA', entities: [] } : null }))
+    render(<App />)
+    expect(await screen.findByRole('searchbox', { name: '검색' })).toHaveValue('삼성전자')
+  })
+
   it('preserves anonymous access to staged public exploration', async () => {
     global.fetch = server().fetch
     render(<App />)

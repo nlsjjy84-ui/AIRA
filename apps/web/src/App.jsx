@@ -224,7 +224,7 @@ function PrivacyPage() {
 }
 
 export default function App() {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [historicalId, setHistoricalId] = useState(null)
   const requestVersions = useRef({})
