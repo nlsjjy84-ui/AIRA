@@ -52,12 +52,16 @@ describe('evidence-linked visuals', () => {
     const select = vi.fn(), historical = vi.fn(), evidence = vi.fn()
     render(<><EventTimeline events={[{ eventId: 'unknown', title: '미상', occurredAt: null },
       { eventId: 'dated', title: '확정', occurredAt: '2026-09-14T00:00:00Z' }]} onSelect={select} />
-      <AssessmentFlow assessment={{ assessmentId: 'A2', supersedesAssessmentId: 'A1', evidenceIds: ['E1'] }}
+      <AssessmentFlow assessment={{ assessmentId: 'A2', supersedesAssessmentId: 'A1', evidenceIds: ['E1', 'E2'] }}
         onHistorical={historical} onEvidence={evidence} /></>)
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('확정')
     expect(screen.getAllByRole('listitem')[1]).toHaveTextContent('발생시각 미상')
     fireEvent.click(screen.getByRole('button', { name: /이전 당시 판단.*A1/ }))
-    fireEvent.click(screen.getByRole('button', { name: '근거 식별자 · E1' }))
+    expect(screen.getByText('판단 근거 식별자')).toBeInTheDocument()
+    const evidenceActions = screen.getAllByRole('button', { name: /^E[12]$/ })
+    expect(evidenceActions).toHaveLength(2)
+    evidenceActions.forEach(action => expect(action).toHaveClass('viz-evidence-action'))
+    fireEvent.click(screen.getByRole('button', { name: 'E1' }))
     expect(historical).toHaveBeenCalledWith('A1')
     expect(evidence).toHaveBeenCalledWith('E1', { type: 'ASSESSMENT', label: 'A2' })
   })

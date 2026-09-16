@@ -488,6 +488,8 @@ footer p { margin: 0; }
 .viz-flow-arrow { align-self: center; color: var(--muted); font-size: 1.25rem; }
 .viz-evidence-links { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: 1rem; padding-top: .8rem; border-top: 1px dashed var(--line); }
 .viz-evidence-links > span { margin-right: .25rem; color: var(--muted); font-size: .8rem; font-weight: 700; }
+.viz-evidence-links .viz-evidence-action { margin: 0; padding: .15rem 0; border: 0; color: var(--accent-strong); background: transparent; font-weight: 720; text-decoration: underline; text-underline-offset: .18em; }
+.viz-evidence-links .viz-evidence-action:hover, .viz-evidence-links .viz-evidence-action:focus-visible { color: var(--process-color, var(--accent)); background: transparent; }
 .viz-chain { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.4rem; margin: 0; padding: 0; }
 .viz-chain li { position: relative; display: grid; gap: .18rem; min-width: 0; padding: .8rem 0; border-top: 2px solid var(--line); }
 .viz-chain li:not(:last-child)::after { content: '→'; position: absolute; right: -1rem; top: 50%; transform: translateY(-50%); color: var(--muted); }

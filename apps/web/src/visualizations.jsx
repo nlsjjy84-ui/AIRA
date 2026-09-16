@@ -181,9 +181,9 @@ export function AssessmentFlow({ assessment, onHistorical, onEvidence }) {
       onClick={() => onHistorical(assessment.supersedesAssessmentId)}><small>이전 당시 판단</small><span>{assessment.supersedesAssessmentId}</span><em className="viz-contract-term">Historical Exact</em></button>
       <span className="viz-flow-arrow" aria-hidden="true">→</span></>}
       <strong className="viz-flow-node current"><small>현재 판단</small><span>{assessment.assessmentId}</span><em className="viz-contract-term">Current</em></strong></div>
-    {(assessment.evidenceIds ?? []).length > 0 && <div className="viz-evidence-links"><span>판단 근거</span>
-      {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" onClick={() => onEvidence(id,
-        { type: 'ASSESSMENT', label: assessment.assessmentId })}>근거 식별자 · {id}</button>)}</div>}
+    {(assessment.evidenceIds ?? []).length > 0 && <div className="viz-evidence-links"><span>판단 근거 식별자</span>
+      {(assessment.evidenceIds ?? []).map(id => <button key={id} type="button" className="viz-evidence-action" onClick={() => onEvidence(id,
+        { type: 'ASSESSMENT', label: assessment.assessmentId })}>{id}</button>)}</div>}
   </section>
 }
 
