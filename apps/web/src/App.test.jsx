@@ -485,6 +485,8 @@ describe('authenticated interest and return experience', () => {
     const alerts = screen.getByRole('heading', { name: '관심회사 알림' }).closest('section')
     expect(within(alerts).getByText('관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.')).toBeInTheDocument()
     expect(within(alerts).queryByRole('link', { name: '회사와 알림 설정 보기' })).not.toBeInTheDocument()
+    expect(within(briefing).queryByText(/정리 기간/)).not.toBeInTheDocument()
+    expect(within(briefing).queryByText(/브리핑 생성/)).not.toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: '회사 탐색하기' })).toHaveLength(1)
   })
 
