@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { AssessmentFlow, EventTimeline, EvidenceChain, FinancialOverview, FinancialSplit,
   MarketPreviousView, MarketSeriesView, formatQuantity, MarketOverview, OhlcCandle } from './visualizations.jsx'
 
@@ -26,9 +26,12 @@ describe('evidence-linked visuals', () => {
       <FinancialSplit comparison={comparison} onEvidence={onEvidence} /></>)
     expect(screen.getAllByText('0원').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByRole('button', { name: '상세 보기' }))
-    expect(screen.getByText('e-a')).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: '재무 한눈에 보기' })).getByText('e-a')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '근거 확인' }))
-    fireEvent.click(screen.getByRole('button', { name: 'B 근거 식별자 · e-b' }))
+    expect(screen.getByText('A 근거 식별자')).toBeInTheDocument()
+    const comparisonEvidence = screen.getByRole('button', { name: 'B 근거 식별자 · e-b' })
+    expect(comparisonEvidence).toHaveClass('viz-evidence-action')
+    fireEvent.click(comparisonEvidence)
     expect(onEvidence.mock.calls.map(call => call[0])).toEqual(['e-a', 'e-b'])
     expect(screen.getAllByRole('meter')).toHaveLength(2)
     expect(screen.getByText('증감액 1억 원')).toBeInTheDocument()

@@ -1034,6 +1034,7 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 .comparison-result .viz-side > small:first-child { grid-column: 1 / -1; }
 .comparison-result .viz-side > strong { grid-column: 1; }
 .comparison-result .viz-side > button { grid-column: 2; margin: 0; }
+.comparison-result .viz-side > .viz-evidence-links { grid-column: 1 / -1; margin-top: .15rem; padding-top: .25rem; border-top: 0; }
 .viz-change-summary {
   display: flex;
   flex-wrap: wrap;
