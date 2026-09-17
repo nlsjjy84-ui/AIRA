@@ -118,11 +118,14 @@ export default function PersonalFinance({ user, onLogin }) {
   }
 
   async function lockFinance() {
-    setBusy(true)
+    setBusy(true); setError(null); setNotice(null)
     try {
       await revokeFinanceAccess()
       setAccess({ loading: false, authorized: false, error: null })
       setSummary(null); setPattern(null); setExplanation(null); setConsents([])
+    } catch {
+      // 서버의 접근 권한 폐기가 확인되지 않았으므로 잠금 성공으로 표시하지 않습니다.
+      setError('내 금융을 잠그지 못했습니다. 연결 상태를 확인하고 다시 시도해 주세요.')
     } finally { setBusy(false) }
   }
   async function revokeDemoConsent() {

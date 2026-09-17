@@ -650,6 +650,34 @@ describe('authenticated interest and return experience', () => {
     expect(screen.queryByText('1,874,000원')).not.toBeInTheDocument()
   })
 
+  it('offers retry when locking finance fails and locks after retry succeeds', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    let lockAttempts = 0
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      if (path === '/api/me/finance/access' && options.method === 'DELETE') {
+        lockAttempts += 1
+        return lockAttempts === 1 ? json({ message: 'failed' }, 500) : json(null, 204)
+      }
+      if (path === '/api/me/finance/access') return json({ authorized: true })
+      if (path === '/api/me/finance/consents') return json([])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 1874000, totalBudget: 2500000, totalRemaining: 626000, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+    expect(await screen.findByText('1,874,000원')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '내 금융 잠그기' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('잠그지 못했습니다')
+    expect(screen.getByRole('button', { name: '내 금융 잠그기' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: '내 금융 잠그기' }))
+    expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
+    expect(screen.queryByText('1,874,000원')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('keeps finance data and confirmation available when deletion fails', async () => {
     window.history.replaceState({}, '', '/finance')
     const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
