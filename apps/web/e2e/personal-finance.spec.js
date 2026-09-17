@@ -4,6 +4,10 @@ test('personal finance stays separate, readable, and scrollable beside the shell
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url())
     if (!url.pathname.startsWith('/api/')) return route.fallback()
+    if (url.pathname === '/api/me/finance/data' && route.request().method() === 'DELETE') {
+      await route.fulfill({ status: 204, body: '' })
+      return
+    }
     const bodies = {
       '/api/me': { userId: 'user-1', nickname: '테스트사용자' },
       '/api/me/interests': [],
@@ -28,4 +32,10 @@ test('personal finance stays separate, readable, and scrollable beside the shell
   await explanation.scrollIntoViewIfNeeded()
   await expect(explanation).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: '금융데이터 관리' }).click()
+  await expect(page.getByText(/AIRA 계정은 유지되고/)).toBeVisible()
+  await expect(page.locator('html')).toHaveJSProperty('scrollWidth', 390)
+  await page.getByRole('button', { name: '금융데이터 전체 삭제' }).click()
+  await expect(page.getByRole('heading', { name: /내 금융을 열기 전/ })).toBeVisible()
 })

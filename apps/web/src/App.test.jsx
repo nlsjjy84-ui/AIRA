@@ -596,4 +596,113 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByText(/대신 판단하거나 지출을 추천하지 않습니다/)).toBeInTheDocument()
     expect(screen.getByText('실제 MyData')).toBeInTheDocument()
   })
+
+  it('deletes user-owned finance data only after explicit confirmation and returns to the protection gate', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      const method = options.method ?? 'GET'
+      if (path === '/api/me/finance/access') return json({ authorized: true })
+      if (path === '/api/me/finance/consents') return json([{ id: 'consent-1', sourceType: 'DEMO_IMPORT', providerKey: 'AIRA_DEMO_V1', revokedAt: null }])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 1874000, totalBudget: 2500000, totalRemaining: 626000, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      if (path === '/api/me/finance/data' && method === 'DELETE') return json(null, 204)
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('1,874,000원')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '금융데이터 관리' }))
+    expect(screen.getByText(/AIRA 계정은 유지되고/)).toBeInTheDocument()
+    expect(global.fetch.mock.calls.filter(([path, options = {}]) =>
+      path === '/api/me/finance/data' && options.method === 'DELETE')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: '금융데이터 전체 삭제' }))
+    expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
+    expect(screen.queryByText('1,874,000원')).not.toBeInTheDocument()
+    expect(global.fetch.mock.calls.filter(([path, options = {}]) =>
+      path === '/api/me/finance/data' && options.method === 'DELETE')).toHaveLength(1)
+  })
+
+  it('locks finance again when deletion authorization has expired', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      const method = options.method ?? 'GET'
+      if (path === '/api/me/finance/access') return json({ authorized: true })
+      if (path === '/api/me/finance/consents') return json([])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 1874000, totalBudget: 2500000, totalRemaining: 626000, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      if (path === '/api/me/finance/data' && method === 'DELETE') return json({ message: 'expired' }, 403)
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('1,874,000원')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '금융데이터 관리' }))
+    await user.click(screen.getByRole('button', { name: '금융데이터 전체 삭제' }))
+
+    expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
+    expect(screen.getByText(/보호 확인이 만료되었습니다/)).toBeInTheDocument()
+    expect(screen.queryByText('1,874,000원')).not.toBeInTheDocument()
+  })
+
+  it('keeps finance data and confirmation available when deletion fails', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      const method = options.method ?? 'GET'
+      if (path === '/api/me/finance/access') return json({ authorized: true })
+      if (path === '/api/me/finance/consents') return json([])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 1874000, totalBudget: 2500000, totalRemaining: 626000, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      if (path === '/api/me/finance/data' && method === 'DELETE') return json({ message: 'failed' }, 500)
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('1,874,000원')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '금융데이터 관리' }))
+    await user.click(screen.getByRole('button', { name: '금융데이터 전체 삭제' }))
+
+    expect(await screen.findByText(/금융데이터를 삭제하지 못했습니다/)).toBeInTheDocument()
+    expect(screen.getByText('1,874,000원')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '금융데이터 전체 삭제' })).toBeEnabled()
+  })
+
+  it('prevents duplicate finance deletion while the first request is pending', async () => {
+    window.history.replaceState({}, '', '/finance')
+    const base = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } })
+    let resolveDelete
+    const pendingDelete = new Promise((resolve) => { resolveDelete = resolve })
+    global.fetch = vi.fn((input, options = {}) => {
+      const path = String(input)
+      const method = options.method ?? 'GET'
+      if (path === '/api/me/finance/access') return json({ authorized: true })
+      if (path === '/api/me/finance/consents') return json([])
+      if (path.startsWith('/api/me/finance/summary?')) return json({ totalSpent: 1874000, totalBudget: 2500000, totalRemaining: 626000, categories: [] })
+      if (path.startsWith('/api/me/finance/patterns?')) return json({ method: 'RULE', total: null, categories: [] })
+      if (path === '/api/me/finance/data' && method === 'DELETE') return pendingDelete
+      return base.fetch(input, options)
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByText('1,874,000원')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '금융데이터 관리' }))
+    const deleteButton = screen.getByRole('button', { name: '금융데이터 전체 삭제' })
+    await user.click(deleteButton)
+    expect(screen.getByRole('button', { name: '삭제 중…' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '삭제 중…' }))
+    expect(global.fetch.mock.calls.filter(([path, options = {}]) =>
+      path === '/api/me/finance/data' && options.method === 'DELETE')).toHaveLength(1)
+
+    resolveDelete(json(null, 204))
+    expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
+  })
 })

@@ -1531,7 +1531,14 @@ main { min-height: calc(100dvh - 6.25rem); }
 .finance-trust-rail dl > div { display: grid; gap: .12rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
 .finance-trust-rail dt { color: var(--muted); font-size: .74rem; font-weight: 750; }
 .finance-trust-rail dd { margin: 0; font-weight: 800; }
-.finance-trust-rail > p:last-child { color: var(--muted); font-size: .83rem; }
+.finance-trust-rail > p { color: var(--muted); font-size: .83rem; }
+.finance-data-manage { border: 0; padding: .45rem 0; color: var(--accent-strong); background: transparent; cursor: pointer; font-weight: 800; }
+.finance-data-management { margin-top: .65rem; padding-top: .9rem; border-top: 1px solid var(--line); }
+.finance-data-management > p { color: var(--muted); font-size: .82rem; line-height: 1.55; }
+.finance-data-management > div { display: flex; flex-wrap: wrap; gap: .45rem; }
+.finance-data-management button { border: 1px solid var(--line); border-radius: .45rem; padding: .5rem .65rem; background: transparent; color: var(--muted); cursor: pointer; font-weight: 750; }
+.finance-data-management .finance-delete-action { border-color: var(--error); color: var(--error); }
+.finance-data-management button:disabled { cursor: wait; opacity: .55; }
 
 .finance-breakdown,
 .finance-pattern,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  createDemoFinanceConsent, getFinanceAccess, getFinanceConsents,
+  createDemoFinanceConsent, deleteFinanceData, getFinanceAccess, getFinanceConsents,
   getFinancePatterns, getFinanceSummary, importDemoFinanceData,
   reauthenticateFinance, requestFinanceAiExplanation, revokeFinanceAccess,
   revokeFinanceConsent, upsertFinanceBudget,
@@ -36,6 +36,7 @@ export default function PersonalFinance({ user, onLogin }) {
   const [notice, setNotice] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [dataManagementOpen, setDataManagementOpen] = useState(false)
 
   const activeDemoConsent = useMemo(() => consents.find(item =>
     item.sourceType === 'DEMO_IMPORT' && item.providerKey === 'AIRA_DEMO_V1' && !item.revokedAt), [consents])
@@ -135,6 +136,25 @@ export default function PersonalFinance({ user, onLogin }) {
     finally { setBusy(false) }
   }
 
+  async function deleteAllFinanceData() {
+    setBusy(true); setError(null); setNotice(null)
+    try {
+      await deleteFinanceData()
+      setSummary(null); setPattern(null); setExplanation(null); setConsents([])
+      setDataManagementOpen(false)
+      setAccess({ loading: false, authorized: false, error: null })
+    } catch (failure) {
+      if (failure?.status === 403) {
+        setSummary(null); setPattern(null); setExplanation(null); setConsents([])
+        setDataManagementOpen(false)
+        setAccess({ loading: false, authorized: false, error: null })
+        setError('금융정보 보호 확인이 만료되었습니다. 다시 확인해 주세요.')
+      } else {
+        setError('금융데이터를 삭제하지 못했습니다. 다시 시도해 주세요.')
+      }
+    } finally { setBusy(false) }
+  }
+
   if (!user) return <section className="finance-page finance-entry" aria-labelledby="finance-title">
     <div className="finance-hero-copy">
       <p className="eyebrow">PERSONAL FINANCE · 선택 기능</p>
@@ -220,6 +240,18 @@ export default function PersonalFinance({ user, onLogin }) {
           <div><dt>실제 MyData</dt><dd>연결하지 않음</dd></div>
         </dl>
         <p>금융정보는 공개 기업 Fact/Evidence와 섞이지 않습니다.</p>
+        <button type="button" className="finance-data-manage" onClick={() => setDataManagementOpen(open => !open)}
+          aria-expanded={dataManagementOpen} aria-controls="finance-data-management">금융데이터 관리</button>
+        {dataManagementOpen && <div id="finance-data-management" className="finance-data-management">
+          <strong>가져온 금융데이터 전체 삭제</strong>
+          <p>AIRA 계정은 유지되고, 데모 거래·계좌·동의·예산·금융 AI 설명 기록만 삭제됩니다. 삭제 후 내 금융은 다시 잠깁니다.</p>
+          <div>
+            <button type="button" onClick={() => setDataManagementOpen(false)} disabled={busy}>취소</button>
+            <button type="button" className="finance-delete-action" onClick={deleteAllFinanceData} disabled={busy}>
+              {busy ? '삭제 중…' : '금융데이터 전체 삭제'}
+            </button>
+          </div>
+        </div>}
       </aside>
     </div>
 
