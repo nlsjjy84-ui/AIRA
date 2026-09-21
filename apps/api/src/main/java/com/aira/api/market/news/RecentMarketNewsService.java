@@ -12,48 +12,39 @@ import org.springframework.stereotype.Service;
 public class RecentMarketNewsService {
     static final String PROVIDER = "GDELT DOC 2.0";
     private final MarketNewsClient client;
+    private final MarketNewsCacheStore cacheStore;
     private final Clock clock;
     private final Duration ttl;
-    private volatile Cache cache;
 
     @Autowired
-    public RecentMarketNewsService(MarketNewsClient client,
+    public RecentMarketNewsService(MarketNewsClient client, MarketNewsCacheStore cacheStore,
             @Value("${aira.news.gdelt.cache-minutes:10}") long cacheMinutes) {
-        this(client, Clock.systemUTC(), Duration.ofMinutes(Math.max(1, cacheMinutes)));
+        this(client, cacheStore, Clock.systemUTC(), Duration.ofMinutes(Math.max(1, cacheMinutes)));
     }
 
-    RecentMarketNewsService(MarketNewsClient client, Clock clock, Duration ttl) {
-        if (client == null || clock == null || ttl == null || ttl.isZero() || ttl.isNegative())
+    RecentMarketNewsService(MarketNewsClient client, MarketNewsCacheStore cacheStore,
+            Clock clock, Duration ttl) {
+        if (client == null || cacheStore == null || clock == null || ttl == null || ttl.isZero() || ttl.isNegative())
             throw new IllegalArgumentException("News service dependencies are required");
         this.client = client;
+        this.cacheStore = cacheStore;
         this.clock = clock;
         this.ttl = ttl;
     }
 
-    public MarketNewsFeedResponse latest() {
+    public synchronized MarketNewsFeedResponse latest() {
         OffsetDateTime now = OffsetDateTime.now(clock);
-        Cache current = cache;
-        if (current != null && now.isBefore(current.expiresAt())) return current.response();
-        synchronized (this) {
-            now = OffsetDateTime.now(clock);
-            current = cache;
-            if (current != null && now.isBefore(current.expiresAt())) return current.response();
-            try {
-                List<MarketNewsArticle> items = client.fetchRecentKoreanMarketNews().stream().limit(6).toList();
-                MarketNewsFeedResponse response = new MarketNewsFeedResponse(PROVIDER, now, false, items);
-                cache = new Cache(response, now.plus(ttl));
-                return response;
-            } catch (RuntimeException failure) {
-                if (current != null) {
-                    MarketNewsFeedResponse stale = new MarketNewsFeedResponse(PROVIDER,
-                            current.response().fetchedAt(), true, current.response().items());
-                    cache = new Cache(stale, now.plus(Duration.ofMinutes(1)));
-                    return stale;
-                }
-                throw new MarketNewsUnavailableException(failure);
-            }
+        MarketNewsFeedResponse cached = cacheStore.latest(PROVIDER).orElse(null);
+        if (cached != null && now.isBefore(cached.fetchedAt().plus(ttl))) return cached;
+        try {
+            List<MarketNewsArticle> items = client.fetchRecentKoreanMarketNews().stream().limit(6).toList();
+            MarketNewsFeedResponse response = new MarketNewsFeedResponse(PROVIDER, now, false, items);
+            cacheStore.replace(PROVIDER, now, items);
+            return response;
+        } catch (RuntimeException failure) {
+            if (cached != null) return new MarketNewsFeedResponse(PROVIDER,
+                    cached.fetchedAt(), true, cached.items());
+            throw new MarketNewsUnavailableException(failure);
         }
     }
-
-    private record Cache(MarketNewsFeedResponse response, OffsetDateTime expiresAt) {}
 }
