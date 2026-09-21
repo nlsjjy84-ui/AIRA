@@ -1,0 +1,19 @@
+name: Portfolio Assets Artifact
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/portfolio-assets/**"
+      - ".github/workflows/portfolio-assets-artifact.yml"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aira-portfolio-assets
+          path: docs/portfolio-assets
+          if-no-files-found: error
