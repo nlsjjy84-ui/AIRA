@@ -256,7 +256,7 @@ footer p { margin: 0; }
 
 @media (min-width: 1000px) {
   .workflow-sidebar {
-    top: 6.25rem;
+    top: 4.45rem;
     bottom: 0;
     width: 11rem;
     padding: 1rem .75rem;
@@ -269,8 +269,13 @@ footer p { margin: 0; }
   .workflow-sidebar.collapsed .workflow-main { display: none; }
   .workflow-sidebar.collapsed nav button { justify-content: center; padding-inline: .35rem; }
   .workflow-sidebar.collapsed .workflow-code { min-width: 0; text-align: center; }
-  .workflow-sidebar ~ main { padding-left: 11.5rem; transition: padding-left .16s ease; }
-  .workflow-sidebar.collapsed ~ main { padding-left: 4.75rem; }
+  .workflow-sidebar ~ main {
+    padding-left: max(4.5rem, calc(12.5rem - max(0px, (100vw - var(--content)) / 2)));
+    transition: padding-left .16s ease;
+  }
+  .workflow-sidebar.collapsed ~ main {
+    padding-left: max(2rem, calc(5.75rem - max(0px, (100vw - var(--content)) / 2)));
+  }
 }
 
 @media (max-width: 999px) {
@@ -713,8 +718,12 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 
 /* Keep global notices clear of the desktop workflow rail. */
 @media (min-width: 1000px) {
-  .workflow-sidebar ~ .session-notice { padding-left: 11.5rem; }
-  .workflow-sidebar.collapsed ~ .session-notice { padding-left: 4.75rem; }
+  .workflow-sidebar ~ .session-notice {
+    padding-left: max(4.5rem, calc(12.5rem - max(0px, (100vw - var(--content)) / 2)));
+  }
+  .workflow-sidebar.collapsed ~ .session-notice {
+    padding-left: max(2rem, calc(5.75rem - max(0px, (100vw - var(--content)) / 2)));
+  }
 }
 
 /* Search results: identity first, no recommendation-style ranking cues. */
@@ -1580,4 +1589,23 @@ main { min-height: calc(100dvh - 6.25rem); }
   .finance-section-heading { align-items: stretch; flex-direction: column; }
   .finance-section-heading > p { max-width: none; text-align: left; }
   .finance-change-lead { grid-template-columns: 1fr; gap: .3rem; }
+}
+
+/* Ask is a fork in the workflow, not another card collection. */
+.explorer-options .ask-choice {
+  min-height: 0;
+  padding: .9rem .25rem 1rem;
+  border: 0;
+  border-top: 3px solid var(--choice-color);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.explorer-options .ask-choice:hover,
+.explorer-options .ask-choice:focus-visible {
+  border-color: var(--choice-color);
+  background: color-mix(in srgb, var(--choice-color) 5%, transparent);
+}
+@media (max-width: 40rem) {
+  .explorer-options .ask-choice { padding-inline: .1rem; }
 }
