@@ -13,11 +13,12 @@ async function mockLongHome(page) {
     { marketCode: 'KOSDAQ', state: 'AVAILABLE', tradingDate: '2026-09-18', close: 987.65, change: 4.2, changeRate: 0.43, evidenceId: 'E-KOSDAQ', sourceName: 'KRX Data Marketplace Open API' },
   ] } }))
   await page.route('**/api/events', route => route.fulfill({ status: 200, json: { events: Array.from({ length: 5 }, (_, i) => ({ eventId: `EV-${i}`, eventType: 'DISCLOSURE', title: `공식 사건 ${i + 1}`, occurredAt: `2026-09-${String(18 - i).padStart(2, '0')}T00:00:00Z`, companies: [{ companyId: `EC-${i}`, companyName: `사건회사 ${i + 1}` }] })) } }))
+  await page.route('**/api/news/latest', route => route.fulfill({ status: 200, json: { provider: 'GDELT DOC 2.0', fetchedAt: '2026-09-21T02:00:00Z', stale: false, items: Array.from({ length: 6 }, (_, i) => ({ title: `시장 뉴스 ${i + 1}`, originalUrl: `https://news.example/${i}`, domain: 'news.example', seenAt: `2026-09-21T0${i}:00:00Z`, language: 'Korean', sourceCountry: 'South Korea' })) } }))
 }
 
 for (const [name, width, height] of [['desktop', 1440, 900], ['mobile', 390, 844]]) test(`long MAIN remains vertically scrollable on ${name}`, async ({ page }) => {
   await page.setViewportSize({ width, height }); await mockLongHome(page); await page.goto('/');
-  await expect(page.locator('.market-index-item')).toHaveCount(2); await expect(page.locator('.recent-event-timeline li')).toHaveCount(5); await expect(page.locator('.briefing-card')).toHaveCount(8); await expect(page.locator('.alert-card')).toHaveCount(8)
+  await expect(page.locator('.market-index-item')).toHaveCount(2); await expect(page.locator('.recent-event-timeline li')).toHaveCount(5); await expect(page.locator('.market-news-list li')).toHaveCount(6); await expect(page.locator('.briefing-card')).toHaveCount(8); await expect(page.locator('.alert-card')).toHaveCount(8)
   const before = await page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, clientHeight: document.documentElement.clientHeight }))
   expect(before.scrollHeight).toBeGreaterThan(before.clientHeight); expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
   for (let i = 0; i < 30; i += 1) await page.mouse.wheel(0, 1000)

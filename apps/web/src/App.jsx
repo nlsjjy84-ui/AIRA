@@ -4,8 +4,10 @@ import CanonicalExplorer from './CanonicalExplorer.jsx'
 import PersonalFinance from './PersonalFinance.jsx'
 import MarketIndexBoard from './MarketIndexBoard.jsx'
 import RecentEventBoard from './RecentEventBoard.jsx'
+import MarketNewsBoard from './MarketNewsBoard.jsx'
 import { getLatestMarketIndices } from './api/marketIndexApi.js'
 import { getRecentEvents } from './api/eventApi.js'
+import { getLatestMarketNews } from './api/newsApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
@@ -249,6 +251,7 @@ export default function App() {
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
   const [marketIndexState, setMarketIndexState] = useState({ loading: false, data: null, error: null })
   const [recentEventState, setRecentEventState] = useState({ loading: false, data: null, error: null })
+  const [marketNewsState, setMarketNewsState] = useState({ loading: false, data: null, error: null })
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
   const exploring = routePath === '/explore'
   const finance = routePath === '/finance'
@@ -311,6 +314,22 @@ export default function App() {
     if (routePath !== '/') return undefined
     return loadRecentEvents()
   }, [routePath, loadRecentEvents])
+
+  const loadMarketNews = useCallback(() => {
+    const current = beginRequest('marketNews')
+    const controller = new AbortController()
+    setMarketNewsState({ loading: true, data: null, error: null })
+    getLatestMarketNews(controller.signal)
+      .then(data => current() && setMarketNewsState({ loading: false, data, error: null }))
+      .catch(error => current() && error.name !== 'AbortError'
+        && setMarketNewsState({ loading: false, data: null, error }))
+    return () => controller.abort()
+  }, [beginRequest])
+
+  useEffect(() => {
+    if (routePath !== '/') return undefined
+    return loadMarketNews()
+  }, [routePath, loadMarketNews])
 
   const openOfficialEvidence = useCallback((evidenceId) => {
     const current = beginRequest('evidence')
@@ -486,6 +505,7 @@ export default function App() {
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
       <RecentEventBoard state={recentEventState} retry={loadRecentEvents} onOpen={openAssessmentInExplorer} />
+      <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">

@@ -1802,3 +1802,46 @@ h1, h2, h3 { line-height: 1.12; }
   .recent-event-main { padding-left: 1rem; }
   .recent-event-timeline button { align-self: center; }
 }
+
+/* MAIN market news: metadata rows only; keep separate from Fact/Event interpretation. */
+.market-news-section { padding-top: 2rem; }
+.market-news-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: .85rem;
+}
+.market-news-heading .eyebrow { margin-bottom: .25rem; }
+.market-news-heading > p { max-width: 34rem; margin: 0; color: var(--muted); font-size: .84rem; text-align: right; }
+.market-news-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.market-news-list li {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) auto;
+  gap: 1.1rem;
+  align-items: center;
+  padding: .95rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.market-news-meta { min-width: 0; display: grid; gap: .2rem; }
+.market-news-meta time { color: var(--ink); font-size: .78rem; font-weight: 760; font-variant-numeric: tabular-nums; }
+.market-news-meta span { overflow: hidden; color: var(--series-a); font-size: .75rem; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
+.market-news-list h3 { margin: 0; font-size: 1rem; line-height: 1.42; font-weight: 720; }
+.market-news-list a {
+  color: var(--accent-strong);
+  font-size: .82rem;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: .18em;
+  white-space: nowrap;
+}
+.market-news-provider { margin: .65rem 0 0; color: var(--muted); font-size: .72rem; }
+.market-news-stale { margin: 0 0 .65rem; color: var(--warning); font-size: .8rem; font-weight: 700; }
+@media (max-width: 46rem) {
+  .market-news-heading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .market-news-heading > p { text-align: left; }
+  .market-news-list li { grid-template-columns: 1fr auto; gap: .45rem .8rem; align-items: start; }
+  .market-news-meta { grid-column: 1 / -1; display: flex; gap: .65rem; align-items: baseline; }
+  .market-news-list h3 { min-width: 0; }
+  .market-news-list a { align-self: center; }
+}
