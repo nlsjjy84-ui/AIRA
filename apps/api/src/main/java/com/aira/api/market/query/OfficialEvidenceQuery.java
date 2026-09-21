@@ -21,7 +21,8 @@ public class OfficialEvidenceQuery {
             SELECT count(*) FROM fact_assertion fa JOIN fact f ON f.id=fa.fact_id
             JOIN entity en ON en.id=f.subject_entity_id
             WHERE fa.evidence_id=? AND f.status='SUPPORTED' AND f.value_number IS NOT NULL
-              AND f.predicate IN ('REVENUE','OPERATING_INCOME') AND en.entity_type='COMPANY'
+              AND ((en.entity_type='COMPANY' AND f.predicate IN ('REVENUE','OPERATING_INCOME'))
+                   OR (en.entity_type='MARKET' AND f.predicate IN ('INDEX_CLOSE','INDEX_CHANGE','INDEX_CHANGE_RATE')))
             """;
     static final String EVENT_REACHABLE_SQL = """
             SELECT count(*) FROM event_evidence eve JOIN event ev ON ev.id=eve.event_id

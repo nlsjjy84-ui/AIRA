@@ -14,6 +14,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class OfficialEvidenceQueryTests {
     private static final UUID SOURCE = id(1);
     private static final UUID COMPANY = id(2);
+    private static final UUID MARKET = id(3);
     private JdbcTemplate jdbc;
     private OfficialEvidenceQuery query;
 
@@ -35,6 +36,7 @@ class OfficialEvidenceQueryTests {
         jdbc.update("INSERT INTO source VALUES(?,?,'REGULATORY_FILING','official.example')",
                 SOURCE, "Official Registry");
         jdbc.update("INSERT INTO entity VALUES(?,'COMPANY',true)", COMPANY);
+        jdbc.update("INSERT INTO entity VALUES(?,'MARKET',true)", MARKET);
         query = new OfficialEvidenceQuery(jdbc);
     }
 
@@ -57,6 +59,22 @@ class OfficialEvidenceQueryTests {
         assertEquals("Official Registry", detail.source().sourceName());
         assertEquals("REGULATORY_FILING", detail.source().sourceType());
         assertEquals("official.example", detail.source().canonicalDomain());
+    }
+
+    @Test
+    void returnsEvidenceReachableFromSupportedMarketIndexFactOnly() {
+        UUID evidence = addEvidence(id(22), "KRX-INDEX-22", "stored://krx/index/22");
+        UUID fact = id(23);
+        jdbc.update("INSERT INTO fact VALUES(?,?,'INDEX_CLOSE','SUPPORTED',6894.23)", fact, MARKET);
+        jdbc.update("INSERT INTO fact_assertion VALUES(?,?)", fact, evidence);
+
+        assertEquals(evidence, query.find(evidence).evidenceId());
+
+        UUID unsupportedEvidence = addEvidence(id(24), "KRX-OTHER-24", "stored://krx/other/24");
+        UUID unsupportedFact = id(25);
+        jdbc.update("INSERT INTO fact VALUES(?,?,'CLOSE_PRICE','SUPPORTED',100)", unsupportedFact, MARKET);
+        jdbc.update("INSERT INTO fact_assertion VALUES(?,?)", unsupportedFact, unsupportedEvidence);
+        assertThrows(OfficialEvidenceNotFoundException.class, () -> query.find(unsupportedEvidence));
     }
 
     @Test
