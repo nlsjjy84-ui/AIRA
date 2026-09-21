@@ -95,7 +95,7 @@ test('personal briefing reuses shared assessments with private ownership', async
   await expect(briefing.getByRole('heading', { name: '확인할 의미' }).first()).toBeVisible()
   await expect(briefing.getByRole('heading', { name: '아직 확인할 점' }).first()).toBeVisible()
   await expect(briefing.getByText('OpenDART').first()).toBeVisible()
-  await expect(briefing.getByText('관심회사로 저장한 회사의 AIRA 분석입니다.').first()).toBeVisible()
+  await expect(briefing.getByText('관심회사 기반 AIRA 분석').first()).toBeVisible()
   await expect(briefing.getByRole('link', { name: /공식 근거 원문/ }).first()).toHaveAttribute('href', /dart\.fss\.or\.kr/)
   await expect(briefing.getByText(/매수|매도|추천|목표주가|알림/)).toHaveCount(0)
 

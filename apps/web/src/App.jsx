@@ -515,7 +515,7 @@ export default function App() {
         {interestsState.loading && <Status busy>관심회사를 불러오는 중입니다.</Status>}
         {interestsState.error && <ErrorState error={interestsState.error} subject="관심회사" retry={loadInterests} />}
         {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <div className="personalization-empty"><Status>아직 저장한 관심회사가 없습니다. 회사를 탐색하고 관심회사로 저장해 보세요.</Status><a className="secondary-action" href="/explore">회사 탐색하기</a></div>}
-        <div className="interest-list">{interestsState.data.map(item => <a key={item.entityId} href={`/explore?q=${encodeURIComponent(item.canonicalName)}`}><strong>{item.canonicalName}</strong><span>단계별 탐색 이어가기 →</span></a>)}</div>
+        <div className="interest-list">{interestsState.data.map(item => <a key={item.entityId} href={`/explore?q=${encodeURIComponent(item.canonicalName)}`}><strong>{item.canonicalName}</strong><span>탐색 →</span></a>)}</div>
       </section>}
 
       {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
@@ -528,10 +528,12 @@ export default function App() {
         {briefingState.data?.emptyReason !== 'NO_INTERESTS' && briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
           <div className="briefing-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
-            <p className="insight-reason">관심회사로 저장한 회사의 AIRA 분석입니다.</p>
+            <p className="insight-reason">관심회사 기반 AIRA 분석</p>
             <p className="event-meta">{EVENT_TYPE_LABELS[item.eventType] ?? item.eventType} · {item.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</p>
-            <div className="assessment"><h4>확인할 의미</h4><p>{item.summary}</p>
-              <h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
+            <div className="assessment assessment-points">
+              <div className="assessment-point"><h4>확인할 의미</h4><p>{item.summary}</p></div>
+              <div className="assessment-point uncertainty"><h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div>
+            </div>
           </div>
           <aside className="briefing-side" aria-label="브리핑 근거와 이동"><p className="insight-identity">당시 판단 · 판단 식별자 {item.assessmentId} · {item.analysisVersion}</p>
             <button type="button" className="briefing-support-action" onClick={() => setHistoricalId(item.assessmentId)}>당시 판단 보기</button>
@@ -551,9 +553,8 @@ export default function App() {
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
         {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{shouldOfferAlertSettings && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
-          <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3><p>{item.summary}</p>
-            <p className="insight-reason">앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.</p>
-            <h4>아직 확인할 점</h4><p>{item.uncertainty}</p>
+          <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
+            <div className="alert-meaning"><div><h4>새 분석</h4><p>{item.summary}</p></div><div className="uncertainty"><h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div></div>
           </div>
           <aside className="alert-side" aria-label="알림 시각과 이동"><div className="alert-times">
             <p className="insight-time">사건 발생 {formatDateTime(item.occurredAt) ?? '발생시각 미상'}</p>

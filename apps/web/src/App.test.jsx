@@ -288,7 +288,7 @@ describe('authenticated interest and return experience', () => {
     expect(await screen.findByText('사용자 ReturnUser')).toHaveClass('session-user')
     expect(screen.queryByRole('button', { name: '계정 설정 열기' })).not.toBeInTheDocument()
     const section = screen.getByRole('heading', { name: '내 관심회사' }).closest('section')
-    expect(await within(section).findByRole('link', { name: /삼성전자.*단계별 탐색 이어가기/ })).toHaveAttribute('href', '/explore?q=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90')
+    expect(await within(section).findByRole('link', { name: /삼성전자.*탐색/ })).toHaveAttribute('href', '/explore?q=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90')
   })
 
 
@@ -439,7 +439,7 @@ describe('authenticated interest and return experience', () => {
     expect(await within(briefing).findByText('관련 회사: 관련회사 A · 관련회사 B')).toBeInTheDocument()
     expect(within(briefing).getByText(eventExperience.assessment.summary)).toBeInTheDocument()
     expect(within(briefing).getByText(eventExperience.assessment.uncertainty)).toBeInTheDocument()
-    expect(within(briefing).getByText('관심회사로 저장한 회사의 AIRA 분석입니다.')).toBeInTheDocument()
+    expect(within(briefing).getByText('관심회사 기반 AIRA 분석')).toBeInTheDocument()
     expect(within(briefing).getByText(/정리 기간/)).toBeInTheDocument()
     expect(within(briefing).getByText(/브리핑 생성/)).toBeInTheDocument()
     expect(within(briefing).getByRole('link', { name: /OpenDART 공식 근거 원문/ })).toHaveAttribute('href', eventExperience.evidence[0].originalUrl)
@@ -525,7 +525,7 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     const alerts = (await screen.findByRole('heading', { name: '관심회사 알림' })).closest('section')
     expect(await within(alerts).findByText('관련 회사: 관련회사 A · 관련회사 B')).toBeInTheDocument()
-    expect(await within(alerts).findByText('앱 알림을 켠 관심회사에 새로운 AIRA 분석이 준비되었습니다.')).toBeInTheDocument()
+    expect(await within(alerts).findByRole('heading', { name: '새 분석' })).toBeInTheDocument()
     expect(within(alerts).getByText(/사건 발생/)).toBeInTheDocument()
     expect(within(alerts).getByText(/판단 완료/)).toBeInTheDocument()
     expect(within(alerts).getByText(/알림 전달/)).toBeInTheDocument()
