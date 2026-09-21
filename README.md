@@ -2,6 +2,26 @@
 
 AIRA는 공개 시장정보를 출처와 근거에 연결해 제공하는 애플리케이션입니다. 현재 사용자 화면은 실제 데이터가 준비된 회사를 둘러보고, 정확한 보고 기간의 핵심 재무정보와 OpenDART 공시 근거를 확인하는 공개 흐름을 제공합니다.
 
+## AIRA v1 status
+
+**AIRA v1 development scope is COMPLETE as of 2026-09-21.**
+
+핵심 사용자 흐름은 `MAIN → 검색 → Ask → Inspect → Relate → Assess`이며, 개인금융은 이 탐색 흐름과 분리된 별도 진입 영역으로 유지합니다.
+
+현재 v1에서 확인할 수 있는 주요 범위:
+
+- KRX 공식 KOSPI/KOSDAQ 최근 완료 거래일 지수와 Evidence
+- OpenDART 연간 연결재무제표 기반 매출·영업이익과 Historical Exact 기간/접수번호 검증
+- 공식 Evidence에 연결된 Confirmed Event와 Current/Historical Assessment
+- Interest → Briefing → Alert 개인화 흐름
+- 별도 Personal Finance 진입과 재인증·동의·데이터 관리 경계
+- 데스크톱/모바일 공통 탐색 UI와 수직 스크롤·가로 overflow 방지
+- 외부 뉴스 제공자 장애가 시장 지수·공식 사건·판단 흐름으로 전파되지 않는 격리 처리
+
+2026-09-21 최종 통합 검증에서는 실제 retained PostgreSQL 데이터 기준으로 NAVER 2025 Historical Exact가 동일 OpenDART 접수번호 `20260313001021`의 공식 재검증을 거쳐 `AVAILABLE`임을 확인했고, KOSPI/KOSDAQ Evidence, Search → Ask → Inspect → Relate → Assess 브라우저 흐름, Finance 비로그인 보안 경계, 모바일 390px 스크롤/overflow를 확인했습니다. Web unit/integration baseline은 71/71 PASS, production build PASS, browser E2E는 8 PASS와 환경 의존 5 skip 상태입니다.
+
+시장 뉴스는 GDELT DOC 2.0 메타데이터를 별도 보조 정보로 사용합니다. 외부 제공자가 지연되거나 실패하면 오류/직전 캐시 상태를 표시하며 AIRA의 Fact·Event·Assessment와 섞거나 대체하지 않습니다.
+
 ## Repository layout
 
 - `apps/api`: Java 25, Spring Boot, PostgreSQL backend
