@@ -22,8 +22,10 @@ function MarketIndexItem({ item, onEvidence }) {
       <strong>{CHANGE_NUMBER.format(Number(item.change))}</strong>
       <em>{CHANGE_NUMBER.format(Number(item.changeRate))}%</em>
     </div>
-    <div className="market-index-meta"><time>{item.tradingDate}</time><span>{item.sourceName ?? 'KRX 공식 데이터'}</span></div>
-    {item.evidenceId && <button type="button" className="market-index-evidence" onClick={() => onEvidence(item.evidenceId)}>공식 근거 확인</button>}
+    <div className="market-index-foot">
+      <div className="market-index-meta"><time>{item.tradingDate}</time><span title={item.sourceName ?? undefined}>KRX 공식 데이터</span></div>
+      {item.evidenceId && <button type="button" className="market-index-evidence" onClick={() => onEvidence(item.evidenceId)}>공식 근거 확인</button>}
+    </div>
   </article>
 }
 

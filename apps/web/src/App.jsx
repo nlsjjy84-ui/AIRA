@@ -504,8 +504,10 @@ export default function App() {
         <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
-      <RecentEventBoard state={recentEventState} retry={loadRecentEvents} onOpen={openAssessmentInExplorer} />
-      <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />
+      <div className="home-signal-grid">
+        <RecentEventBoard state={recentEventState} retry={loadRecentEvents} onOpen={openAssessmentInExplorer} />
+        <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />
+      </div>
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">
