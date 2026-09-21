@@ -1479,7 +1479,7 @@ main { min-height: calc(100dvh - 6.25rem); }
 }
 .workflow-sidebar.collapsed .finance-sidebar-entry { justify-content: center; padding-inline: .35rem; }
 .finance-page { width: min(100%, 68rem); margin: 0 auto; padding: clamp(2rem, 5vw, 4.5rem) 0 6rem; }
-.finance-page h1 { font-size: clamp(2.4rem, 5vw, 4.4rem); }
+.finance-page h1 { font-size: clamp(2.3rem, 4.2vw, 3.7rem); }
 .finance-lead { max-width: 42rem; color: var(--muted); font-size: 1.05rem; }
 
 .finance-entry,
