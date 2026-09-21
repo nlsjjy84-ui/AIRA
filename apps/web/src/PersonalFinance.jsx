@@ -193,6 +193,11 @@ export default function PersonalFinance({ user, onLogin }) {
 
   const categories = summary?.categories ?? []
   const maxCategorySpent = Math.max(1, ...categories.map(item => Number(item.spent ?? 0)))
+  const totalSpentNumber = Number(summary?.totalSpent ?? 0)
+  const totalBudgetNumber = Number(summary?.totalBudget ?? 0)
+  const budgetUsagePercent = totalBudgetNumber > 0
+    ? Math.max(0, Math.round((totalSpentNumber / totalBudgetNumber) * 100))
+    : null
   const totalChange = pattern?.total
   return <section className="finance-page" aria-labelledby="finance-title">
     <header className="finance-page-head">
@@ -226,6 +231,10 @@ export default function PersonalFinance({ user, onLogin }) {
           <span>예산 {summary?.totalBudget ? won(summary.totalBudget) : '아직 설정 안 됨'}</span>
           <span>남은 예산 {summary?.totalBudget ? won(summary.totalRemaining) : '—'}</span>
         </div>
+        {budgetUsagePercent != null && <div className="finance-budget-visual" data-over-budget={budgetUsagePercent > 100 ? 'true' : undefined} aria-label={`예산 사용 ${budgetUsagePercent}%`}>
+          <div><span>예산 사용</span><strong>{budgetUsagePercent}%</strong></div>
+          <div className="finance-budget-track" aria-hidden="true"><span style={{ width: `${Math.min(100, budgetUsagePercent)}%` }} /></div>
+        </div>}
         <form className="finance-budget-form" onSubmit={saveBudget}>
           <label htmlFor="finance-budget">전체 예산 설정</label>
           <div><input id="finance-budget" type="number" min="1" step="1" inputMode="numeric" value={budget}

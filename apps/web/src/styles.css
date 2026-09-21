@@ -335,7 +335,7 @@ footer p { margin: 0; }
 
 .explorer-context {
   position: sticky;
-  top: 6.25rem;
+  top: 4.45rem;
   z-index: 8;
   margin: 0 0 .85rem;
   padding: .6rem 0 .75rem;
@@ -1609,3 +1609,78 @@ main { min-height: calc(100dvh - 6.25rem); }
 @media (max-width: 40rem) {
   .explorer-options .ask-choice { padding-inline: .1rem; }
 }
+
+/* Core reading views: tabs and evidence paths stay document-like, not card-like. */
+.subsection-nav button {
+  border-radius: 0;
+  background: transparent;
+}
+.subsection-nav button[aria-current="page"] {
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--stage-color);
+}
+.stage-inspect .explorer-options .choice-card {
+  min-height: 0;
+  padding: .85rem .15rem .9rem;
+  border: 0;
+  border-top: 2px solid color-mix(in srgb, var(--stage-color) 58%, var(--line));
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.stage-inspect .explorer-options .choice-card:hover,
+.stage-inspect .explorer-options .choice-card:focus-visible {
+  border-color: var(--stage-color);
+  background: color-mix(in srgb, var(--stage-color) 5%, transparent);
+}
+.relation-route span:nth-of-type(1) { color: var(--series-b); }
+.relation-route span:nth-of-type(2) { color: var(--series-c); }
+.relation-route span:nth-of-type(3) { color: var(--accent-strong); }
+.stage-assess .assessment-summary {
+  padding-left: 1rem;
+  border-left: 3px solid var(--series-d);
+}
+.stage-assess .assessment-fact-evidence {
+  padding-left: .8rem;
+  border-left: 3px solid var(--series-b);
+}
+.stage-assess .assessment-fact-evidence > span,
+.stage-assess .assessment-fact-evidence-action,
+.stage-assess .assessment-evidence-action { color: var(--series-b); }
+.stage-assess .assessment-evidence-list,
+.stage-assess .evidence-inspector { border-top-color: var(--series-b); }
+.stage-assess .evidence-inspector-head > strong { color: var(--series-b); }
+
+/* Visual language pass: hierarchy should be readable before explanatory copy. */
+body { font-feature-settings: "kern" 1, "tnum" 1; }
+h1, h2, h3 { line-height: 1.12; }
+.finance-total-value,
+.viz-big-number,
+.viz-metric-line strong,
+.inspect-fact-row > strong,
+.finance-change-lead > strong,
+.finance-bar-row > div:first-child span { font-variant-numeric: tabular-nums; }
+
+.finance-budget-visual { max-width: 36rem; margin-top: 1.1rem; }
+.finance-budget-visual > div:first-child { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .4rem; }
+.finance-budget-visual > div:first-child span { color: var(--muted); font-size: .8rem; font-weight: 750; }
+.finance-budget-visual > div:first-child strong { color: var(--accent-strong); font-size: 1.2rem; }
+.finance-budget-track { height: .82rem; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--line) 78%, transparent); }
+.finance-budget-track span { display: block; height: 100%; border-radius: inherit; background: var(--series-d); }
+.finance-budget-visual[data-over-budget="true"] .finance-budget-track span { background: var(--error); }
+.finance-budget-visual[data-over-budget="true"] > div:first-child strong { color: var(--error); }
+
+.finance-bar-row:nth-child(4n + 1) .finance-bar-track span { background: var(--series-a); }
+.finance-bar-row:nth-child(4n + 2) .finance-bar-track span { background: var(--series-b); }
+.finance-bar-row:nth-child(4n + 3) .finance-bar-track span { background: var(--series-c); }
+.finance-bar-row:nth-child(4n) .finance-bar-track span { background: var(--series-d); }
+.finance-bar-row > div:first-child strong { font-size: .95rem; }
+.finance-bar-row > div:first-child span { color: var(--ink); }
+
+.stage-inspect .inspect-fact-row > strong { color: var(--series-b); }
+.stage-relate .relation-row h3 { color: var(--series-c); }
+.stage-assess .subsection-panel[aria-label="확인된 사실"] h3,
+.stage-assess .assessment-facts dd { color: var(--series-b); }
+.stage-assess .subsection-panel[aria-label="AIRA 해석"] .assessment-summary { color: var(--series-d); font-weight: 700; }
+.stage-assess .subsection-panel[aria-label="왜 이렇게 해석했나요?"] .assessment-evidence-row strong { color: var(--series-b); }
