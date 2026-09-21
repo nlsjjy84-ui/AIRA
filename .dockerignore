@@ -1,0 +1,12 @@
+.git
+.gradle
+.gradle-codex
+node_modules
+apps/web/node_modules
+apps/web/dist
+apps/api/.gradle
+apps/api/build
+_portfolio_shots
+*.log
+.tmp*
+.portfolio_*
