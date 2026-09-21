@@ -418,7 +418,7 @@ export default function App() {
       <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? '›' : '‹'}</button>
       <nav aria-label="AIRA 흐름">
-        {[['MAIN', '메인', 'MAIN'], ['Ask', '질문', 'A'], ['Inspect', '살피기', 'I'],
+        {[['MAIN', '메인', 'M'], ['Ask', '질문', 'Q'], ['Inspect', '살피기', 'I'],
           ['Relate', '잇기', 'R'], ['Assess', '판단', 'A']].map(([step, korean, code]) => exploring
           ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
               aria-current={workflowContext.step === step ? 'step' : undefined} disabled={workflowStepDisabled(step)}

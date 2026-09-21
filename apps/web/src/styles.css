@@ -797,12 +797,13 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   .account-nav button, .account-nav a, .account-nav .session-user { padding: .28rem .18rem; font-size: .75rem; white-space: nowrap; }
   .account-nav .session-user { min-width: 0; max-width: 5.4rem; overflow: hidden; text-overflow: ellipsis; }
   .workflow-sidebar {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
-    gap: .2rem; padding-top: .45rem; padding-bottom: .45rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center;
+    gap: .15rem; padding-top: .3rem; padding-bottom: .3rem;
   }
   .workflow-sidebar nav { min-width: 0; }
-  .workflow-sidebar nav button, .workflow-sidebar nav a { padding: .42rem .08rem; font-size: .74rem; }
-  .workflow-sidebar .settings-action { align-self: center; padding: .3rem .25rem; }
+  .workflow-sidebar nav button, .workflow-sidebar nav a { padding: .32rem .05rem; font-size: .72rem; }
+  .workflow-sidebar .finance-sidebar-entry { min-height: 2.35rem; margin: 0; padding: .3rem .35rem; font-size: .78rem; }
+  .workflow-sidebar .settings-action { align-self: center; padding: .2rem .2rem; }
   .session-notice { padding: .55rem 1.15rem; font-size: .9rem; }
 }
 /* Event / Assessment / Evidence use role colors, never positive/negative signals. */
@@ -870,6 +871,7 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
   border-bottom: 1px solid var(--line);
 }
 .home-orientation .intro { padding: 1.25rem 0 1.75rem; }
+.home-orientation h1 { font-size: clamp(2.35rem, 4.6vw, 4.15rem); }
 @media (max-width: 52rem) {
   .home-orientation { padding-top: .5rem; }
   .home-orientation .intro { padding-bottom: 1.4rem; }
@@ -1468,7 +1470,7 @@ main { min-height: calc(100dvh - 6.25rem); }
 }
 .workflow-sidebar.collapsed .finance-sidebar-entry { justify-content: center; padding-inline: .35rem; }
 .finance-page { width: min(100%, 68rem); margin: 0 auto; padding: clamp(2rem, 5vw, 4.5rem) 0 6rem; }
-.finance-page h1 { font-size: clamp(2.8rem, 7vw, 5.5rem); }
+.finance-page h1 { font-size: clamp(2.4rem, 5vw, 4.4rem); }
 .finance-lead { max-width: 42rem; color: var(--muted); font-size: 1.05rem; }
 
 .finance-entry,
