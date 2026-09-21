@@ -8,10 +8,15 @@ async function mockLongHome(page) {
   await page.route('**/api/me/interests', route => route.fulfill({ status: 200, json: Array.from({ length: 6 }, (_, i) => ({ entityId: `C-${i}`, canonicalName: `회사 ${i + 1}`, alertEnabled: true })) }))
   await page.route('**/api/me/briefings/current', route => route.fulfill({ status: 200, json: { status: 'AVAILABLE', periodStart: '2026-09-01T00:00:00Z', periodEnd: '2026-09-21T00:00:00Z', generatedAt: '2026-09-21T00:00:00Z', items: briefingItems } }))
   await page.route('**/api/me/alerts/reconcile', route => route.fulfill({ status: 200, json: { alerts: alertItems, emptyReason: null } }))
+  await page.route('**/api/market-indices/latest', route => route.fulfill({ status: 200, json: { indices: [
+    { marketCode: 'KOSPI', state: 'AVAILABLE', tradingDate: '2026-09-18', close: 3123.45, change: -12.3, changeRate: -0.39, evidenceId: 'E-KOSPI', sourceName: 'KRX Data Marketplace Open API' },
+    { marketCode: 'KOSDAQ', state: 'AVAILABLE', tradingDate: '2026-09-18', close: 987.65, change: 4.2, changeRate: 0.43, evidenceId: 'E-KOSDAQ', sourceName: 'KRX Data Marketplace Open API' },
+  ] } }))
 }
 
 for (const [name, width, height] of [['desktop', 1440, 900], ['mobile', 390, 844]]) test(`long MAIN remains vertically scrollable on ${name}`, async ({ page }) => {
-  await page.setViewportSize({ width, height }); await mockLongHome(page); await page.goto('/'); await expect(page.locator('article')).toHaveCount(16)
+  await page.setViewportSize({ width, height }); await mockLongHome(page); await page.goto('/');
+  await expect(page.locator('.market-index-item')).toHaveCount(2); await expect(page.locator('.briefing-card')).toHaveCount(8); await expect(page.locator('.alert-card')).toHaveCount(8)
   const before = await page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, clientHeight: document.documentElement.clientHeight }))
   expect(before.scrollHeight).toBeGreaterThan(before.clientHeight); expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
   for (let i = 0; i < 30; i += 1) await page.mouse.wheel(0, 1000)

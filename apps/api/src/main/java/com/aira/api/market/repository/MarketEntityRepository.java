@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MarketEntityRepository extends JpaRepository<MarketEntity, UUID> {
+    java.util.Optional<MarketEntity> findByCanonicalKey(String canonicalKey);
+
     @Query("""
             select distinct entity
             from FactAssertion assertion

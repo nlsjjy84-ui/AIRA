@@ -167,6 +167,30 @@ public class Fact {
         return fact;
     }
 
+    public static Fact supportedMarketIndexNumber(MarketEntity subjectEntity, FactPredicate predicate,
+            BigDecimal value, LocalDate tradingDate, byte[] dedupKey, OffsetDateTime now) {
+        boolean indexPredicate = predicate == FactPredicate.INDEX_CLOSE
+                || predicate == FactPredicate.INDEX_CHANGE || predicate == FactPredicate.INDEX_CHANGE_RATE;
+        if (subjectEntity == null || subjectEntity.getId() == null
+                || subjectEntity.getEntityType() != EntityType.MARKET || !indexPredicate
+                || value == null || (predicate == FactPredicate.INDEX_CLOSE && value.signum() < 0)
+                || tradingDate == null || dedupKey == null || dedupKey.length != 32 || now == null) {
+            throw new IllegalArgumentException("Supported daily market-index fact values are required");
+        }
+        Fact fact = new Fact();
+        fact.subjectEntity = subjectEntity;
+        fact.predicate = predicate;
+        fact.status = FactStatus.SUPPORTED;
+        fact.valueType = FactValueType.NUMBER;
+        fact.valueNumber = value;
+        fact.periodStart = tradingDate;
+        fact.periodEnd = tradingDate;
+        fact.dedupKey = dedupKey.clone();
+        fact.createdAt = now;
+        fact.updatedAt = now;
+        return fact;
+    }
+
     public void markConflicting(OffsetDateTime now) {
         if (now == null) {
             throw new IllegalArgumentException("Fact update time is required");

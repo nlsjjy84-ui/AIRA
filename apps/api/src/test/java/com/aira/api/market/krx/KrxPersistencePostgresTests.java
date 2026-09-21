@@ -124,14 +124,18 @@ class KrxPersistencePostgresTests {
         assertEquals(1, count("SELECT count(*) FROM fact WHERE predicate='CLOSE_PRICE' AND status='CONFLICTING' AND period_start=?", date));
         assertEquals(2, count("SELECT count(*) FROM fact_assertion fa JOIN fact f ON f.id=fa.fact_id WHERE f.predicate='CLOSE_PRICE' AND f.period_start=?", date));
     }
-    @Test void indexSnapshotRegistersEvidenceOnly() {
+    @Test void indexSnapshotRegistersEvidenceAndThreeCanonicalFacts() {
         var date = LocalDate.of(2035, 1, 6);
-        var index = KrxSnapshot.validated(KrxDataset.KOSPI_INDEX, date,
-                List.of(Map.of("BAS_DD", "20350106", "IDX_CLSS", "KOSPI", "IDX_NM", "KOSPI")));
+        var index = KrxSnapshot.validated(KrxDataset.KOSPI_INDEX, date, List.of(Map.of(
+                "BAS_DD", "20350106", "IDX_CLSS", "KOSPI", "IDX_NM", "KOSPI",
+                "CLSPRC_IDX", "2650.21", "CMPPREVDD_IDX", "-15.20", "FLUC_RT", "-0.57")));
         persistence.index(index);
         persistence.index(index);
-        assertEquals(1, count("SELECT count(*) FROM evidence WHERE external_id=?", "KRX_OPENAPI:kospi_dd_trd:20350106"));
-        assertEquals(0, count("SELECT count(*) FROM fact f JOIN fact_assertion fa ON fa.fact_id=f.id JOIN evidence e ON e.id=fa.evidence_id WHERE e.external_id=?", "KRX_OPENAPI:kospi_dd_trd:20350106"));
+        String externalId = "KRX_OPENAPI:kospi_dd_trd:20350106";
+        assertEquals(1, count("SELECT count(*) FROM evidence WHERE external_id=?", externalId));
+        assertEquals(3, count("SELECT count(*) FROM fact f JOIN fact_assertion fa ON fa.fact_id=f.id JOIN evidence e ON e.id=fa.evidence_id WHERE e.external_id=?", externalId));
+        assertEquals(1, count("SELECT count(*) FROM entity WHERE canonical_key=?", "MARKET:KR:KOSPI"));
+        assertEquals(3, count("SELECT count(*) FROM fact f JOIN entity e ON e.id=f.subject_entity_id WHERE e.canonical_key=?", "MARKET:KR:KOSPI"));
     }
     @Test void oneDailySnapshotSupportsMultipleSecurities() {
         var date = LocalDate.of(2035, 1, 7);

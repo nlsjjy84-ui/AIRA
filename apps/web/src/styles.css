@@ -1684,3 +1684,64 @@ h1, h2, h3 { line-height: 1.12; }
 .stage-assess .assessment-facts dd { color: var(--series-b); }
 .stage-assess .subsection-panel[aria-label="AIRA 해석"] .assessment-summary { color: var(--series-d); font-weight: 700; }
 .stage-assess .subsection-panel[aria-label="왜 이렇게 해석했나요?"] .assessment-evidence-row strong { color: var(--series-b); }
+
+/* MAIN market snapshot: one official-data strip, not another card grid. */
+.market-index-section { padding-top: 2.1rem; }
+.market-index-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: .9rem;
+}
+.market-index-heading .eyebrow { margin-bottom: .25rem; }
+.market-index-heading > p { max-width: 28rem; margin: 0; color: var(--muted); font-size: .84rem; text-align: right; }
+.market-index-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.market-index-item {
+  min-width: 0;
+  padding: 1.05rem 1.5rem 1.15rem 0;
+}
+.market-index-item + .market-index-item { padding-left: 1.5rem; border-left: 1px solid var(--line); }
+.market-index-name { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.market-index-name strong { color: var(--series-a); font-size: .9rem; letter-spacing: .08em; }
+.market-index-item:nth-child(2) .market-index-name strong { color: var(--series-b); }
+.market-index-name span { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.market-index-value {
+  display: block;
+  margin-top: .35rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+.market-index-change { display: flex; align-items: baseline; gap: .45rem; margin-top: .45rem; font-variant-numeric: tabular-nums; }
+.market-index-change > span { width: 1rem; color: var(--muted); font-weight: 850; text-align: center; }
+.market-index-change strong { font-size: 1rem; }
+.market-index-change em { color: var(--muted); font-size: .86rem; font-style: normal; font-weight: 700; }
+.market-index-meta { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin-top: .6rem; color: var(--muted); font-size: .76rem; }
+.market-index-evidence {
+  margin-top: .55rem;
+  border: 0;
+  padding: .2rem 0;
+  color: var(--accent-strong);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: .18em;
+}
+.market-index-item.unavailable p { margin: .65rem 0 0; color: var(--muted); }
+@media (max-width: 40rem) {
+  .market-index-heading { align-items: flex-start; flex-direction: column; gap: .35rem; }
+  .market-index-heading > p { text-align: left; }
+  .market-index-strip { grid-template-columns: 1fr; }
+  .market-index-item { padding: .9rem 0 1rem; }
+  .market-index-item + .market-index-item { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+}

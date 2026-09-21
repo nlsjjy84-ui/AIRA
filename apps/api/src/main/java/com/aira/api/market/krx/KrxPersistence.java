@@ -73,11 +73,27 @@ public class KrxPersistence {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void index(KrxSnapshot snapshot) {
-        if (snapshot == null || (snapshot.dataset() != KrxDataset.KOSPI_INDEX
-                && snapshot.dataset() != KrxDataset.KOSDAQ_INDEX)) throw new IllegalArgumentException("Index snapshot is required");
+        KrxIndexPacket packet = KrxIndexPacket.from(snapshot);
+        jdbc.queryForObject("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", Object.class,
+                "KRX:INDEX:" + packet.market());
         Source source = source();
         registerScopes(source);
-        registerEvidence(source, snapshot);
+        Evidence evidence = registerEvidence(source, snapshot);
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        MarketEntity market = resolveMarket(packet.market(), now);
+        for (var metric : packet.values()) {
+            byte[] key = indexFactKey(market, metric, snapshot);
+            Fact fact = facts.findByDedupKey(key).orElse(null);
+            if (fact == null) fact = facts.saveAndFlush(Fact.supportedMarketIndexNumber(market,
+                    metric.predicate(), metric.value(), snapshot.date(), key, now));
+            FactAssertionId assertionId = new FactAssertionId(fact.getId(), evidence.getId());
+            if (assertions.existsById(assertionId)) continue;
+            if (fact.getStatus() == FactStatus.SUPPORTED && fact.getValueNumber().compareTo(metric.value()) != 0)
+                fact.markConflicting(now);
+            else if (fact.getStatus() == FactStatus.UNKNOWN) throw new IllegalStateException("Unknown index Fact cannot be resolved");
+            assertions.save(FactAssertion.assertedNumber(fact, evidence,
+                    "OutBlock_1/IDX_NM=" + packet.market() + "/" + metric.field(), metric.value(), now));
+        }
     }
 
     private Source source() {
@@ -130,8 +146,27 @@ public class KrxPersistence {
         return created;
     }
 
+    private MarketEntity resolveMarket(String marketCode, OffsetDateTime now) {
+        String key = "MARKET:KR:" + marketCode;
+        MarketEntity existing = entities.findByCanonicalKey(key).orElse(null);
+        if (existing != null) {
+            if (existing.getEntityType() != EntityType.MARKET || !marketCode.equals(existing.getMarketCode()))
+                throw new IllegalStateException("KRX market canonical identity conflicts");
+            return existing;
+        }
+        return entities.saveAndFlush(MarketEntity.market(marketCode, marketCode, "KR", now));
+    }
+
     private static byte[] factKey(MarketEntity subject, KrxPreparedPacket.MarketValue metric, KrxSnapshot daily) {
         String identity = "AIRA|FACT|V1|MARKET_DAILY|" + subject.getCanonicalKey() + "|"
+                + metric.predicate() + "|" + daily.date();
+        try { return MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8)); }
+        catch (Exception impossible) { throw new IllegalStateException("SHA-256 unavailable", impossible); }
+    }
+
+    private static byte[] indexFactKey(MarketEntity subject, KrxIndexPacket.IndexValue metric,
+            KrxSnapshot daily) {
+        String identity = "AIRA|FACT|V1|MARKET_INDEX_DAILY|" + subject.getCanonicalKey() + "|"
                 + metric.predicate() + "|" + daily.date();
         try { return MessageDigest.getInstance("SHA-256").digest(identity.getBytes(StandardCharsets.UTF_8)); }
         catch (Exception impossible) { throw new IllegalStateException("SHA-256 unavailable", impossible); }

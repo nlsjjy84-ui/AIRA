@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
 import PersonalFinance from './PersonalFinance.jsx'
+import MarketIndexBoard from './MarketIndexBoard.jsx'
+import { getLatestMarketIndices } from './api/marketIndexApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
@@ -243,6 +245,7 @@ export default function App() {
   const [briefingState, setBriefingState] = useState({ loading: false, data: null, error: null })
   const [alertsState, setAlertsState] = useState({ loading: false, data: [], emptyReason: null, error: null })
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
+  const [marketIndexState, setMarketIndexState] = useState({ loading: false, data: null, error: null })
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
   const exploring = routePath === '/explore'
   const finance = routePath === '/finance'
@@ -273,6 +276,22 @@ export default function App() {
   }, [becomeAnonymous, beginRequest])
 
   useEffect(loadSession, [loadSession])
+
+  const loadMarketIndices = useCallback(() => {
+    const current = beginRequest('marketIndices')
+    const controller = new AbortController()
+    setMarketIndexState({ loading: true, data: null, error: null })
+    getLatestMarketIndices(controller.signal)
+      .then(data => current() && setMarketIndexState({ loading: false, data, error: null }))
+      .catch(error => current() && error.name !== 'AbortError'
+        && setMarketIndexState({ loading: false, data: null, error }))
+    return () => controller.abort()
+  }, [beginRequest])
+
+  useEffect(() => {
+    if (routePath !== '/') return undefined
+    return loadMarketIndices()
+  }, [routePath, loadMarketIndices])
 
   const openOfficialEvidence = useCallback((evidenceId) => {
     const current = beginRequest('evidence')
@@ -446,6 +465,7 @@ export default function App() {
       <div className="home-orientation">
         <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
       </div>
+      <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">

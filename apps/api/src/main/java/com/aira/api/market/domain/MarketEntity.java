@@ -99,6 +99,27 @@ public class MarketEntity {
         return entity;
     }
 
+    public static MarketEntity market(String canonicalName, String marketCode, String countryCode,
+            OffsetDateTime now) {
+        if (canonicalName == null || canonicalName.isBlank() || canonicalName.trim().length() > 300
+                || marketCode == null || marketCode.isBlank() || marketCode.length() > 32 || now == null) {
+            throw new IllegalArgumentException("Market identity metadata is required");
+        }
+        String normalizedCountryCode = optionalCountryCode(countryCode);
+        String normalizedMarketCode = marketCode.trim().toUpperCase(java.util.Locale.ROOT);
+        MarketEntity entity = new MarketEntity();
+        entity.entityType = EntityType.MARKET;
+        entity.canonicalName = canonicalName.trim();
+        entity.canonicalKey = "MARKET:" + (normalizedCountryCode == null ? "GLOBAL" : normalizedCountryCode)
+                + ":" + normalizedMarketCode;
+        entity.marketCode = normalizedMarketCode;
+        entity.countryCode = normalizedCountryCode;
+        entity.active = true;
+        entity.createdAt = now;
+        entity.updatedAt = now;
+        return entity;
+    }
+
     private static String optionalCountryCode(String countryCode) {
         if (countryCode == null) {
             return null;
@@ -106,7 +127,7 @@ public class MarketEntity {
         String normalized = countryCode.trim();
         if (!normalized.matches("[A-Z]{2}")) {
             throw new IllegalArgumentException(
-                    "Company country code must be an ISO alpha-2 uppercase code");
+                    "Entity country code must be an ISO alpha-2 uppercase code");
         }
         return normalized;
     }
