@@ -6,6 +6,8 @@ AIRA는 공개 시장정보를 출처와 근거에 연결해 제공하는 애플
 
 **AIRA v1 development scope is COMPLETE as of 2026-09-21.**
 
+**Live Demo:** https://aira-production-dfd0.up.railway.app
+
 핵심 사용자 흐름은 `MAIN → 검색 → Ask → Inspect → Relate → Assess`이며, 개인금융은 이 탐색 흐름과 분리된 별도 진입 영역으로 유지합니다.
 
 현재 v1에서 확인할 수 있는 주요 범위:
