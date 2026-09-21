@@ -16,6 +16,12 @@ it('renders recent market news as external metadata links without AIRA interpret
   expect(screen.queryByText(/추천/)).not.toBeInTheDocument()
 })
 
+it('keeps provider failure isolated from the rest of MAIN', () => {
+  render(<MarketNewsBoard state={{ loading: false, error: new Error('provider unavailable'), data: null }} retry={vi.fn()} />)
+  expect(screen.getByRole('alert')).toHaveTextContent('시장 지수와 공식 사건은 계속 확인할 수 있습니다')
+  expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument()
+})
+
 it('marks stale provider data without hiding the existing links', () => {
   render(<MarketNewsBoard state={{ loading: false, error: null, data: {
     provider: 'GDELT DOC 2.0', stale: true, items: [

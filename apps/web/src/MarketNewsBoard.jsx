@@ -17,7 +17,7 @@ export default function MarketNewsBoard({ state, retry }) {
       <p>최근 24시간 기사 링크 · 뉴스는 AIRA의 Fact·Event·판단과 분리합니다.</p>
     </div>
     {state.loading && <p className="status" role="status">최근 시장 뉴스를 확인하는 중입니다.</p>}
-    {state.error && <div className="state-message" role="alert"><p>시장 뉴스 링크를 불러오지 못했습니다.</p><button type="button" className="secondary-action" onClick={retry}>다시 시도</button></div>}
+    {state.error && <div className="state-message" role="alert"><p>뉴스 제공자 응답이 지연되고 있습니다. 시장 지수와 공식 사건은 계속 확인할 수 있습니다.</p><button type="button" className="secondary-action" onClick={retry}>다시 시도</button></div>}
     {!state.loading && !state.error && state.data?.stale && <p className="market-news-stale" role="status">뉴스 제공자 응답이 지연되어 직전 수집 결과를 표시합니다.</p>}
     {!state.loading && !state.error && items.length === 0 && <p className="status">최근 24시간에 표시할 한국 시장 뉴스 링크가 없습니다.</p>}
     {!state.loading && !state.error && items.length > 0 && <ol className="market-news-list">{items.map(item => <li key={item.originalUrl}>

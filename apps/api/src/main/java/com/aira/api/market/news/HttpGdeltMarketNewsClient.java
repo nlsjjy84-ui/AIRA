@@ -50,14 +50,13 @@ public final class HttpGdeltMarketNewsClient implements MarketNewsClient {
     }
 
     private static Sender defaultSender() {
-        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         return request -> client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
 
     @Override
     public List<MarketNewsArticle> fetchRecentKoreanMarketNews() {
-        HttpRequest request = HttpRequest.newBuilder(buildUri())
-                .timeout(Duration.ofSeconds(15)).GET().build();
+        HttpRequest request = buildRequest();
         HttpResponse<String> response;
         try { response = sender.send(request); }
         catch (InterruptedException interrupted) {
@@ -66,6 +65,10 @@ public final class HttpGdeltMarketNewsClient implements MarketNewsClient {
         } catch (IOException failure) { throw new IllegalStateException("GDELT request failed"); }
         if (response.statusCode() != 200) throw new IllegalStateException("GDELT HTTP status " + response.statusCode());
         return parse(response.body());
+    }
+
+    HttpRequest buildRequest() {
+        return HttpRequest.newBuilder(buildUri()).timeout(Duration.ofSeconds(6)).GET().build();
     }
 
     URI buildUri() {
