@@ -4,6 +4,7 @@ import com.aira.api.market.domain.FactPredicate;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public record KrxPreparedPacket(KrxSnapshot base, KrxSnapshot daily,
         List<SecurityRow> securities, List<MarketValue> values) {
@@ -45,11 +46,42 @@ public record KrxPreparedPacket(KrxSnapshot base, KrxSnapshot daily,
         }
         return new KrxPreparedPacket(base, daily, List.copyOf(securities), List.copyOf(values));
     }
+
+    public KrxPreparedPacket selectShortCodes(Set<String> requestedShortCodes) {
+        if (requestedShortCodes == null || requestedShortCodes.isEmpty()) {
+            throw new IllegalArgumentException("At least one KRX short code is required");
+        }
+        var requested = new java.util.LinkedHashSet<String>();
+        for (String raw : requestedShortCodes) {
+            if (raw == null || !raw.trim().matches("[0-9]{6}")) {
+                throw new IllegalArgumentException("KRX short code must be exactly six digits");
+            }
+            requested.add(raw.trim());
+        }
+        var selectedSecurities = securities.stream()
+                .filter(security -> requested.contains(security.shortCode()))
+                .toList();
+        var found = selectedSecurities.stream().map(SecurityRow::shortCode)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (!found.equals(Set.copyOf(requested))) {
+            var missing = new java.util.LinkedHashSet<>(requested);
+            missing.removeAll(found);
+            throw new IllegalArgumentException("Requested KRX security is absent from exact snapshot: " + missing);
+        }
+        var standards = selectedSecurities.stream().map(SecurityRow::standardCode)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        var selectedValues = values.stream()
+                .filter(value -> standards.contains(value.standardCode()))
+                .toList();
+        return new KrxPreparedPacket(base, daily, List.copyOf(selectedSecurities), List.copyOf(selectedValues));
+    }
+
     private static String required(Map<String, String> row, String field) {
         String value = row.get(field);
         if (value == null || value.isBlank()) throw new IllegalArgumentException("Missing KRX identity field: " + field);
         return value;
     }
+
     static BigDecimal parseNumber(String raw, FactPredicate predicate) {
         if (raw == null || raw.isBlank() || raw.trim().equals("-")) return null;
         String token = raw.trim();
