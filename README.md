@@ -4,7 +4,7 @@ AIRA는 공개 시장정보를 출처와 근거에 연결해 제공하는 애플
 
 ## AIRA v1 status
 
-**AIRA v1 development scope is COMPLETE as of 2026-09-21.**
+**AIRA v1 core scope is COMPLETE as of 2026-09-21, and KRX/ECOS official-data ingestion was live-verified on 2026-09-22.**
 
 **Live Demo:** https://aira-production-dfd0.up.railway.app
 
@@ -12,7 +12,9 @@ AIRA는 공개 시장정보를 출처와 근거에 연결해 제공하는 애플
 
 현재 v1에서 확인할 수 있는 주요 범위:
 
-- KRX 공식 KOSPI/KOSDAQ 최근 완료 거래일 지수와 Evidence
+- KRX 공식 Open API 6종: 유가증권·코스닥 종목기본정보, 유가증권·코스닥 일별매매정보, KOSPI·KOSDAQ 시리즈 일별시세정보
+- KRX 종목기본정보와 일별매매정보의 동일 시장·동일 거래일 식별자 매핑, 전체 응답 Evidence 보존, 대표 지수 metric Fact 등록
+- 한국은행 ECOS `Source → Series Identity → Observation` 계약과 `REAL_GDP` 분기 관측값 수집
 - OpenDART 연간 연결재무제표 기반 매출·영업이익과 Historical Exact 기간/접수번호 검증
 - 공식 Evidence에 연결된 Confirmed Event와 Current/Historical Assessment
 - Interest → Briefing → Alert 개인화 흐름
@@ -21,6 +23,8 @@ AIRA는 공개 시장정보를 출처와 근거에 연결해 제공하는 애플
 - 외부 뉴스 제공자 장애가 시장 지수·공식 사건·판단 흐름으로 전파되지 않는 격리 처리
 
 2026-09-21 최종 통합 검증에서는 실제 retained PostgreSQL 데이터 기준으로 NAVER 2025 Historical Exact가 동일 OpenDART 접수번호 `20260313001021`의 공식 재검증을 거쳐 `AVAILABLE`임을 확인했고, KOSPI/KOSDAQ Evidence, Search → Ask → Inspect → Relate → Assess 브라우저 흐름, Finance 비로그인 보안 경계, 모바일 390px 스크롤/overflow를 확인했습니다. Web unit/integration baseline은 71/71 PASS, production build PASS, browser E2E는 8 PASS와 환경 의존 5 skip 상태입니다.
+
+2026-09-22 공식 데이터 통합 검증에서는 KRX 6개 endpoint를 거래일 `2026-09-21`로 실제 호출해 KOSPI 942종목, KOSDAQ 1,818종목과 지수 응답 54/40행을 검증했습니다. PostgreSQL에는 Evidence 6건, Security 2,760건, Fact/Assertion 각 22,086건이 저장됐고, 저장값 대조와 동일 응답 재실행의 멱등성을 확인했습니다. 지수 전체 행은 Evidence에 보존하되 대표 metric만 Fact로 등록합니다. ECOS는 `200Y104 / 1400 / Q` REAL_GDP의 `2025Q1`, `2025Q2`를 실제 호출해 Evidence 1건과 Fact/Assertion 각 2건을 검증했습니다. provider HTTP는 DB transaction 밖에서 수행하며, canonical evidence 충돌·실패 rollback·동일 재실행을 검증했고 Event/Assessment는 생성하지 않습니다. API 전체 회귀는 158 suites, 664 tests, failures 0, errors 0, skipped 10입니다. 상세 근거는 [KRX verification](docs/KRX_VERIFICATION_2026-09-22.md)과 [ECOS verification](docs/ECOS_VERIFICATION_2026-09-22.md)에 기록했습니다.
 
 시장 뉴스는 GDELT DOC 2.0 메타데이터를 별도 보조 정보로 사용합니다. 외부 제공자가 지연되거나 실패하면 오류/직전 캐시 상태를 표시하며 AIRA의 Fact·Event·Assessment와 섞거나 대체하지 않습니다.
 
@@ -57,9 +61,11 @@ backend context 실행에 필요한 값:
 - `RESEND_FROM_EMAIL`
 - `AIRA_PUBLIC_BASE_URL`
 
-OpenDART live adapter를 별도로 실행할 때만 필요한 값:
+공식 데이터 live adapter를 별도로 실행할 때만 필요한 값:
 
-- `OPENDART_API_KEY`
+- `OPENDART_API_KEY`: OpenDART
+- `AIRA_KRX_AUTH_KEY`: KRX Open API
+- `BOK_ECOS_API_KEY`: 한국은행 ECOS Open API
 
 그 밖의 설정 이름은 `apps/api/src/main/resources/application.properties`에서 확인할 수 있습니다. 실제 secret, `.env`, local property 파일은 commit하지 않습니다.
 
