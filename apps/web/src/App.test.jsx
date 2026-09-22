@@ -734,3 +734,28 @@ describe('authenticated interest and return experience', () => {
     expect(await screen.findByRole('heading', { name: /내 금융을 열기 전/ })).toBeInTheDocument()
   })
 })
+
+
+it('shows exact ECOS real GDP observations without turning them into an assessment', async () => {
+  const backend = server({ overrides: {
+    'GET /api/economic-indicators/real-gdp/latest': () => json({
+      state: 'AVAILABLE', reason: null, seriesName: '실질 국내총생산',
+      unitName: '십억원', sourceName: '한국은행 ECOS',
+      observations: [
+        { period: '2025Q2', value: 617220.6, evidenceId: 'ecos-evidence' },
+        { period: '2025Q1', value: 614115.3, evidenceId: 'ecos-evidence' },
+      ],
+    }),
+  } })
+  global.fetch = backend.fetch
+  const user = userEvent.setup()
+  render(<App />)
+
+  const board = (await screen.findByRole('heading', { name: '한국 경제의 분기별 실질 GDP' })).closest('section')
+  expect(within(board).getByText('2025년 2분기')).toBeInTheDocument()
+  expect(within(board).getByText('617,220.6')).toBeInTheDocument()
+  expect(within(board).getByText(/직전 분기 대비 \+3,105.3/)).toBeInTheDocument()
+  expect(within(board).getByText(/투자 판단이나 경기 진단이 아닙니다/)).toBeInTheDocument()
+  await user.click(within(board).getByRole('button', { name: '한국은행 공식 근거 확인' }))
+  expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/ecos-evidence', expect.anything())
+})

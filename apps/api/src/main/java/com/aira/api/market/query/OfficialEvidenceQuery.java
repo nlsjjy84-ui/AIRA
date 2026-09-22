@@ -22,7 +22,8 @@ public class OfficialEvidenceQuery {
             JOIN entity en ON en.id=f.subject_entity_id
             WHERE fa.evidence_id=? AND f.status='SUPPORTED' AND f.value_number IS NOT NULL
               AND ((en.entity_type='COMPANY' AND f.predicate IN ('REVENUE','OPERATING_INCOME'))
-                   OR (en.entity_type='MARKET' AND f.predicate IN ('INDEX_CLOSE','INDEX_CHANGE','INDEX_CHANGE_RATE')))
+                   OR (en.entity_type='MARKET' AND f.predicate IN ('INDEX_CLOSE','INDEX_CHANGE','INDEX_CHANGE_RATE'))
+                   OR (en.entity_type='COUNTRY' AND f.predicate='REAL_GDP'))
             """;
     static final String EVENT_REACHABLE_SQL = """
             SELECT count(*) FROM event_evidence eve JOIN event ev ON ev.id=eve.event_id

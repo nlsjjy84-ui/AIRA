@@ -270,11 +270,15 @@ footer p { margin: 0; }
   .workflow-sidebar.collapsed nav button { justify-content: center; padding-inline: .35rem; }
   .workflow-sidebar.collapsed .workflow-code { min-width: 0; text-align: center; }
   .workflow-sidebar ~ main {
-    padding-left: max(4.5rem, calc(12.5rem - max(0px, (100vw - var(--content)) / 2)));
-    transition: padding-left .16s ease;
+    max-width: calc(var(--content) - 11rem);
+    margin-left: max(11rem, calc((100vw - var(--content)) / 2 + 11rem));
+    margin-right: auto;
+    padding-left: 2rem;
+    transition: margin-left .16s ease, max-width .16s ease;
   }
   .workflow-sidebar.collapsed ~ main {
-    padding-left: max(2rem, calc(5.75rem - max(0px, (100vw - var(--content)) / 2)));
+    max-width: calc(var(--content) - 4.25rem);
+    margin-left: max(4.25rem, calc((100vw - var(--content)) / 2 + 4.25rem));
   }
 }
 
@@ -2057,4 +2061,27 @@ h1, h2, h3 { line-height: 1.12; }
   .alert-meaning p { font-size: .9rem; line-height: 1.48; }
   .briefing-side, .alert-side { padding-top: .65rem; }
   .alert-times { grid-template-columns: 1fr; gap: .28rem; }
+}
+
+/* MAIN ECOS context: a single readable official-statistic row. */
+.economic-indicator-section { margin-top: 1.25rem; }
+.economic-indicator-heading { display: flex; align-items: end; justify-content: space-between; gap: 1.5rem; margin-bottom: .9rem; }
+.economic-indicator-heading > p { max-width: 30rem; margin: 0; color: var(--muted); text-align: right; }
+.economic-indicator-reading { display: grid; grid-template-columns: minmax(12rem, .75fr) minmax(18rem, 1.25fr); gap: 2rem; padding: 1.2rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.economic-indicator-value { display: grid; gap: .25rem; align-content: start; }
+.economic-indicator-value > span { color: var(--muted); font-size: .88rem; }
+.economic-indicator-value > strong { font-size: clamp(2rem, 5vw, 3.35rem); line-height: 1; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.economic-indicator-value > small { color: var(--muted); }
+.economic-indicator-context { display: grid; align-content: center; gap: .75rem; min-width: 0; }
+.economic-indicator-context p { margin: 0; }
+.economic-indicator-context > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.economic-indicator-context > div > span { color: var(--muted); font-size: .88rem; }
+.economic-indicator-caveat { color: var(--muted); line-height: 1.65; }
+
+@media (max-width: 640px) {
+  .economic-indicator-heading { align-items: start; flex-direction: column; gap: .45rem; }
+  .economic-indicator-heading > p { text-align: left; }
+  .economic-indicator-reading { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+  .economic-indicator-context > div { align-items: flex-start; flex-direction: column; }
+  .economic-indicator-context .market-index-evidence { max-width: 100%; white-space: normal; text-align: left; }
 }

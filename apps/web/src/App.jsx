@@ -3,9 +3,11 @@ import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
 import PersonalFinance from './PersonalFinance.jsx'
 import MarketIndexBoard from './MarketIndexBoard.jsx'
+import EconomicIndicatorBoard from './EconomicIndicatorBoard.jsx'
 import RecentEventBoard from './RecentEventBoard.jsx'
 import MarketNewsBoard from './MarketNewsBoard.jsx'
 import { getLatestMarketIndices } from './api/marketIndexApi.js'
+import { getLatestRealGdp } from './api/economicIndicatorApi.js'
 import { getRecentEvents } from './api/eventApi.js'
 import { getLatestMarketNews } from './api/newsApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
@@ -250,6 +252,7 @@ export default function App() {
   const [alertsState, setAlertsState] = useState({ loading: false, data: [], emptyReason: null, error: null })
   const [alertDetailState, setAlertDetailState] = useState({ loading: false, data: null, error: null, alertId: null })
   const [marketIndexState, setMarketIndexState] = useState({ loading: false, data: null, error: null })
+  const [realGdpState, setRealGdpState] = useState({ loading: false, data: null, error: null })
   const [recentEventState, setRecentEventState] = useState({ loading: false, data: null, error: null })
   const [marketNewsState, setMarketNewsState] = useState({ loading: false, data: null, error: null })
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
@@ -298,6 +301,22 @@ export default function App() {
     if (routePath !== '/') return undefined
     return loadMarketIndices()
   }, [routePath, loadMarketIndices])
+
+  const loadRealGdp = useCallback(() => {
+    const current = beginRequest('realGdp')
+    const controller = new AbortController()
+    setRealGdpState({ loading: true, data: null, error: null })
+    getLatestRealGdp(controller.signal)
+      .then(data => current() && setRealGdpState({ loading: false, data, error: null }))
+      .catch(error => current() && error.name !== 'AbortError'
+        && setRealGdpState({ loading: false, data: null, error }))
+    return () => controller.abort()
+  }, [beginRequest])
+
+  useEffect(() => {
+    if (routePath !== '/') return undefined
+    return loadRealGdp()
+  }, [routePath, loadRealGdp])
 
   const loadRecentEvents = useCallback(() => {
     const current = beginRequest('recentEvents')
@@ -504,6 +523,7 @@ export default function App() {
         <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
+      <EconomicIndicatorBoard state={realGdpState} retry={loadRealGdp} onEvidence={openOfficialEvidence} />
       <div className="home-signal-grid">
         <RecentEventBoard state={recentEventState} retry={loadRecentEvents} onOpen={openAssessmentInExplorer} />
         <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />
