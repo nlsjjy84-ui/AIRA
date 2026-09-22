@@ -82,6 +82,7 @@ public class EcosRealGdpFactIngestionService {
         if (!binding.sourceId().equals(savedEvidence.getSource().getId())) {
             throw new IllegalStateException("ECOS evidence source does not match REAL_GDP binding source");
         }
+        requireCanonicalEvidence(savedEvidence, result, collectedAt);
 
         MarketEntity country = entities.findById(binding.countryEntityId())
                 .orElseThrow(() -> new IllegalStateException("REAL_GDP country entity was not found"));
@@ -157,6 +158,25 @@ public class EcosRealGdpFactIngestionService {
                 locator + "#TIME=" + observation.time(),
                 observation.numericValue(),
                 now));
+    }
+
+    static void requireCanonicalEvidence(
+            Evidence actual,
+            EcosRealGdpObservationResult result,
+            OffsetDateTime collectedAt) {
+        var expected = EcosRealGdpEvidenceSnapshotFactory.create(result, collectedAt);
+        if (actual == null
+                || actual.getEvidenceType() != expected.evidenceType()
+                || !java.util.Objects.equals(actual.getExternalId(), expected.externalId())
+                || !java.util.Objects.equals(actual.getOriginalUrl(), expected.originalUrl())
+                || !java.util.Objects.equals(actual.getTitle(), expected.title())
+                || !java.util.Arrays.equals(actual.getContentHash(), expected.contentHash())
+                || !java.util.Objects.equals(actual.getLocator(), expected.locator())
+                || !java.util.Objects.equals(actual.getPublishedAt(), expected.publishedAt())
+                || actual.getRevision() != expected.revision()) {
+            throw new IllegalStateException(
+                    "Registered ECOS evidence does not match validated REAL_GDP snapshot");
+        }
     }
 
     private static PreparedObservation prepare(EcosStatisticSearchObservation observation) {

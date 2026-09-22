@@ -107,7 +107,8 @@ class KrxPersistencePostgresTests {
     }
     @Test void laterFailureRollsBackBothSnapshotsAndIdentity() {
         var date = LocalDate.of(2035, 1, 4);
-        var bad = packet(date, "100", "200", "");
+        // Nonblank name passes preparation but exceeds the entity limit inside the transaction.
+        var bad = assertDoesNotThrow(() -> packet(date, "100", "200", "X".repeat(301)));
         assertThrows(IllegalArgumentException.class, () -> persistence.stock(bad));
         assertEquals(0, count("SELECT count(*) FROM evidence WHERE external_id=?", "KRX_OPENAPI:stk_bydd_trd:20350104"));
         assertEquals(0, count("SELECT count(*) FROM evidence WHERE external_id=?", "KRX_OPENAPI:stk_isu_base_info:20350104"));

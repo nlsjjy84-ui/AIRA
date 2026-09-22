@@ -137,6 +137,7 @@ public class KrxPersistence {
         MarketEntity existing = identifiers.findEntity(key).orElse(null);
         if (existing != null) {
             if (existing.getEntityType() != EntityType.SECURITY) throw new IllegalStateException("KRX code mapped to non-security");
+            existing.refreshSecurityDisplayName(row.name(), now);
             return existing;
         }
         // The standard code identifies the SECURITY; the dated short code and name only initialize display metadata.

@@ -40,7 +40,7 @@ public final class HttpKrxClient implements KrxClient {
         HttpRequest request = HttpRequest.newBuilder(URI.create(dataset.url(basDd)))
                 .header("AUTH_KEY", key).timeout(Duration.ofSeconds(30)).GET().build();
         HttpResponse<String> response;
-        try { response = http.send(request, HttpResponse.BodyHandlers.ofString()); }
+        try { response = http.send(request, HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8)); }
         catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("KRX request interrupted");

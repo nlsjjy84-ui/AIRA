@@ -99,6 +99,18 @@ public class MarketEntity {
         return entity;
     }
 
+    public void refreshSecurityDisplayName(String officialName, OffsetDateTime now) {
+        if (entityType != EntityType.SECURITY || officialName == null || officialName.isBlank()
+                || officialName.trim().length() > 300 || now == null) {
+            throw new IllegalArgumentException("SECURITY and official display metadata are required");
+        }
+        String normalized = officialName.trim();
+        if (!normalized.equals(canonicalName)) {
+            canonicalName = normalized;
+            updatedAt = now;
+        }
+    }
+
     public static MarketEntity market(String canonicalName, String marketCode, String countryCode,
             OffsetDateTime now) {
         if (canonicalName == null || canonicalName.isBlank() || canonicalName.trim().length() > 300

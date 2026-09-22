@@ -27,7 +27,9 @@ public record KrxPreparedPacket(KrxSnapshot base, KrxSnapshot daily,
         var byStandard = new java.util.HashMap<String, SecurityRow>();
         for (var row : base.rows()) {
             String standard = required(row, "ISU_CD"), shortCode = required(row, "ISU_SRT_CD");
-            var security = new SecurityRow(standard, shortCode, row.get("ISU_NM"), base.dataset().market());
+            String displayName = row.get("ISU_ABBRV");
+            if (displayName == null || displayName.isBlank()) displayName = required(row, "ISU_NM");
+            var security = new SecurityRow(standard, shortCode, displayName.trim(), base.dataset().market());
             if (byShort.putIfAbsent(shortCode, security) != null || byStandard.putIfAbsent(standard, security) != null)
                 throw new IllegalArgumentException("Ambiguous KRX base-info code mapping");
         }
