@@ -8,7 +8,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class OfficialDemoBootstrapOperation {
-    public static final List<String> REPRESENTATIVE_STOCK_CODES = List.of("000660", "035420");
+    public static final List<String> REPRESENTATIVE_STOCK_CODES =
+            List.of("000660", "035420", "005930", "035720", "066570", "005380", "000270");
+    // 000660 SK하이닉스, 035420 NAVER, 005930 삼성전자, 035720 카카오,
+    // 066570 LG전자, 005380 현대차, 000270 기아
 
     private final OfficialCompanyDataPreparationOperation companyData;
     private final OfficialEventAssessmentPreparationOperation eventAssessments;
