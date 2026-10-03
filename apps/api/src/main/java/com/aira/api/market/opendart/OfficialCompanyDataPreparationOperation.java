@@ -5,12 +5,16 @@ import com.aira.api.market.service.EntityAliasRegistryService;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
 
 @Service
 public class OfficialCompanyDataPreparationOperation {
+    private static final Logger log = LoggerFactory.getLogger(OfficialCompanyDataPreparationOperation.class);
+
     // Common colloquial/legacy names that differ from OpenDART's official canonical_name,
     // so users searching by the name they actually use (e.g. "현대차") still find the company.
     private static final Map<String, List<String>> KNOWN_STOCK_CODE_ALIASES = Map.of(
@@ -48,8 +52,17 @@ public class OfficialCompanyDataPreparationOperation {
                     "11011", "CFS"),
                     List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME));
             UUID entityId = persistence.persist(filing, record).companyId();
-            KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of())
-                    .forEach(alias -> aliases.registerOrReuse(entityId, alias));
+            var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());
+            log.info("Stock code {} maps to {} known alias(es): {}", stockCode, knownAliases.size(), knownAliases);
+            knownAliases.forEach(alias -> {
+                try {
+                    aliases.registerOrReuse(entityId, alias);
+                    log.info("Registered alias '{}' for entity {} (stock code {})", alias, entityId, stockCode);
+                } catch (RuntimeException ex) {
+                    log.error("Failed to register alias '{}' for entity {} (stock code {}): {}",
+                            alias, entityId, stockCode, ex.toString(), ex);
+                }
+            });
             return new PreparedCompany(entityId, record.corpCode(), record.stockCode(),
                     record.corpName(), profile.fiscalYearEndMonth(), businessYear);
         }).toList();
