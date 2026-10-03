@@ -27,11 +27,19 @@ public class CanonicalEntitySearchQuery {
                         ORDER BY x.created_at DESC, x.identifier_value LIMIT 1) AS external_identifier
                 FROM entity e
                 WHERE e.active=true AND e.entity_type IN ('COMPANY','SECURITY')
-                  AND (lower(e.canonical_name) LIKE lower(?) ESCAPE '\\' OR lower(e.symbol)=lower(?))
+                  AND (
+                    lower(e.canonical_name) LIKE lower(?) ESCAPE '\\'
+                    OR lower(e.symbol)=lower(?)
+                    OR EXISTS (
+                        SELECT 1 FROM entity_alias a
+                        WHERE a.entity_id = e.id AND lower(a.alias) LIKE lower(?) ESCAPE '\\'
+                    )
+                  )
                 ORDER BY e.entity_type,e.canonical_key LIMIT 50
                 """, (rs, n) -> new Item(rs.getObject(1, java.util.UUID.class),
                 EntityType.valueOf(rs.getString(2)), rs.getString(3), rs.getString(4),
-                rs.getString(5), rs.getString(6), rs.getString(7)), escaped + "%", term.strip());
+                rs.getString(5), rs.getString(6), rs.getString(7)),
+                escaped + "%", term.strip(), escaped + "%");
         return new EntitySearchResponse(entities.isEmpty() ? CanonicalDataState.NO_DATA
                 : CanonicalDataState.AVAILABLE, entities);
     }
