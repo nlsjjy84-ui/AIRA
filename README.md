@@ -113,6 +113,19 @@ Browser E2E는 설치된 Microsoft Edge를 재사용하며 backend와 실제 tes
 npm.cmd run test:e2e
 ```
 
+## Loading the full KRX universe (deployed demo)
+
+The default KRX stock refresh only stores the two representative securities (`KOSPI:000660,KOSPI:035420`), so the deployed demo can only search those. The 2,760 securities in `docs/KRX_VERIFICATION_2026-09-22.md` come from an isolated verification database, not from the deployed one. To load every listed security, set these process environment variables on the deployment once, start it, and then remove them so restarts do not call KRX again:
+
+```text
+AIRA_KRX_STOCK_REFRESH_ENABLED=true
+AIRA_KRX_STOCK_REFRESH_MODE=live
+AIRA_KRX_AUTH_KEY=<your KRX Open API key>
+AIRA_KRX_STOCK_REFRESH_TARGETS=KOSPI:ALL,KOSDAQ:ALL
+```
+
+`MARKET:ALL` stores the whole market; a six-digit code still stores one security. Search matches names and aliases anywhere in the text and symbols exactly. OpenDART financial statements remain limited to the representative companies prepared by the demo bootstrap.
+
 ## Demo data status
 
 새 로컬 PostgreSQL 환경에서 공식 OpenDART 데이터 경로를 명시적으로 준비할 수 있습니다. Bootstrap은 기본 실행에서 비활성이고, live OpenDART mode와 API key를 함께 opt-in해야 합니다. Fresh schema 적용, 대표 기업 준비, 재실행 검증과 UI 확인 절차는 [Official Demo Bootstrap & Runbook v1](docs/runbooks/OFFICIAL_DEMO_BOOTSTRAP_V1.md)을 따르세요.

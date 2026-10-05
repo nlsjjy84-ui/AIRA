@@ -45,8 +45,12 @@ public class KrxStockRefreshOperation {
                 default -> throw new IllegalArgumentException("Unsupported KRX stock market");
             };
             KrxSnapshot base = client.fetch(baseDataset, daily.date());
-            KrxPreparedPacket packet = KrxPreparedPacket.stock(base, daily)
-                    .selectShortCodes(Set.copyOf(entry.getValue()));
+            KrxPreparedPacket fullPacket = KrxPreparedPacket.stock(base, daily);
+            // "ALL" loads every listed security of the market (same path the 2026-09-22 live verification used);
+            // otherwise only the explicitly requested short codes are persisted.
+            KrxPreparedPacket packet = entry.getValue().contains(Target.ALL)
+                    ? fullPacket
+                    : fullPacket.selectShortCodes(Set.copyOf(entry.getValue()));
             persistence.stock(packet);
             results.add(new MarketResult(market, daily.date(), packet.securities().size(),
                     packet.values().size()));
@@ -56,6 +60,8 @@ public class KrxStockRefreshOperation {
     }
 
     public record Target(String market, String shortCode) {
+        public static final String ALL = "ALL";
+
         public Target {
             if (market == null || shortCode == null) {
                 throw new IllegalArgumentException("KRX target market and short code are required");
@@ -65,9 +71,10 @@ public class KrxStockRefreshOperation {
             if (!Set.of("KOSPI", "KOSDAQ").contains(market)) {
                 throw new IllegalArgumentException("KRX target market must be KOSPI or KOSDAQ");
             }
-            if (!shortCode.matches("[0-9]{6}")) {
-                throw new IllegalArgumentException("KRX target short code must be exactly six digits");
+            if (!ALL.equalsIgnoreCase(shortCode) && !shortCode.matches("[0-9]{6}")) {
+                throw new IllegalArgumentException("KRX target short code must be exactly six digits or ALL");
             }
+            if (ALL.equalsIgnoreCase(shortCode)) shortCode = ALL;
         }
     }
 

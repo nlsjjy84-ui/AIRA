@@ -54,4 +54,29 @@ class KrxStockRefreshOperationTests {
         assertEquals(List.of("123456"), packets.get(1).securities().stream()
                 .map(KrxPreparedPacket.SecurityRow::shortCode).toList());
     }
+
+    @Test
+    void allTargetPersistsEverySecurityOfTheMarket() {
+        var resolver = mock(KrxLatestCompletedTradingDayResolver.class);
+        var client = mock(KrxClient.class);
+        var persistence = mock(KrxPersistence.class);
+        LocalDate date = LocalDate.of(2035, 1, 12);
+        var daily = KrxSnapshot.validated(KrxDataset.STK_DAILY, date, List.of(
+                Map.of("BAS_DD", "20350112", "ISU_CD", "000660", "TDD_CLSPRC", "100"),
+                Map.of("BAS_DD", "20350112", "ISU_CD", "005930", "TDD_CLSPRC", "200")));
+        var base = KrxSnapshot.validated(KrxDataset.STK_BASE, date, List.of(
+                Map.of("ISU_CD", "KR7000660001", "ISU_SRT_CD", "000660", "ISU_NM", "SK hynix"),
+                Map.of("ISU_CD", "KR7005930003", "ISU_SRT_CD", "005930", "ISU_NM", "Samsung")));
+        when(resolver.resolve("KOSPI")).thenReturn(daily);
+        when(client.fetch(KrxDataset.STK_BASE, date)).thenReturn(base);
+
+        var operation = new KrxStockRefreshOperation(resolver, client, persistence);
+        var result = operation.refreshLatest(List.of(new KrxStockRefreshOperation.Target("KOSPI", "all")));
+
+        assertEquals(2, result.markets().get(0).securityCount());
+        var captor = ArgumentCaptor.forClass(KrxPreparedPacket.class);
+        verify(persistence).stock(captor.capture());
+        assertEquals(List.of("000660", "005930"), captor.getValue().securities().stream()
+                .map(KrxPreparedPacket.SecurityRow::shortCode).sorted().toList());
+    }
 }

@@ -19,7 +19,8 @@ public class OfficialCompanyDataPreparationOperation {
     // so users searching by the name they actually use (e.g. "현대차") still find the company.
     private static final Map<String, List<String>> KNOWN_STOCK_CODE_ALIASES = Map.of(
             "005380", List.of("현대차"),
-            "000270", List.of("기아자동차", "기아차"));
+            "000270", List.of("기아자동차", "기아차"),
+            "035420", List.of("네이버"));
 
     private final OpenDartCompanyDirectoryClient directoryClient;
     private final OpenDartCompanyProfileClient profileClient;

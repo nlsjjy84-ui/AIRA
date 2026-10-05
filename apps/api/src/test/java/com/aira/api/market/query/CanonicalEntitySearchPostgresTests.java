@@ -44,4 +44,23 @@ class CanonicalEntitySearchPostgresTests {
             jdbc.update("DELETE FROM entity WHERE id IN (?,?)", company, security);
         }
     }
+
+    @Test void namesMatchAnywhereAndExactMatchesComeFirst() {
+        UUID exact = UUID.randomUUID(), contained = UUID.randomUUID();
+        String token = "Zq" + exact.toString().replace("-", "").substring(0, 8);
+        try {
+            jdbc.update("INSERT INTO entity(id,entity_type,canonical_name,canonical_key,market_code,symbol,active) VALUES(?,'SECURITY',?,?,'KOSPI','900001',true)",
+                    contained, "Big" + token + "Corp", "SECURITY:" + contained);
+            jdbc.update("INSERT INTO entity(id,entity_type,canonical_name,canonical_key,market_code,symbol,active) VALUES(?,'SECURITY',?,?,'KOSPI','900002',true)",
+                    exact, token, "SECURITY:" + exact);
+            var result = search.find(token);
+            assertEquals(CanonicalDataState.AVAILABLE, result.state());
+            assertEquals(2, result.entities().size());
+            assertEquals(exact, result.entities().get(0).entityId());
+            assertEquals(contained, result.entities().get(1).entityId());
+            assertEquals(1, search.find("Big" + token).entities().size());
+        } finally {
+            jdbc.update("DELETE FROM entity WHERE id IN (?,?)", exact, contained);
+        }
+    }
 }
