@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "aira.auth")
 public class AuthProperties {
-    public static final int PASSWORD_MIN_LENGTH = 15;
+    public static final int PASSWORD_MIN_LENGTH = 10;
     public static final int PASSWORD_MAX_LENGTH = 72;
     public static final int SESSION_TOKEN_BYTES = 32;
     public static final int REQUEST_BODY_MAX_BYTES = 8 * 1024;

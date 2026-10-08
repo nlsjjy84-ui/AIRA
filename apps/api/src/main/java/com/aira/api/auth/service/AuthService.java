@@ -64,7 +64,8 @@ public class AuthService {
     private static void validatePassword(String password) {
         if (password == null || password.isBlank()) throw new InvalidSignupRequestException("password");
         int length = password.codePointCount(0, password.length());
-        if (length < 15 || length > 72) throw new InvalidSignupRequestException("password");
+        if (length < com.aira.api.auth.config.AuthProperties.PASSWORD_MIN_LENGTH
+                || length > com.aira.api.auth.config.AuthProperties.PASSWORD_MAX_LENGTH) throw new InvalidSignupRequestException("password");
     }
 
     private static boolean isNicknameConflict(Throwable throwable) {

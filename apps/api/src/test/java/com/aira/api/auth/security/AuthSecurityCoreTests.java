@@ -49,7 +49,7 @@ class AuthSecurityCoreTests {
     @Test
     void enforcesPasswordLengthAndBlankPolicy() {
         PasswordHasher hasher = new PasswordHasher(16, 32, 1, 19_456, 2);
-        assertThrows(IllegalArgumentException.class, () -> hasher.hash("short-password"));
+        assertThrows(IllegalArgumentException.class, () -> hasher.hash("short-pw"));
         assertThrows(IllegalArgumentException.class, () -> hasher.hash("               "));
         assertDoesNotThrow(() -> hasher.hash("123456789012345"));
     }

@@ -66,8 +66,8 @@ class AuthServiceTests {
 
     @Test
     void enforcesPasswordCodePointBoundaries() {
-        assertThrows(InvalidSignupRequestException.class, () -> signupWith("😀".repeat(14)));
-        assertDoesNotThrow(() -> signupWith("😀".repeat(15)));
+        assertThrows(InvalidSignupRequestException.class, () -> signupWith("😀".repeat(9)));
+        assertDoesNotThrow(() -> signupWith("😀".repeat(10)));
         assertDoesNotThrow(() -> signupWith("😀".repeat(72)));
         assertThrows(InvalidSignupRequestException.class, () -> signupWith("😀".repeat(73)));
         assertThrows(InvalidSignupRequestException.class, () -> signupWith(" ".repeat(15)));

@@ -184,7 +184,7 @@ export default function PersonalFinance({ user, onLogin }) {
     <form className="finance-reauth" onSubmit={reauthenticate}>
       <label htmlFor="finance-password">AIRA 비밀번호</label>
       <input id="finance-password" type="password" value={password} onChange={event => setPassword(event.target.value)}
-        minLength="15" maxLength="72" required autoComplete="current-password" />
+        minLength="10" maxLength="72" required autoComplete="current-password" />
       <button className="primary-action" disabled={busy}>{busy ? '확인 중…' : '내 금융 열기'}</button>
       <small>이 확인으로 실제 금융기관 연결이 시작되지는 않습니다.</small>
       {(error || access.error) && <FinanceError>{error ?? '보호 상태를 확인하지 못했습니다. 다시 시도해 주세요.'}</FinanceError>}

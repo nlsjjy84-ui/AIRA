@@ -72,7 +72,7 @@ function AuthPanel({ mode, setMode, close, authenticated }) {
       else if (error.code === 'AUTHENTICATION_FAILED') copy = '닉네임 또는 비밀번호를 확인해 주세요.'
       else if (error.code === 'INVALID_REQUEST') {
         copy = error.fields?.[0]?.field === 'password'
-          ? '비밀번호는 15자 이상 72자 이하로 입력해 주세요.'
+          ? '비밀번호는 10자 이상 72자 이하로 입력해 주세요.'
           : '닉네임과 비밀번호 입력값을 확인해 주세요.'
       }
       setState({ loading: false, error: copy, notice: null })
@@ -98,12 +98,12 @@ function AuthPanel({ mode, setMode, close, authenticated }) {
         <label htmlFor="password">비밀번호</label>
         <div className="password-field">
           <input id="password" type={visible ? 'text' : 'password'} value={password}
-            onChange={event => setPassword(event.target.value)} minLength="15" maxLength="72" required
+            onChange={event => setPassword(event.target.value)} minLength="10" maxLength="72" required
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
           <button type="button" onClick={() => setVisible(value => !value)}
             aria-label={visible ? '비밀번호 숨기기' : '비밀번호 표시'}>{visible ? '숨기기' : '표시'}</button>
         </div>
-        {mode === 'signup' && <small>15자 이상 72자 이하</small>}
+        {mode === 'signup' && <small>10자 이상 72자 이하</small>}
         {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
         {state.error && <p className="form-error" role="alert">{state.error}</p>}
         <button className="primary-action submit-action" disabled={state.loading}>
@@ -165,10 +165,10 @@ function RecoveryPanel({ mode, token, setMode, close, completeLink }) {
         {mode === 'forgot' && <><label htmlFor="reset-email">복구 이메일</label><input id="reset-email" type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength="254" required autoComplete="email" autoFocus /></>}
         {reset && <>
           <label htmlFor="new-password">새 비밀번호</label>
-          <input id="new-password" type="password" value={password} onChange={event => setPassword(event.target.value)} minLength="15" maxLength="72" required autoComplete="new-password" autoFocus />
-          <small>15자 이상 72자 이하</small>
+          <input id="new-password" type="password" value={password} onChange={event => setPassword(event.target.value)} minLength="10" maxLength="72" required autoComplete="new-password" autoFocus />
+          <small>10자 이상 72자 이하</small>
           <label htmlFor="confirm-password">새 비밀번호 확인</label>
-          <input id="confirm-password" type="password" value={confirmation} onChange={event => setConfirmation(event.target.value)} minLength="15" maxLength="72" required autoComplete="new-password" />
+          <input id="confirm-password" type="password" value={confirmation} onChange={event => setConfirmation(event.target.value)} minLength="10" maxLength="72" required autoComplete="new-password" />
         </>}
         {state.notice && <p className="form-notice" role="status">{state.notice}</p>}
         {state.error && <p className="form-error" role="alert">{state.error}</p>}
