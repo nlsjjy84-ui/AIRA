@@ -18,7 +18,7 @@ class HttpGdeltMarketNewsClientTests {
         assertTrue(uri.contains("timespan=24h"));
         assertTrue(uri.contains("sort=datedesc"));
         assertFalse(uri.contains("fulltext"));
-        assertEquals(java.time.Duration.ofSeconds(6), client.buildRequest().timeout().orElseThrow());
+        assertEquals(java.time.Duration.ofSeconds(20), client.buildRequest().timeout().orElseThrow());
     }
 
     @Test void parsesUtf8MetadataDeduplicatesUrlsAndSkipsMalformedArticles() {

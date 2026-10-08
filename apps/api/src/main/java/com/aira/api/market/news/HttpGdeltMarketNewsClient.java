@@ -50,7 +50,7 @@ public final class HttpGdeltMarketNewsClient implements MarketNewsClient {
     }
 
     private static Sender defaultSender() {
-        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
         return request -> client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
     }
 
@@ -71,7 +71,7 @@ public final class HttpGdeltMarketNewsClient implements MarketNewsClient {
     }
 
     HttpRequest buildRequest() {
-        return HttpRequest.newBuilder(buildUri()).timeout(Duration.ofSeconds(6)).GET().build();
+        return HttpRequest.newBuilder(buildUri()).timeout(Duration.ofSeconds(20)).GET().build();
     }
 
     URI buildUri() {

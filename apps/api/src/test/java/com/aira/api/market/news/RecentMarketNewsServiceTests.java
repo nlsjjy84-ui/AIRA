@@ -73,6 +73,42 @@ class RecentMarketNewsServiceTests {
         assertThrows(MarketNewsUnavailableException.class, service::latest);
     }
 
+    @Test void doesNotCallProviderAgainDuringBackoffAndRetriesAfterwards() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-21T02:00:00Z"));
+        AtomicInteger calls = new AtomicInteger();
+        var service = new RecentMarketNewsService(() -> { calls.incrementAndGet(); throw new IllegalStateException("timeout"); },
+                new MemoryStore(), clock, Duration.ofMinutes(10));
+
+        assertThrows(MarketNewsUnavailableException.class, service::latest);
+        clock.advance(Duration.ofSeconds(30));
+        assertThrows(MarketNewsUnavailableException.class, service::latest);
+        assertEquals(1, calls.get());
+
+        clock.advance(Duration.ofMinutes(3));
+        assertThrows(MarketNewsUnavailableException.class, service::latest);
+        assertEquals(2, calls.get());
+    }
+
+    @Test void refreshIgnoresCacheTtlStoresResultAndSwallowsFailure() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-09-21T02:00:00Z"));
+        MemoryStore store = new MemoryStore();
+        store.replace(RecentMarketNewsService.PROVIDER, OffsetDateTime.parse("2026-09-21T01:58:00Z"),
+                List.of(article(99, "https://old.example/99")));
+        AtomicInteger calls = new AtomicInteger();
+        var service = new RecentMarketNewsService(() -> {
+            if (calls.incrementAndGet() == 1) return List.of(article(1, "https://news.example/1"), article(2, "https://news.example/2"));
+            throw new IllegalStateException("429");
+        }, store, clock, Duration.ofMinutes(10));
+
+        service.refresh();
+        assertEquals(1, calls.get());
+        assertEquals(2, store.latest(RecentMarketNewsService.PROVIDER).orElseThrow().items().size());
+
+        clock.advance(Duration.ofMinutes(5));
+        assertDoesNotThrow(service::refresh);
+        assertEquals(2, calls.get());
+    }
+
     private static MarketNewsArticle article(int i, String url) {
         return new MarketNewsArticle("기사 " + i, url, "news.example",
                 OffsetDateTime.parse("2026-09-21T02:00:00Z").minusMinutes(i), "Korean", "South Korea");
