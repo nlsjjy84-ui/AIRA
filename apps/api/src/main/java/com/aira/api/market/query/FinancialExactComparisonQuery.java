@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class FinancialExactComparisonQuery {
-    private static final Set<FactPredicate> SUPPORTED = Set.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME);
+    private static final Set<FactPredicate> SUPPORTED = FactPredicate.COMPANY_FINANCIALS;
     private final FinancialHistoricalExactQuery exact;
     public FinancialExactComparisonQuery(FinancialHistoricalExactQuery exact) { this.exact = exact; }
 

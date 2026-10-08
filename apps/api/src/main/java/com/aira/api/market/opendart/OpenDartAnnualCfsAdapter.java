@@ -13,6 +13,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Comparator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,9 +23,24 @@ import org.springframework.transaction.annotation.Propagation;
 @Component
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class OpenDartAnnualCfsAdapter {
+    private static final Logger log = LoggerFactory.getLogger(OpenDartAnnualCfsAdapter.class);
     private static final Map<FactPredicate, List<String>> ACCOUNT_IDS = Map.of(
             FactPredicate.REVENUE, List.of("ifrs_Revenue", "ifrs-full_Revenue"),
-            FactPredicate.OPERATING_INCOME, List.of("dart_OperatingIncomeLoss"));
+            FactPredicate.OPERATING_INCOME, List.of("dart_OperatingIncomeLoss"),
+            FactPredicate.NET_INCOME, List.of("ifrs-full_ProfitLoss", "ifrs_ProfitLoss"),
+            FactPredicate.TOTAL_ASSETS, List.of("ifrs-full_Assets", "ifrs_Assets"),
+            FactPredicate.TOTAL_LIABILITIES, List.of("ifrs-full_Liabilities", "ifrs_Liabilities"),
+            FactPredicate.TOTAL_EQUITY, List.of("ifrs-full_Equity", "ifrs_Equity"));
+    /**
+     * 새로 추가한 항목은 회사마다 계정 코드가 조금씩 달라 공시에서 못 찾을 수 있다. 그 경우 이 항목만 건너뛰고
+     * 매출·영업이익 수집은 그대로 진행한다. 같은 계정 코드가 재무제표 여러 곳에 나오므로 어느 표(sj_div)의
+     * 값인지도 함께 확인한다. 순이익은 손익계산서(IS) 또는 포괄손익계산서(CIS), 나머지는 재무상태표(BS)다.
+     */
+    private static final Map<FactPredicate, java.util.Set<String>> STATEMENT_DIVISIONS = Map.of(
+            FactPredicate.NET_INCOME, java.util.Set.of("IS", "CIS"),
+            FactPredicate.TOTAL_ASSETS, java.util.Set.of("BS"),
+            FactPredicate.TOTAL_LIABILITIES, java.util.Set.of("BS"),
+            FactPredicate.TOTAL_EQUITY, java.util.Set.of("BS"));
 
     private final OpenDartAnnualCfsClient client;
     private final OpenDartPeriodWitnessClient witnesses;
@@ -84,9 +101,27 @@ public class OpenDartAnnualCfsAdapter {
         if (expectedReceiptNumber != null) {
             validateExpectedFiling(response, context, expectedReceiptNumber);
         }
-        List<OpenDartFinancialRow> selected = predicates.stream()
-                .map(predicate -> selectRow(response, context, expectedReceiptNumber, predicate))
-                .toList();
+        var chosenPredicates = new java.util.ArrayList<FactPredicate>();
+        var selected = new java.util.ArrayList<OpenDartFinancialRow>();
+        for (FactPredicate predicate : predicates) {
+            if (STATEMENT_DIVISIONS.containsKey(predicate)) {
+                var row = selectOptionalRow(response, context, expectedReceiptNumber, predicate);
+                if (row == null) {
+                    log.warn("OpenDART {} was not found for corp {} year {}; skipping this item",
+                            predicate, context.corpCode(), context.businessYear());
+                    continue;
+                }
+                chosenPredicates.add(predicate);
+                selected.add(row);
+            } else {
+                chosenPredicates.add(predicate);
+                selected.add(selectRow(response, context, expectedReceiptNumber, predicate));
+            }
+        }
+        if (selected.isEmpty()) {
+            throw new OpenDartProviderException(OpenDartProviderException.Category.NO_DATA,
+                    "Supported annual CFS account was not returned");
+        }
         // Value rows and the period witness must describe one filing, even when the API returns mixed receipts.
         String receiptNumber = expectedReceiptNumber != null
                 ? expectedReceiptNumber : selected.getFirst().receiptNumber();
@@ -98,13 +133,13 @@ public class OpenDartAnnualCfsAdapter {
                 witnesses.fetch(context.corpCode(), context.businessYear()), OffsetDateTime.now(clock));
         byte[] filingHash = filingContentHash(response, receiptNumber, context);
         var metrics = new java.util.ArrayList<OpenDartPreparedFiling.Metric>();
-        for (int index = 0; index < predicates.size(); index++) {
+        for (int index = 0; index < chosenPredicates.size(); index++) {
             var row = selected.get(index);
             if (!context.corpCode().equals(row.corpCode())) {
                 throw OpenDartPeriodWitnessResolver.blocked(
                         OpenDartProviderException.Category.PERIOD_WITNESS_IDENTITY_MISMATCH);
             }
-            metrics.add(new OpenDartPreparedFiling.Metric(predicates.get(index), parseAmount(row.currentTermAmount()),
+            metrics.add(new OpenDartPreparedFiling.Metric(chosenPredicates.get(index), parseAmount(row.currentTermAmount()),
                     requireCurrency(row.currency()), context.financialStatementDivision() + "/"
                     + required(row.statementDivision(), "statement division") + "/" + row.accountId() + "/thstrm_amount"));
         }
@@ -145,6 +180,33 @@ public class OpenDartAnnualCfsAdapter {
                     "OpenDART returned an ambiguous annual CFS account");
         }
         return matches.getFirst();
+    }
+
+    /** 선택 항목: 못 찾거나 값이 서로 다른 후보가 여럿이면 null(건너뜀). 같은 값이 여러 표에 나오면 하나로 본다. */
+    private static OpenDartFinancialRow selectOptionalRow(OpenDartFinancialResponse response,
+            OpenDartAnnualCfsContext context, String expectedReceiptNumber, FactPredicate predicate) {
+        var accountIds = ACCOUNT_IDS.get(predicate);
+        var divisions = STATEMENT_DIVISIONS.get(predicate);
+        List<OpenDartFinancialRow> matches = response.list().stream()
+                .filter(row -> row != null)
+                .filter(row -> expectedReceiptNumber == null
+                        || expectedReceiptNumber.equals(row.receiptNumber()))
+                .filter(row -> context.reportCode().equals(row.reportCode()))
+                .filter(row -> Integer.toString(context.businessYear()).equals(row.businessYear()))
+                .filter(row -> row.corpCode() == null || context.corpCode().equals(row.corpCode()))
+                .filter(row -> row.financialStatementDivision() == null
+                        || context.financialStatementDivision().equals(row.financialStatementDivision()))
+                .filter(row -> accountIds.contains(row.accountId()))
+                .filter(row -> row.statementDivision() != null && divisions.contains(row.statementDivision()))
+                .filter(row -> row.currentTermAmount() != null && !row.currentTermAmount().isBlank())
+                .toList();
+        if (matches.isEmpty()) {
+            return null;
+        }
+        long distinctAmounts = matches.stream()
+                .map(row -> row.currentTermAmount().trim().replace(",", ""))
+                .distinct().count();
+        return distinctAmounts == 1 ? matches.getFirst() : null;
     }
 
     private static void validateExpectedFiling(OpenDartFinancialResponse response,

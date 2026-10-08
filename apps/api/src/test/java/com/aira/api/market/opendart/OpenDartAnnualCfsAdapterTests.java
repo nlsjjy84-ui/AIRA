@@ -322,6 +322,85 @@ class OpenDartAnnualCfsAdapterTests {
                 .noneMatch(field -> field.getType().getPackageName().contains("repository")));
     }
 
+    @Test
+    void collectsNetIncomeAndBalanceSheetTotalsFromTheRightStatements() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"), row("dart_OperatingIncomeLoss", "100"),
+                statementRow("IS", "ifrs-full_ProfitLoss", "80"),
+                statementRow("BS", "ifrs-full_Assets", "5,000"),
+                statementRow("BS", "ifrs-full_Liabilities", "2,000"),
+                statementRow("BS", "ifrs-full_Equity", "3,000"),
+                // The same account code also appears in the equity-change statement; only the balance sheet counts.
+                statementRow("SCE", "ifrs-full_Equity", "999")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, List.of(
+                FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME, FactPredicate.NET_INCOME,
+                FactPredicate.TOTAL_ASSETS, FactPredicate.TOTAL_LIABILITIES, FactPredicate.TOTAL_EQUITY));
+
+        assertEquals(6, receipts.size());
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(6)).ingest(captor.capture());
+        var byPredicate = new java.util.EnumMap<FactPredicate, BigDecimal>(FactPredicate.class);
+        captor.getAllValues().forEach(input -> byPredicate.put(input.predicate(), input.numberValue()));
+        assertEquals(0, new BigDecimal("80").compareTo(byPredicate.get(FactPredicate.NET_INCOME)));
+        assertEquals(0, new BigDecimal("5000").compareTo(byPredicate.get(FactPredicate.TOTAL_ASSETS)));
+        assertEquals(0, new BigDecimal("2000").compareTo(byPredicate.get(FactPredicate.TOTAL_LIABILITIES)));
+        assertEquals(0, new BigDecimal("3000").compareTo(byPredicate.get(FactPredicate.TOTAL_EQUITY)));
+    }
+
+    @Test
+    void skipsOnlyTheNewItemsThatTheFilingDoesNotContain() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"), row("dart_OperatingIncomeLoss", "100")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, List.of(
+                FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME,
+                FactPredicate.NET_INCOME, FactPredicate.TOTAL_ASSETS));
+
+        assertEquals(2, receipts.size());
+    }
+
+    @Test
+    void doesNotGuessWhenTheSameNewItemHasConflictingValues() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"),
+                statementRow("BS", "ifrs-full_Assets", "5,000"),
+                statementRow("BS", "ifrs-full_Assets", "7,000")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, List.of(
+                FactPredicate.REVENUE, FactPredicate.TOTAL_ASSETS));
+
+        assertEquals(1, receipts.size());
+    }
+
+    @Test
+    void acceptsTheSameNetIncomeShownInBothIncomeAndComprehensiveStatements() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"),
+                statementRow("IS", "ifrs-full_ProfitLoss", "80"),
+                statementRow("CIS", "ifrs-full_ProfitLoss", "80")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, List.of(
+                FactPredicate.REVENUE, FactPredicate.NET_INCOME));
+
+        assertEquals(2, receipts.size());
+    }
+
+    @Test
+    void failsWhenOnlyNewItemsWereRequestedAndNoneExist() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
+
+        assertEquals(OpenDartProviderException.Category.NO_DATA,
+                assertThrows(OpenDartProviderException.class, () -> adapter.ingestFiling(CONTEXT, RECEIPT,
+                        List.of(FactPredicate.TOTAL_ASSETS))).category());
+    }
+
+    private static OpenDartFinancialRow statementRow(String statement, String accountId, String amount) {
+        return new OpenDartFinancialRow(RECEIPT, "2025", "11011", "00126380", null, statement, "display",
+                accountId, "ignored label", null, null, "ignored term name", amount,
+                null, null, null, null, "1", "KRW");
+    }
+
     private static OpenDartFinancialResponse success(OpenDartFinancialRow... rows) {
         return new OpenDartFinancialResponse("000", "OK", List.of(rows));
     }

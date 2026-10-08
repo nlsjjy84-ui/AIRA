@@ -51,7 +51,8 @@ public class OfficialCompanyDataPreparationOperation {
             if (!record.corpCode().equals(profile.corpCode())) throw new IllegalStateException("OpenDART company identity is inconsistent");
             var filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
                     "11011", "CFS"),
-                    List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME));
+                    List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME, FactPredicate.NET_INCOME,
+                            FactPredicate.TOTAL_ASSETS, FactPredicate.TOTAL_LIABILITIES, FactPredicate.TOTAL_EQUITY));
             UUID entityId = persistence.persist(filing, record).companyId();
             var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());
             log.info("Stock code {} maps to {} known alias(es): {}", stockCode, knownAliases.size(), knownAliases);

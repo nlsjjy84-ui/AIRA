@@ -113,4 +113,16 @@ describe('evidence-linked visuals', () => {
     expect(onEvidence).toHaveBeenCalledWith('E2', { type: 'FACT', label: 'CLOSE_PRICE · 2026-09-14 · F2' })
     expect(screen.getAllByRole('meter')).toHaveLength(2)
   })
+
+  it('shows net income and balance sheet totals with Korean labels and marks them as year-end values', () => {
+    const observation = { state: 'AVAILABLE', periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: 'R-A',
+      value: { facts: ['NET_INCOME', 'TOTAL_ASSETS', 'TOTAL_LIABILITIES', 'TOTAL_EQUITY'].map(predicate => (
+        { predicate, value: '1000000000000', currency: 'KRW', evidenceId: `e-${predicate}`,
+          periodStart: '2025-01-01', periodEnd: '2025-12-31', sourceName: 'OpenDART' })) } }
+    render(<FinancialOverview observation={observation} onEvidence={vi.fn()} />)
+    expect(screen.getByText('당기순이익')).toBeInTheDocument()
+    expect(screen.getByText('자산총계(기말)')).toBeInTheDocument()
+    expect(screen.getByText('부채총계(기말)')).toBeInTheDocument()
+    expect(screen.getByText('자본총계(기말)')).toBeInTheDocument()
+  })
 })

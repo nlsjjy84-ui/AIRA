@@ -21,7 +21,7 @@ public class OfficialEvidenceQuery {
             SELECT count(*) FROM fact_assertion fa JOIN fact f ON f.id=fa.fact_id
             JOIN entity en ON en.id=f.subject_entity_id
             WHERE fa.evidence_id=? AND f.status='SUPPORTED' AND f.value_number IS NOT NULL
-              AND ((en.entity_type='COMPANY' AND f.predicate IN ('REVENUE','OPERATING_INCOME'))
+              AND ((en.entity_type='COMPANY' AND f.predicate IN ('REVENUE','OPERATING_INCOME','NET_INCOME','TOTAL_ASSETS','TOTAL_LIABILITIES','TOTAL_EQUITY'))
                    OR (en.entity_type='MARKET' AND f.predicate IN ('INDEX_CLOSE','INDEX_CHANGE','INDEX_CHANGE_RATE'))
                    OR (en.entity_type='COUNTRY' AND f.predicate='REAL_GDP'))
             """;

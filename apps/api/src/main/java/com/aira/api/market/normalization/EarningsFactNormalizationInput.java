@@ -24,8 +24,7 @@ public record EarningsFactNormalizationInput(
                 || locator == null || locator.isBlank()) {
             throw new IllegalArgumentException("Earnings fact normalization values are invalid");
         }
-        if (predicate != FactPredicate.REVENUE
-                && predicate != FactPredicate.OPERATING_INCOME) {
+        if (!predicate.isCompanyFinancial()) {
             throw new IllegalArgumentException("Unsupported earnings fact predicate");
         }
     }

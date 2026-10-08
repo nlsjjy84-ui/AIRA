@@ -30,7 +30,11 @@ public interface FactRepository extends JpaRepository<Fact, UUID> {
               and fact.periodStart is not null
               and fact.periodEnd is not null
               and fact.predicate in (com.aira.api.market.domain.FactPredicate.REVENUE,
-                                     com.aira.api.market.domain.FactPredicate.OPERATING_INCOME)
+                                     com.aira.api.market.domain.FactPredicate.OPERATING_INCOME,
+                                     com.aira.api.market.domain.FactPredicate.NET_INCOME,
+                                     com.aira.api.market.domain.FactPredicate.TOTAL_ASSETS,
+                                     com.aira.api.market.domain.FactPredicate.TOTAL_LIABILITIES,
+                                     com.aira.api.market.domain.FactPredicate.TOTAL_EQUITY)
               and evidence.externalId is not null
               and evidence.originalUrl is not null
               and evidence.collectedAt is not null

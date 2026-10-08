@@ -16,7 +16,8 @@ const CONFIDENCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }
 const IMPORTANCE_LABEL = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRITICAL: '매우 높음' }
 const METHOD_LABEL = { RULE: '규칙 기반', AI: 'AI 기반', HYBRID: '혼합', HUMAN_REVIEW: '사람 검토' }
 const EVENT_TYPE_LABEL = { EARNINGS: '실적', DISCLOSURE: '공시', BUSINESS: '사업', GOVERNANCE: '지배구조', POLICY: '정책', OTHER: '기타' }
-const FINANCIAL_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익' }
+export const FINANCIAL_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', NET_INCOME: '당기순이익',
+  TOTAL_ASSETS: '자산총계(기말)', TOTAL_LIABILITIES: '부채총계(기말)', TOTAL_EQUITY: '자본총계(기말)' }
 const COMPARISON_REASON_COPY = {
   INVALID_EXACT_SELECTION: '비교할 기간과 공시 접수번호를 다시 확인해 주세요.',
   A_FACTS_NOT_FOUND: 'A 기간에서 비교할 정확한 재무 값을 찾지 못했습니다.',

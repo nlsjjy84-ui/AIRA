@@ -17,7 +17,8 @@ export function formatQuantity(value, unit = '') {
   return `${KOREAN.format(number)}${unit ? ` ${unit}` : ''}`
 }
 
-const FACT_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', CLOSE_PRICE: '종가',
+const FACT_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', NET_INCOME: '당기순이익',
+  TOTAL_ASSETS: '자산총계(기말)', TOTAL_LIABILITIES: '부채총계(기말)', TOTAL_EQUITY: '자본총계(기말)', CLOSE_PRICE: '종가',
   OPEN_PRICE: '시가', HIGH_PRICE: '고가', LOW_PRICE: '저가', TRADING_VOLUME: '거래량',
   MARKET_CAP: '시가총액' }
 const RELATION_LABEL = { FACT: '사실', EVENT: '사건', ASSESSMENT: '판단' }

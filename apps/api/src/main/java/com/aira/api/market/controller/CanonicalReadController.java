@@ -90,7 +90,7 @@ public class CanonicalReadController {
 
     private boolean conflicting(UUID companyId, LocalDate start, LocalDate end) {
         return facts.findBySubjectEntityIdAndPredicateInAndPeriodStartAndPeriodEnd(companyId,
-                Set.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME), start, end).stream()
+                FactPredicate.COMPANY_FINANCIALS, start, end).stream()
                 .anyMatch(f -> f.getStatus() == FactStatus.CONFLICTING);
     }
 

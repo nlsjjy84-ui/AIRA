@@ -16,8 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PublicCompanyCatalogQuery {
-    private static final Set<FactPredicate> SUPPORTED =
-            Set.copyOf(EnumSet.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME));
+    private static final Set<FactPredicate> SUPPORTED = FactPredicate.COMPANY_FINANCIALS;
 
     private final MarketEntityRepository entities;
     private final FactRepository facts;

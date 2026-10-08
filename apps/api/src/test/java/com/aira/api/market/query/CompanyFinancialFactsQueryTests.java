@@ -64,7 +64,7 @@ class CompanyFinancialFactsQueryTests {
         Fact operatingIncome = fact(FactPredicate.OPERATING_INCOME, "43601051000000");
         Evidence evidence = evidence(null);
         when(facts.findBySubjectEntityIdAndPredicateInAndPeriodStartAndPeriodEnd(
-                COMPANY_ID, Set.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME),
+                COMPANY_ID, FactPredicate.COMPANY_FINANCIALS,
                 START, END)).thenReturn(List.of(revenue, operatingIncome));
         when(assertions.findWithProvenanceByFactIds(
                 Set.of(revenue.getId(), operatingIncome.getId())))
@@ -136,7 +136,7 @@ class CompanyFinancialFactsQueryTests {
     @Test
     void rejectsUnsupportedPredicateBeforeFactQuery() {
         var failure = assertThrows(CompanyFinancialFactsQueryException.class,
-                () -> query.find(input(Set.of("NET_INCOME"))));
+                () -> query.find(input(Set.of("CLOSE_PRICE"))));
 
         assertEquals(CompanyFinancialFactsQueryException.Category.UNSUPPORTED_PREDICATE,
                 failure.category());

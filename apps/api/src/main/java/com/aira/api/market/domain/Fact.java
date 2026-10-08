@@ -215,8 +215,7 @@ public class Fact {
     }
 
     private static boolean isEarningsPredicate(FactPredicate predicate) {
-        return predicate == FactPredicate.REVENUE
-                || predicate == FactPredicate.OPERATING_INCOME;
+        return predicate != null && predicate.isCompanyFinancial();
     }
 
     private static boolean isCurrencyCode(String value) {
