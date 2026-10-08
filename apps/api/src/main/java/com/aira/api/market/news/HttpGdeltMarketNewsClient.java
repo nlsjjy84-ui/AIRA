@@ -62,7 +62,10 @@ public final class HttpGdeltMarketNewsClient implements MarketNewsClient {
         catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("GDELT request interrupted");
-        } catch (IOException failure) { throw new IllegalStateException("GDELT request failed"); }
+        } catch (IOException failure) {
+            throw new IllegalStateException("GDELT request failed: " + failure.getClass().getSimpleName()
+                    + (failure.getMessage() == null ? "" : " " + failure.getMessage()), failure);
+        }
         if (response.statusCode() != 200) throw new IllegalStateException("GDELT HTTP status " + response.statusCode());
         return parse(response.body());
     }
