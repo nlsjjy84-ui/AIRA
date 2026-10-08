@@ -4,12 +4,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class RecentMarketNewsService {
+    private static final Logger log = LoggerFactory.getLogger(RecentMarketNewsService.class);
     static final String PROVIDER = "GDELT DOC 2.0";
     private final MarketNewsClient client;
     private final MarketNewsCacheStore cacheStore;
@@ -42,6 +45,8 @@ public class RecentMarketNewsService {
             cacheStore.replace(PROVIDER, now, items);
             return response;
         } catch (RuntimeException failure) {
+            log.warn("GDELT news fetch failed ({}); {}", failure.getMessage(),
+                    cached != null ? "serving cached items" : "no cache available");
             if (cached != null) return new MarketNewsFeedResponse(PROVIDER,
                     cached.fetchedAt(), true, cached.items());
             throw new MarketNewsUnavailableException(failure);

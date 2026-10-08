@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchEntities, readFinancialExact, readFinancialComparison, readAssessmentCurrent, readMarketCurrent,
   readMarketSeries, readMarketPrevious, readAssessmentHistorical } from './api/canonicalApi.js'
-import { getCompanyEvents } from './api/companyApi.js'
+import { getCompanyEvents, getFinancialPeriods } from './api/companyApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
 import { advance, contextTrail, EXPLORER_HISTORY_KEY, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
@@ -45,6 +45,27 @@ function StateNotice({ state, lead, detail }) {
   </div>
 }
 
+// 공시·기간 고르기: 서버가 알려주는 보고기간(financial-periods)과 사건 근거의 공시 접수번호를 짝지어
+// "사용자가 접수번호를 몰라도" 고를 수 있는 목록을 만든다. 접수번호는 사건 제목의 "N 회계연도"로만 연결하며,
+// 짝이 안 맞으면 지어내지 않고 선택 불가로 표시한다.
+export function buildFilingOptions(periods = [], events = []) {
+  const receiptByYear = new Map()
+  for (const event of events) {
+    const year = /(\d{4})\s*회계연도/.exec(event.title ?? '')?.[1]
+    const receipt = (event.evidence ?? []).find(item => item.sourceName === 'OpenDART' && item.externalId)?.externalId
+    if (year && receipt && !receiptByYear.has(year)) receiptByYear.set(year, receipt)
+  }
+  return [...periods].sort((a, b) => String(b.periodEnd).localeCompare(String(a.periodEnd))).map(period => ({
+    periodStart: period.periodStart, periodEnd: period.periodEnd, predicates: period.predicates ?? [],
+    receipt: receiptByYear.get(String(period.periodEnd).slice(0, 4)) ?? '',
+  }))
+}
+
+function formatKoreanDate(value) {
+  const [year, month, day] = String(value).split('-')
+  return year && month && day ? `${year}.${month}.${day}` : String(value)
+}
+
 export default function CanonicalExplorer({ embedded = false, interest = null }) {
   const [context, setContext] = useState(() => window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
@@ -57,10 +78,13 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const [historical, setHistorical] = useState({ loading: false, value: null, state: null })
   const [evidence, setEvidence] = useState({ loading: false, value: null, state: null })
   const [eventDetailState, setEventDetailState] = useState({ loading: false, value: null, error: null })
+  const [filings, setFilings] = useState({ loading: false, options: [], error: false, forTarget: null })
   const [inspectSection, setInspectSection] = useState('fact')
   const [relateSection, setRelateSection] = useState('confirmed')
   const [assessSection, setAssessSection] = useState('fact')
   const requestNumber = useRef(0)
+  const contextRef = useRef(context)
+  contextRef.current = context
   const eventRequestNumber = useRef(0)
 
   useEffect(() => {
@@ -86,6 +110,21 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     })
     return () => { eventRequestNumber.current += 1 }
   }, [context.step, context.eventId])
+
+  useEffect(() => {
+    const companyId = context.step === 'Inspect' && context.detail && context.target?.entityType === 'COMPANY' ? context.target.entityId : null
+    if (!companyId) return undefined
+    let cancelled = false
+    setFilings({ loading: true, options: [], error: false, forTarget: companyId })
+    Promise.all([getFinancialPeriods(companyId), getCompanyEvents(companyId)]).then(([periodsResponse, eventsResponse]) => {
+      if (cancelled) return
+      const options = buildFilingOptions(periodsResponse?.periods ?? [], eventsResponse?.events ?? [])
+      setFilings({ loading: false, options, error: false, forTarget: companyId })
+      const first = options.find(option => option.receipt)
+      if (first && !context.receipt && !context.periodStart && !context.periodEnd) chooseFiling(first)
+    }).catch(() => { if (!cancelled) setFilings({ loading: false, options: [], error: true, forTarget: companyId }) })
+    return () => { cancelled = true }
+  }, [context.step, context.detail, context.target?.entityId])
 
   useEffect(() => {
     if (!evidence.value) return
@@ -172,33 +211,34 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     }
   }
 
-  async function loadDetail() {
+  async function loadDetail(override) {
+    const ctx = override ?? context
     const request = ++requestNumber.current
     setData({ loading: true, state: null, value: null })
     try {
       let response
-      if (context.step === 'Inspect' && context.target?.entityType === 'COMPANY') {
-        if (!context.periodStart || !context.periodEnd || !context.receipt) {
+      if (ctx.step === 'Inspect' && ctx.target?.entityType === 'COMPANY') {
+        if (!ctx.periodStart || !ctx.periodEnd || !ctx.receipt) {
           setData({ loading: false, state: 'UNSUPPORTED', value: null }); return
         }
-        response = await readFinancialExact(context.target.entityId, context)
-      } else if (context.step === 'Inspect' && context.target?.entityType === 'SECURITY') {
-        response = await readMarketCurrent(context.target.entityId, context.predicate)
-      } else if (context.step === 'Relate' && context.target?.entityType === 'COMPANY') {
-        const events = await getCompanyEvents(context.target.entityId)
+        response = await readFinancialExact(ctx.target.entityId, ctx)
+      } else if (ctx.step === 'Inspect' && ctx.target?.entityType === 'SECURITY') {
+        response = await readMarketCurrent(ctx.target.entityId, ctx.predicate)
+      } else if (ctx.step === 'Relate' && ctx.target?.entityType === 'COMPANY') {
+        const events = await getCompanyEvents(ctx.target.entityId)
         response = { state: events.events?.length ? 'AVAILABLE' : 'NO_DATA', value: events.events ?? [] }
-      } else if (context.step === 'Assess' && context.eventId) {
-        response = await readAssessmentCurrent(context.eventId)
+      } else if (ctx.step === 'Assess' && ctx.eventId) {
+        response = await readAssessmentCurrent(ctx.eventId)
       } else {
         response = { state: 'UNSUPPORTED', value: null }
       }
       if (request === requestNumber.current) {
         setData({ loading: false, state: response.state, value: response.value,
           selection: response.selection, periodStart: response.periodStart, periodEnd: response.periodEnd, receipt: response.receipt })
-        const assessmentId = response.value?.assessmentId ?? context.assessmentId
-        const evidenceId = response.value?.facts?.[0]?.evidenceId ?? response.value?.evidenceIds?.[0] ?? context.evidenceId
-        if (assessmentId !== context.assessmentId || evidenceId !== context.evidenceId) {
-          const next = { ...context, assessmentId, evidenceId }
+        const assessmentId = response.value?.assessmentId ?? ctx.assessmentId
+        const evidenceId = response.value?.facts?.[0]?.evidenceId ?? response.value?.evidenceIds?.[0] ?? ctx.evidenceId
+        if (assessmentId !== ctx.assessmentId || evidenceId !== ctx.evidenceId) {
+          const next = { ...ctx, assessmentId, evidenceId }
           window.history.replaceState({ ...window.history.state, [EXPLORER_HISTORY_KEY]: next }, '', window.location.href)
           setContext(next)
         }
@@ -206,6 +246,13 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     } catch {
       if (request === requestNumber.current) setData({ loading: false, state: 'UNAVAILABLE', value: null })
     }
+  }
+
+  function chooseFiling(option) {
+    if (!option?.receipt) return
+    const next = { ...contextRef.current, periodStart: option.periodStart, periodEnd: option.periodEnd, receipt: option.receipt }
+    edit(next)
+    loadDetail(next)
   }
 
   async function loadComparison(event) {
@@ -388,12 +435,21 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
       {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
       {context.detail && <div className="explorer-detail"><p className="classification-path"><span>{context.category}</span><i aria-hidden="true">›</i><strong>{detailLabel}</strong></p>
-        {target.entityType === 'COMPANY' ? <div className="exact-observation-layout"><div className="explorer-fields exact-fields"><label>기간 시작 <input type="date" value={context.periodStart} onChange={event => edit({ ...context, periodStart: event.target.value })} /></label>
+        {target.entityType === 'COMPANY' ? <><section className="filing-picker" aria-label="공시와 기간 고르기">
+          <label>공시·기간 고르기 <select value={filings.options.find(option => option.receipt && option.receipt === context.receipt && option.periodStart === context.periodStart && option.periodEnd === context.periodEnd)?.receipt ?? ''}
+            disabled={filings.loading || !filings.options.some(option => option.receipt)}
+            onChange={event => chooseFiling(filings.options.find(option => option.receipt === event.target.value))}>
+            <option value="">{filings.loading ? '불러오는 중…' : filings.options.some(option => option.receipt) ? '공시를 선택하세요' : '고를 수 있는 공시가 없습니다'}</option>
+            {filings.options.map(option => <option key={`${option.periodStart}:${option.periodEnd}`} value={option.receipt} disabled={!option.receipt}>
+              {formatKoreanDate(option.periodStart)} ~ {formatKoreanDate(option.periodEnd)} · {option.receipt ? `공시 접수번호 ${option.receipt}` : '접수번호 확인 필요'} · {option.predicates.map(name => FINANCIAL_LABEL[name] ?? name).join('·')}
+            </option>)}</select></label>
+          <p className="filing-picker-note">{filings.error ? '공시 목록을 불러오지 못했습니다. 아래에 접수번호를 직접 입력해 확인할 수 있습니다.'
+            : '목록에서 고르면 바로 확인합니다. 접수번호를 이미 알고 있다면 아래에 직접 입력할 수도 있습니다.'}</p></section><div className="exact-observation-layout"><div className="explorer-fields exact-fields"><label>기간 시작 <input type="date" value={context.periodStart} onChange={event => edit({ ...context, periodStart: event.target.value })} /></label>
           <label>기간 종료 <input type="date" value={context.periodEnd} onChange={event => edit({ ...context, periodEnd: event.target.value })} /></label>
           <label className="receipt-field">공시 접수번호 <input value={context.receipt} onChange={event => edit({ ...context, receipt: event.target.value })} /></label>
-          <button type="button" onClick={loadDetail}>정확한 자료 확인</button></div>
-          <aside className="exact-selection-note" aria-label="정확한 관측 기준"><strong>정확한 관측 기준</strong><p>기간 시작·종료와 공시 접수번호를 함께 지정해 같은 공식 관측을 다시 확인합니다.</p><span>기간 + 접수번호를 함께 확인</span></aside></div>
-          : <><label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label><button type="button" onClick={loadDetail}>정확한 자료 확인</button></>}
+          <button type="button" onClick={() => loadDetail()}>정확한 자료 확인</button></div>
+          <aside className="exact-selection-note" aria-label="정확한 관측 기준"><strong>정확한 관측 기준</strong><p>기간 시작·종료와 공시 접수번호를 함께 지정해 같은 공식 관측을 다시 확인합니다.</p><span>기간 + 접수번호를 함께 확인</span></aside></div></>
+          : <><label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label><button type="button" onClick={() => loadDetail()}>정확한 자료 확인</button></>}
         </div>}
       <p className="panel-lead panel-note">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p></section>}
     {context.step === 'Relate' && target && <section className="explorer-panel"><h2>어떤 것들이 연결되어 있는지 나눠서 확인하세요.</h2>
@@ -401,7 +457,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       <nav className="subsection-nav" aria-label="Relate 하위 메뉴">{RELATE_SECTIONS.map(([key, label]) => <button key={key} type="button"
         aria-current={relateSection === key ? 'page' : undefined} onClick={() => setRelateSection(key)}>{label}</button>)}</nav>
       {relateSection === 'confirmed' && <div className="subsection-panel" aria-label="확인된 연결">
-        {target.entityType === 'COMPANY' ? <button type="button" className={Array.isArray(data.value) ? 'secondary-action' : 'primary-action'} onClick={loadDetail}>
+        {target.entityType === 'COMPANY' ? <button type="button" className={Array.isArray(data.value) ? 'secondary-action' : 'primary-action'} onClick={() => loadDetail()}>
           {Array.isArray(data.value) ? '확인된 사건 다시 불러오기' : '확인된 사건 불러오기'}</button>
           : <p className="state-message">종목을 기업으로 자동 전환하지 않습니다. 기업 사건은 기업을 다시 선택해 확인하세요.</p>}
         {Array.isArray(data.value) && <div className="relation-list">{data.value.map(item => <article className="relation-row" key={item.eventId}>
@@ -432,7 +488,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
             : eventDetailState.error ? <div className="state-message" role="alert">사건 상세를 불러오지 못했습니다.</div>
               : <p className="state-message">현재 확인할 사건 상세가 없습니다.</p>}</div>}
       {assessSection === 'interpretation' && <div className="subsection-panel" aria-label="AIRA 해석">{eventDetail?.assessment ? <>
-        <p className="assessment-summary">{eventDetail.assessment.summary}</p><button type="button" className="primary-action" onClick={loadDetail}>현재·이전 판단 연결 확인</button>
+        <p className="assessment-summary">{eventDetail.assessment.summary}</p><button type="button" className="primary-action" onClick={() => loadDetail()}>현재·이전 판단 연결 확인</button>
         <AssessmentFlow assessment={data.value} onHistorical={openHistorical} onEvidence={openEvidence} />
         {historical.loading && <LoadingNotice>이전 당시 판단 확인 중…</LoadingNotice>}
         {historical.value && <div className="historical-summary"><h3>이전 당시 판단</h3><dl className="assessment-facts">

@@ -2085,3 +2085,11 @@ h1, h2, h3 { line-height: 1.12; }
   .economic-indicator-context > div { align-items: flex-start; flex-direction: column; }
   .economic-indicator-context .market-index-evidence { max-width: 100%; white-space: normal; text-align: left; }
 }
+
+.filing-picker { display: grid; gap: 0.5rem; margin: 0 0 1.25rem; padding: 1rem 1.25rem; border: 1px solid var(--line, #d7d2c8); border-radius: 8px; background: var(--surface, #fffdf8); }
+.filing-picker label { display: grid; gap: 0.4rem; font-weight: 600; }
+.filing-picker select { width: 100%; max-width: 100%; padding: 0.7rem 0.8rem; font: inherit; }
+.filing-picker-note { margin: 0; font-size: 0.9rem; color: var(--muted, #6b665c); }
+
+.market-index-freshness { margin: 0 0 0.5rem; font-size: 0.85rem; color: #4b5563; }
+.market-index-freshness.stale { color: #b45309; font-weight: 600; }

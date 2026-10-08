@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import CanonicalExplorer from './CanonicalExplorer.jsx'
+import CanonicalExplorer, { buildFilingOptions } from './CanonicalExplorer.jsx'
+
+// 공시 목록(financial-periods·events) 조회는 이 시험의 관심사가 아니므로 정확 조회·비교 호출만 따로 센다.
+const dataCalls = mock => mock.mock.calls.filter(([path]) => /financial-facts\/(exact|compare)|\/api\/(search|securities|assessments)/.test(String(path)))
 
 beforeEach(() => { window.history.replaceState({}, '', '/explore'); vi.restoreAllMocks() })
 
@@ -58,8 +61,8 @@ describe('canonical explorer', () => {
     expect(notice).toHaveTextContent('결과 없음')
     expect(notice).toHaveTextContent('정확히 일치하는 자료가 없습니다.')
     expect(notice).not.toHaveTextContent('NO_DATA')
-    expect(fetchMock.mock.calls[0][0]).toContain('periodStart=2025-01-01')
-    expect(fetchMock.mock.calls[0][0]).toContain('receipt=20260101000001')
+    expect(dataCalls(fetchMock)[0][0]).toContain('periodStart=2025-01-01')
+    expect(dataCalls(fetchMock)[0][0]).toContain('receipt=20260101000001')
   })
 
   it('opens B only on demand and keeps exact periods and Evidence IDs separate', async () => {
@@ -91,14 +94,14 @@ describe('canonical explorer', () => {
     expect(screen.getByRole('button', { name: '공식 근거' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: '공식 근거 상세' })).toHaveClass('inspect-evidence-action')
     expect(screen.queryByText('100원')).not.toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(dataCalls(fetchMock)).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: '기간 비교' }))
     expect(screen.getByRole('button', { name: '기간 비교' })).toHaveAttribute('aria-current', 'page')
     const splitToggle = screen.getByRole('button', { name: '분할보기 열기' })
     expect(splitToggle).toHaveClass('split-toggle-action')
     fireEvent.click(splitToggle)
     expect(screen.getByRole('button', { name: '분할보기 닫기' })).toHaveClass('split-toggle-action')
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(dataCalls(fetchMock)).toHaveLength(1)
     fireEvent.change(screen.getByLabelText('B 기간 시작'), { target: { value: '2024-01-01' } })
     fireEvent.change(screen.getByLabelText('B 기간 종료'), { target: { value: '2024-12-31' } })
     fireEvent.change(screen.getByLabelText('B 공시 접수번호'), { target: { value: '20250101000001' } })
@@ -107,8 +110,8 @@ describe('canonical explorer', () => {
     expect(screen.getByRole('button', { name: 'A 근거 식별자 · E-A' })).toBeInTheDocument()
     expect(screen.getByText('증감액 -20원')).toBeInTheDocument()
     expect(screen.getByText('증감률 -20%')).toBeInTheDocument()
-    expect(fetchMock.mock.calls[1][0]).toContain('bReceipt=20250101000001')
-    expect(fetchMock.mock.calls[1][0]).toContain('aReceipt=20260101000001')
+    expect(dataCalls(fetchMock)[1][0]).toContain('bReceipt=20250101000001')
+    expect(dataCalls(fetchMock)[1][0]).toContain('aReceipt=20260101000001')
   })
 
   it('keeps an unavailable exact B as comparison unavailable without another period request', async () => {
@@ -136,7 +139,7 @@ describe('canonical explorer', () => {
     expect(await screen.findByText(/B 기간에서 비교할 정확한 재무 값을 찾지 못했습니다/)).toBeInTheDocument()
     expect(screen.queryByText(/B_FACTS_NOT_FOUND/)).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'A와 B 분할 비교' })).not.toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(dataCalls(fetchMock)).toHaveLength(2)
   })
 
   it('uses official series dates and exact D fact for previous comparison', async () => {
@@ -310,4 +313,36 @@ describe('canonical explorer', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+
+  it('builds a filing list from reported periods and links each receipt only by fiscal year', () => {
+    const options = buildFilingOptions(
+      [{ periodStart: '2024-01-01', periodEnd: '2024-12-31', predicates: ['REVENUE'] },
+        { periodStart: '2025-01-01', periodEnd: '2025-12-31', predicates: ['REVENUE', 'OPERATING_INCOME'] }],
+      [{ title: '삼성전자가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', evidence: [{ sourceName: 'OpenDART', externalId: '20260310002820' }] }])
+    expect(options.map(option => option.periodEnd)).toEqual(['2025-12-31', '2024-12-31'])
+    expect(options[0].receipt).toBe('20260310002820')
+    expect(options[1].receipt).toBe('')
+  })
+
+  it('lets the user pick a filing from a list and loads it without typing a receipt number', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'company-1', entityType: 'COMPANY', canonicalName: '회사' },
+      perspective: '공식 사실과 근거', category: '재무', detail: 'Historical Exact',
+      periodStart: '', periodEnd: '', receipt: '',
+      predicate: 'CLOSE_PRICE', eventId: '', comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => {
+      if (String(path).includes('/financial-periods')) return { periods: [{ periodStart: '2025-01-01', periodEnd: '2025-12-31', predicates: ['REVENUE', 'OPERATING_INCOME'] }] }
+      if (String(path).endsWith('/events')) return { events: [{ title: '회사가 2025 회계연도 연간 재무결과를 공식 공시했습니다.', evidence: [{ sourceName: 'OpenDART', externalId: '20260310002820' }] }] }
+      return { state: 'AVAILABLE', periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: '20260310002820',
+        value: { facts: [{ predicate: 'REVENUE', value: '100', currency: 'KRW', evidenceId: 'E-A', periodStart: '2025-01-01', periodEnd: '2025-12-31' }] } }
+    } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    expect(await screen.findByText(/정확한 기간·공시.*공시 접수번호 20260310002820/)).toBeInTheDocument()
+    const exactCalls = dataCalls(fetchMock)
+    expect(exactCalls).toHaveLength(1)
+    expect(String(exactCalls[0][0])).toContain('receipt=20260310002820')
+    expect(screen.getByLabelText(/공시·기간 고르기/)).toHaveValue('20260310002820')
+  })
 })

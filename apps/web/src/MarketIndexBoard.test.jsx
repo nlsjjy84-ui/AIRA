@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
-import MarketIndexBoard from './MarketIndexBoard.jsx'
+import MarketIndexBoard, { describeFreshness } from './MarketIndexBoard.jsx'
 
 it('shows official KOSPI and KOSDAQ values without pretending to be real-time', () => {
   const onEvidence = vi.fn()
@@ -27,4 +27,15 @@ it('keeps the two market slots visible when official values are absent', () => {
   expect(screen.getByLabelText('KOSPI 지수')).toBeInTheDocument()
   expect(screen.getByLabelText('KOSDAQ 지수')).toBeInTheDocument()
   expect(screen.getAllByText(/아직 표시할 수 있는 공식 KRX 지수값이 없습니다/)).toHaveLength(2)
+})
+
+it('tells the user how old the newest official index is and warns when refresh looks stopped', () => {
+  const indices = [{ marketCode: 'KOSPI', state: 'AVAILABLE', tradingDate: '2026-10-02', close: 1, change: 0, changeRate: 0 }]
+  expect(describeFreshness(indices, new Date('2026-10-02T12:00:00+09:00'))).toMatchObject({ latest: '2026-10-02', days: 0, stale: false })
+  expect(describeFreshness(indices, new Date('2026-10-08T12:00:00+09:00'))).toMatchObject({ days: 6, stale: true })
+  expect(describeFreshness([{ marketCode: 'KOSPI', state: 'NO_DATA' }])).toBeNull()
+
+  render(<MarketIndexBoard now={new Date('2026-10-08T12:00:00+09:00')} state={{ loading: false, error: null, data: { indices } }} retry={vi.fn()} onEvidence={vi.fn()} />)
+  expect(screen.getByText(/가장 최근 자료: 2026-10-02 거래일 \(6일 전\)/)).toBeInTheDocument()
+  expect(screen.getByText(/자동 갱신이 멈췄을 수 있습니다/)).toBeInTheDocument()
 })

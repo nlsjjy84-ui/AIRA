@@ -29,7 +29,20 @@ function MarketIndexItem({ item, onEvidence }) {
   </article>
 }
 
-export default function MarketIndexBoard({ state, retry, onEvidence }) {
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export function describeFreshness(indices = [], now = new Date()) {
+  const dates = indices.filter(item => item?.state === 'AVAILABLE' && item.tradingDate).map(item => String(item.tradingDate)).sort()
+  if (!dates.length) return null
+  const latest = dates[dates.length - 1]
+  const parsed = new Date(`${latest}T00:00:00+09:00`)
+  if (Number.isNaN(parsed.getTime())) return null
+  const days = Math.max(0, Math.floor((now.getTime() - parsed.getTime()) / DAY_MS))
+  return { latest, days, stale: days >= 5 }
+}
+
+export default function MarketIndexBoard({ state, retry, onEvidence, now }) {
+  const freshness = describeFreshness(state.data?.indices, now ?? new Date())
   return <section className="content-section market-index-section" aria-labelledby="market-index-title">
     <div className="market-index-heading">
       <div><p className="eyebrow">MARKET SNAPSHOT</p><h2 id="market-index-title">최근 공식 거래일 시장</h2></div>
@@ -37,6 +50,10 @@ export default function MarketIndexBoard({ state, retry, onEvidence }) {
     </div>
     {state.loading && <p className="status" role="status">KOSPI·KOSDAQ 공식 지수를 확인하는 중입니다.</p>}
     {state.error && <div className="state-message" role="alert"><p>시장 지수를 불러오지 못했습니다.</p><button type="button" className="secondary-action" onClick={retry}>다시 시도</button></div>}
+    {!state.loading && !state.error && freshness && <p className={`market-index-freshness${freshness.stale ? ' stale' : ''}`} role="status">
+      가장 최근 자료: {freshness.latest} 거래일{freshness.days > 0 ? ` (${freshness.days}일 전)` : ' (오늘)'}
+      {freshness.stale && ' · 자동 갱신이 멈췄을 수 있습니다. 서버의 갱신 설정을 확인하세요.'}
+    </p>}
     {!state.loading && !state.error && <div className="market-index-strip">
       {(state.data?.indices ?? [{ marketCode: 'KOSPI', state: 'NO_DATA' }, { marketCode: 'KOSDAQ', state: 'NO_DATA' }])
         .map(item => <MarketIndexItem key={item.marketCode} item={item} onEvidence={onEvidence} />)}
