@@ -224,7 +224,7 @@ footer p { margin: 0; }
   .site-header { flex-wrap: wrap; }
   .site-header .account-nav { width: 100%; }
 }
-@media (min-width: 1000px) {
+@media (min-width: 760px) {
   .workflow-sidebar { position: fixed; left: 0; top: 8rem; bottom: 1rem; width: 8rem; flex-direction: column; border-bottom: 0; }
   .workflow-sidebar nav { flex-direction: column; justify-content: flex-start; }
   .workflow-sidebar .settings-action { margin-top: auto; align-self: stretch; }
@@ -285,7 +285,7 @@ footer p { margin: 0; }
 .canonical-explorer.embedded { max-width: none; padding: 1rem 0 3.5rem; }
 .canonical-explorer.embedded .explorer-head { padding: .5rem 0 1rem; }
 
-@media (min-width: 1000px) {
+@media (min-width: 760px) {
   .workflow-sidebar {
     top: 4.45rem;
     bottom: 0;
@@ -313,7 +313,7 @@ footer p { margin: 0; }
   }
 }
 
-@media (max-width: 999px) {
+@media (max-width: 759px) {
   .workflow-sidebar { position: static; border-bottom: 1px solid var(--line); }
   .workflow-sidebar .sidebar-toggle { display: none; }
   .workflow-sidebar nav { justify-content: center; }
@@ -333,10 +333,10 @@ footer p { margin: 0; }
 }
 .workflow-sidebar nav a:hover,
 .workflow-sidebar nav a:focus-visible { background: var(--accent-soft); }
-@media (min-width: 1000px) {
+@media (min-width: 760px) {
   .workflow-sidebar.collapsed nav a { justify-content: center; padding-inline: .35rem; }
 }
-@media (max-width: 999px) {
+@media (max-width: 759px) {
   .workflow-sidebar nav a { width: auto; }
 }
 
@@ -752,7 +752,7 @@ meter::-webkit-meter-bar { border: 0; border-radius: 999px; background: var(--li
 @media (max-width: 40rem) { .brand img { height: 3rem; } }
 
 /* Keep global notices clear of the desktop workflow rail. */
-@media (min-width: 1000px) {
+@media (min-width: 760px) {
   .workflow-sidebar ~ .session-notice {
     padding-left: max(4.5rem, calc(12.5rem - max(0px, (100vw - var(--content)) / 2)));
   }
@@ -1490,7 +1490,7 @@ body {
   overflow-y: auto;
 }
 main { min-height: calc(100dvh - 6.25rem); }
-@media (max-width: 999px) {
+@media (max-width: 759px) {
   main { min-height: 0; }
 }
 
@@ -1613,7 +1613,7 @@ main { min-height: calc(100dvh - 6.25rem); }
 .finance-explanation-result > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 1rem; }
 .finance-explanation-result > div span { color: var(--muted); font-size: .78rem; }
 .finance-explanation-result ul { margin-bottom: 0; color: var(--muted); font-size: .83rem; }
-@media (max-width: 999px) {
+@media (max-width: 759px) {
   .finance-sidebar-entry { width: auto; margin-top: 0; padding: .65rem .55rem; border-top: 0; border-left: 1px solid var(--line); }
 }
 @media (max-width: 52rem) {
@@ -2218,7 +2218,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .workflow-sidebar .settings-action:hover { background: var(--accent-soft); }
 
 /* tablet / phone: one rounded bar, five equal cells, account pills on the right */
-@media (max-width: 999px) {
+@media (max-width: 759px) {
   .workflow-sidebar { align-items: center; gap: .6rem; padding: .6rem clamp(1rem, 4vw, 2rem); }
   .workflow-sidebar nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .3rem; flex: 1 1 auto; max-width: 38rem; }
   .workflow-sidebar nav [data-workflow-step] {
@@ -2233,7 +2233,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 }
 
 /* desktop: vertical list with a divider before the account pills */
-@media (min-width: 1000px) {
+@media (min-width: 760px) {
   .workflow-sidebar nav { gap: .3rem; }
   .workflow-sidebar .finance-sidebar-entry { margin-top: 1rem; }
   .workflow-sidebar .settings-action { margin-top: .5rem; align-self: stretch; }
