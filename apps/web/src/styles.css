@@ -2143,3 +2143,113 @@ h1, h2, h3 { line-height: 1.12; }
 .account-nav .theme-toggle { padding: 0; }
 @media (max-width: 40rem) { .brand-logo { height: 2.75rem; } }
 h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-word; }
+
+/* ===== Menu v2: step cards with stage colour, Korean label, clear grouping ===== */
+.workflow-sidebar nav [data-workflow-step] {
+  --item-line: color-mix(in srgb, var(--item-stage) 38%, var(--line));
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  min-height: 2.9rem;
+  padding: .55rem .7rem .55rem .9rem;
+  border: 1px solid transparent;
+  border-radius: .7rem;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  transition: background .14s ease, border-color .14s ease;
+}
+.workflow-sidebar nav [data-workflow-step]::before {
+  content: "";
+  flex: 0 0 auto;
+  width: .55rem;
+  height: .55rem;
+  border-radius: 50%;
+  background: var(--item-stage);
+  opacity: .75;
+}
+.workflow-sidebar nav [data-workflow-step] .workflow-code {
+  min-width: 0;
+  color: var(--ink);
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+.workflow-sidebar nav [data-workflow-step] .workflow-label {
+  display: inline;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 600;
+}
+.workflow-sidebar nav [data-workflow-step]:not(:disabled):hover,
+.workflow-sidebar nav [data-workflow-step]:focus-visible {
+  border-color: var(--item-line);
+  background: color-mix(in srgb, var(--item-stage) 8%, transparent);
+}
+.workflow-sidebar nav [data-workflow-step][aria-current="step"] {
+  border-color: var(--item-stage);
+  background: color-mix(in srgb, var(--item-stage) 14%, transparent);
+  box-shadow: none;
+}
+.workflow-sidebar nav [data-workflow-step][aria-current="step"]::before { opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--item-stage) 28%, transparent); }
+.workflow-sidebar nav [data-workflow-step][aria-current="step"] .workflow-label { color: var(--ink); font-weight: 700; }
+.workflow-sidebar nav [data-workflow-step]:disabled { opacity: .4; }
+
+/* account area of the menu: separated from the 5 steps */
+.workflow-sidebar .finance-sidebar-entry,
+.workflow-sidebar .settings-action {
+  min-height: 2.5rem;
+  margin: 0;
+  padding: .5rem .9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-size: .86rem;
+  font-weight: 700;
+  text-align: center;
+  justify-content: center;
+}
+.workflow-sidebar .finance-sidebar-entry { color: var(--series-d); border-color: color-mix(in srgb, var(--series-d) 45%, var(--line)); }
+.workflow-sidebar .finance-sidebar-entry:hover,
+.workflow-sidebar .finance-sidebar-entry[aria-current="page"] { background: color-mix(in srgb, var(--series-d) 14%, transparent); }
+.workflow-sidebar .settings-action:hover { background: var(--accent-soft); }
+
+/* tablet / phone: one rounded bar, five equal cells, account pills on the right */
+@media (max-width: 999px) {
+  .workflow-sidebar { align-items: center; gap: .6rem; padding: .6rem clamp(1rem, 4vw, 2rem); }
+  .workflow-sidebar nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .3rem; flex: 1 1 auto; max-width: 38rem; }
+  .workflow-sidebar nav [data-workflow-step] {
+    flex-direction: column; justify-content: center; gap: .1rem; width: 100%;
+    min-height: 3.1rem; padding: .45rem .2rem .4rem; text-align: center;
+  }
+  .workflow-sidebar nav [data-workflow-step]::before { position: absolute; top: .3rem; left: 50%; width: 1.4rem; height: .22rem; border-radius: 99px; margin-left: -.7rem; }
+  .workflow-sidebar nav [data-workflow-step] .workflow-code { margin-top: .35rem; font-size: .88rem; }
+  .workflow-sidebar nav [data-workflow-step] .workflow-label { display: block; margin: 0; font-size: .7rem; }
+  .workflow-sidebar .finance-sidebar-entry { width: auto; margin: 0 0 0 auto; border-left: 1px solid color-mix(in srgb, var(--series-d) 45%, var(--line)); }
+  .workflow-sidebar .settings-action { align-self: center; }
+}
+
+/* desktop: vertical list with a divider before the account pills */
+@media (min-width: 1000px) {
+  .workflow-sidebar nav { gap: .3rem; }
+  .workflow-sidebar .finance-sidebar-entry { margin-top: 1rem; }
+  .workflow-sidebar .settings-action { margin-top: .5rem; align-self: stretch; }
+  .workflow-sidebar.collapsed nav [data-workflow-step] { justify-content: center; padding-inline: .4rem; }
+  .workflow-sidebar.collapsed nav [data-workflow-step]::before { display: none; }
+  .workflow-sidebar.collapsed .finance-sidebar-entry,
+  .workflow-sidebar.collapsed .settings-action { padding-inline: .3rem; }
+}
+
+/* small phones: steps on their own row, account pills below */
+@media (max-width: 40rem) {
+  .workflow-sidebar { flex-direction: row; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding: .6rem 1rem .7rem; }
+  .workflow-sidebar nav { flex: 1 1 100%; width: 100%; max-width: none; gap: .15rem; }
+  .workflow-sidebar nav [data-workflow-step] { padding-inline: .05rem; }
+  .workflow-sidebar nav [data-workflow-step] .workflow-code { font-size: .74rem; letter-spacing: 0; }
+  .workflow-sidebar nav [data-workflow-step] .workflow-label { font-size: .66rem; }
+  .workflow-sidebar .finance-sidebar-entry { margin-left: 0; flex: 1 1 0; min-height: 2.3rem; }
+  .workflow-sidebar .settings-action { flex: 1 1 0; min-height: 2.3rem; padding: .35rem; font-size: .86rem; align-self: auto; }
+}
