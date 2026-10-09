@@ -1,3 +1,5 @@
+import Logo from './Logo.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
@@ -480,7 +482,7 @@ export default function App() {
   }
 
   return <>
-    <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈"><img src="/aira-logo.png" alt="AIRA" /></a>
+    <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={48} /></a>
       <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
         <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>
@@ -488,6 +490,7 @@ export default function App() {
         {session.loading && <span className="session-label">세션 확인 중…</span>}
         {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
         {!session.loading && session.user && <><a href={routePath === '/' ? '#my-interests' : '/#my-interests'}>관심회사</a><a href={routePath === '/' ? '#my-briefing' : '/#my-briefing'}>브리핑</a><a href={routePath === '/' ? '#my-alerts' : '/#my-alerts'}>알림</a><span className="session-user">사용자 {session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
+        <ThemeToggle />
       </nav>
     </header>
     <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">

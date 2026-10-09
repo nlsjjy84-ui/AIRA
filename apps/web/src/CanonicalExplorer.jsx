@@ -5,7 +5,7 @@ import { getCompanyEvents, getFinancialPeriods } from './api/companyApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
 import { advance, contextTrail, EXPLORER_HISTORY_KEY, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
-import { formatQuantity, FinancialSplit, MarketOverview, MarketSeriesView, MarketPreviousView,
+import { formatQuantity, FinancialSplit, MarketOverview, MarketChangeSummary, MarketSeriesView, MarketPreviousView,
   OhlcCandle, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
 
 const INSPECT_SECTIONS = [['fact', '확인된 사실'], ['evidence', '공식 근거'], ['history', '변경 이력'], ['compare', '기간 비교']]
@@ -288,6 +288,14 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     }
   }
 
+  // 종목 현재값이 열리면 전 거래일 대비를 자동으로 한 번 불러온다(버튼을 눌러야 보이던 것을 바로 보이게).
+  useEffect(() => {
+    if (context.step !== 'Inspect' || context.target?.entityType !== 'SECURITY') return
+    if (data.loading || !data.value?.tradingDate || !data.value?.factId) return
+    if (previous.loading || previous.state || previous.data) return
+    loadPrevious()
+  }, [context.step, context.target?.entityId, context.predicate, data.loading, data.value?.factId, previous.loading, previous.state])
+
   async function loadPrevious() {
     const request = ++requestNumber.current
     setPrevious({ loading: true, state: null, data: null })
@@ -515,6 +523,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && !data.loading && data.value && !Array.isArray(data.value) && <div className="explorer-data">
       <p>{selectionLabel} {data.periodStart && `· ${data.periodStart} — ${data.periodEnd}`}</p>
       {data.value.tradingDate && <MarketOverview observation={data} predicate={context.predicate} />}
+      {data.value.tradingDate && <MarketChangeSummary comparison={previous.data} state={previous.state} loading={previous.loading} />}
     </div>}
     {context.step === 'Inspect' && target?.entityType === 'COMPANY' && data.value?.facts?.length > 0 && <section className="inspect-result-workspace" aria-label="재무 Inspect 결과">
       <p className="inspect-result-context">정확한 기간·공시 · {data.periodStart} — {data.periodEnd} · 공시 접수번호 {data.receipt}</p>

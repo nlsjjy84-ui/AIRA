@@ -83,6 +83,27 @@ export function MarketOverview({ observation, predicate }) {
     <p>이 응답은 D의 단일 관측값입니다. 흐름과 직전 관측 비교는 아래에서 따로 엽니다.</p></section>
 }
 
+/** 종가 등을 열면 바로 보이는 "전 거래일 대비" 한 줄. 자세한 비교는 아래 버튼으로 연다. 색은 보조 수단이고 ▲/▼와 글자가 같은 뜻을 전한다. */
+export function MarketChangeSummary({ comparison, state, loading }) {
+  if (loading) return <p className="market-change" role="status">전 거래일 대비를 확인하는 중입니다.</p>
+  if (state === 'NO_DATA' && comparison?.reason === 'PREVIOUS_OFFICIAL_OBSERVATION_MISSING')
+    return <p className="market-change market-change-empty" role="status">전 거래일 자료가 아직 없습니다. 거래일이 하나 더 쌓이면 전 거래일 대비가 표시됩니다.</p>
+  if (state !== 'AVAILABLE' || !comparison?.current || !comparison?.previous) return null
+  const amount = Number(comparison.changeAmount)
+  if (!Number.isFinite(amount)) return null
+  const unit = comparison.predicate === 'TRADING_VOLUME' ? '주' : 'KRW'
+  const direction = amount > 0 ? 'up' : amount < 0 ? 'down' : 'flat'
+  const arrow = direction === 'up' ? '▲' : direction === 'down' ? '▼' : '–'
+  const word = direction === 'up' ? '상승' : direction === 'down' ? '하락' : '보합'
+  const percent = comparison.changePercent == null ? null : Math.abs(Number(comparison.changePercent))
+  return <p className="market-change" data-direction={direction}
+    aria-label={`직전 거래일 ${comparison.previous.tradingDate} 대비 ${word}`}>
+    <span>직전 거래일({comparison.previous.tradingDate}) 대비</span>{' '}
+    <strong>{arrow} {formatQuantity(Math.abs(amount), unit)}</strong>
+    {percent != null && Number.isFinite(percent) && <em> ({formatQuantity(percent, '%')})</em>}
+    <span> · {word}</span></p>
+}
+
 export function MarketSeriesView({ series, onEvidence }) {
   const [selectedId, setSelectedId] = useState(null)
   if (series?.state !== 'AVAILABLE' || !series.points?.length) return null

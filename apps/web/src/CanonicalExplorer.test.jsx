@@ -185,6 +185,27 @@ describe('canonical explorer', () => {
     expect(fetchMock.mock.calls.find(([path]) => path.includes('/market-previous?'))[0]).toContain('currentFactId=F2')
   })
 
+  it('shows the change from the previous trading day automatically without pressing the compare button', async () => {
+    window.history.replaceState({ airaCanonicalExplorer12B: {
+      step: 'Inspect', target: { entityId: 'security-1', entityType: 'SECURITY', canonicalName: '종목' },
+      perspective: '공식 사실과 근거', category: '시장', detail: 'KRX Current',
+      periodStart: '', periodEnd: '', receipt: '', predicate: 'CLOSE_PRICE', eventId: '',
+      comparison: null, assessmentId: null, evidenceId: null,
+    } }, '', '/explore')
+    const first = { tradingDate: '2026-09-10', factId: 'F1', value: '1000', evidenceIds: ['E1'], evidenceExternalId: 'KRX:10' }
+    const current = { tradingDate: '2026-09-14', factId: 'F2', value: '1200', evidenceIds: ['E2'], evidenceExternalId: 'KRX:14' }
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => path.includes('/market-previous?')
+      ? { state: 'AVAILABLE', predicate: 'CLOSE_PRICE', current, previous: first, changeAmount: '200', changePercent: '20.0000' }
+      : { state: 'AVAILABLE', periodStart: '2026-09-14', periodEnd: '2026-09-14', value: current } }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer />)
+    fireEvent.click(screen.getByRole('button', { name: '정확한 자료 확인' }))
+    const line = await screen.findByLabelText(/직전 거래일 2026-09-10 대비 상승/)
+    expect(line).toHaveTextContent('▲')
+    expect(line).toHaveTextContent('200원')
+    expect(fetchMock.mock.calls.filter(([path]) => path.includes('/market-previous?'))).toHaveLength(1)
+  })
+
   it('does not turn historical series into Current when the exact D fact is absent', async () => {
     window.history.replaceState({ airaCanonicalExplorer12B: {
       step: 'Inspect', target: { entityId: 'security-1', entityType: 'SECURITY', canonicalName: '종목' },

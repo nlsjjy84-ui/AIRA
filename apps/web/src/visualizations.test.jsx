@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { AssessmentFlow, EventTimeline, EvidenceChain, FinancialOverview, FinancialSplit,
-  MarketPreviousView, MarketSeriesView, formatQuantity, MarketOverview, OhlcCandle } from './visualizations.jsx'
+  MarketPreviousView, MarketSeriesView, formatQuantity, MarketOverview, OhlcCandle, MarketChangeSummary } from './visualizations.jsx'
 
 const a = { state: 'AVAILABLE', periodStart: '2025-01-01', periodEnd: '2025-12-31', receipt: 'R-A',
   value: { facts: [{ predicate: 'REVENUE', value: '0', currency: 'KRW', evidenceId: 'e-a',
@@ -124,5 +124,34 @@ describe('evidence-linked visuals', () => {
     expect(screen.getByText('자산총계(기말)')).toBeInTheDocument()
     expect(screen.getByText('부채총계(기말)')).toBeInTheDocument()
     expect(screen.getByText('자본총계(기말)')).toBeInTheDocument()
+  })
+})
+
+describe('market change summary', () => {
+  const base = { predicate: 'CLOSE_PRICE', current: { tradingDate: '2026-10-08', value: '102000' },
+    previous: { tradingDate: '2026-10-07', value: '100000' } }
+
+  it('shows an up move with arrow, amount and percent', () => {
+    render(<MarketChangeSummary state="AVAILABLE" comparison={{ ...base, changeAmount: '2000', changePercent: '2.0000' }} />)
+    const line = screen.getByLabelText(/직전 거래일 2026-10-07 대비 상승/)
+    expect(line).toHaveTextContent('▲')
+    expect(line).toHaveTextContent('2,000원')
+    expect(line).toHaveTextContent('2%')
+    expect(line).toHaveAttribute('data-direction', 'up')
+  })
+
+  it('shows a down move without a minus-only signal', () => {
+    render(<MarketChangeSummary state="AVAILABLE" comparison={{ ...base, changeAmount: '-1500', changePercent: '-1.4706' }} />)
+    const line = screen.getByLabelText(/하락/)
+    expect(line).toHaveTextContent('▼')
+    expect(line).toHaveTextContent('1,500원')
+    expect(line).toHaveAttribute('data-direction', 'down')
+  })
+
+  it('explains honestly when only one trading day is stored and hides on other failures', () => {
+    const { rerender, container } = render(<MarketChangeSummary state="NO_DATA" comparison={{ reason: 'PREVIOUS_OFFICIAL_OBSERVATION_MISSING' }} />)
+    expect(screen.getByRole('status')).toHaveTextContent('전 거래일 자료가 아직 없습니다')
+    rerender(<MarketChangeSummary state="UNAVAILABLE" comparison={null} />)
+    expect(container).toBeEmptyDOMElement()
   })
 })
