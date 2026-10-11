@@ -31,7 +31,12 @@ public final class DemoReadOnlyFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    // Briefing and alert reconcile are POSTs that only assemble read views from stored analyses.
     static boolean allowed(String path) {
-        return path.startsWith("/api/me/assist/") || path.equals("/api/auth/logout") || path.equals("/api/auth/demo");
+        return path.startsWith("/api/me/assist/")
+                || path.equals("/api/me/briefings/current")
+                || path.equals("/api/me/alerts/reconcile")
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/demo");
     }
 }

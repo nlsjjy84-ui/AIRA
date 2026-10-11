@@ -42,6 +42,9 @@ class DemoReadOnlyFilterTests {
         assertTrue(passes("POST", "/api/me/assist/summary"));
         assertTrue(passes("POST", "/api/me/assist/claims"));
         assertTrue(passes("POST", "/api/auth/logout"));
+        assertTrue(passes("POST", "/api/me/briefings/current"));
+        assertTrue(passes("POST", "/api/me/alerts/reconcile"));
+        assertFalse(passes("POST", "/api/me/finance/demo-import"));
         assertFalse(passes("POST", "/api/me/interests/" + UUID.randomUUID()));
         assertFalse(passes("DELETE", "/api/me/interests/" + UUID.randomUUID()));
         assertFalse(passes("POST", "/api/auth/recovery-email/verifications"));
