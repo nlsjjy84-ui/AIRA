@@ -44,30 +44,39 @@ public class OfficialCompanyDataPreparationOperation {
             throw new IllegalArgumentException("At least two distinct stock codes are required");
         }
         var directory = directoryClient.fetch();
-        return stockCodes.stream().map(stockCode -> {
-            var record = directory.findByStockCode(stockCode)
-                    .orElseThrow(() -> new IllegalStateException("Official company was not found for stock code " + stockCode));
-            var profile = profileClient.fetch(record.corpCode());
-            if (!record.corpCode().equals(profile.corpCode())) throw new IllegalStateException("OpenDART company identity is inconsistent");
-            var filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
-                    "11011", "CFS"),
-                    List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME, FactPredicate.NET_INCOME,
-                            FactPredicate.TOTAL_ASSETS, FactPredicate.TOTAL_LIABILITIES, FactPredicate.TOTAL_EQUITY));
-            UUID entityId = persistence.persist(filing, record).companyId();
-            var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());
-            log.info("Stock code {} maps to {} known alias(es): {}", stockCode, knownAliases.size(), knownAliases);
-            knownAliases.forEach(alias -> {
-                try {
-                    aliases.registerOrReuse(entityId, alias);
-                    log.info("Registered alias '{}' for entity {} (stock code {})", alias, entityId, stockCode);
-                } catch (RuntimeException ex) {
-                    log.error("Failed to register alias '{}' for entity {} (stock code {}): {}",
-                            alias, entityId, stockCode, ex.toString(), ex);
-                }
-            });
-            return new PreparedCompany(entityId, record.corpCode(), record.stockCode(),
-                    record.corpName(), profile.fiscalYearEndMonth(), businessYear);
-        }).toList();
+        return stockCodes.stream().map(stockCode -> prepareOne(directory, stockCode, businessYear)).toList();
+    }
+
+    /** 상장사 전체 준비 작업이 회사 목록을 한 번만 내려받아 여러 회사에 재사용할 수 있게 연다. */
+    public OpenDartCompanyDirectory fetchDirectory() {
+        return directoryClient.fetch();
+    }
+
+    /** 회사 한 곳의 연결 연간 재무를 공식 공시에서 가져와 저장한다. 실패하면 예외를 던지고 아무것도 남기지 않는다. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public PreparedCompany prepareOne(OpenDartCompanyDirectory directory, String stockCode, int businessYear) {
+        var record = directory.findByStockCode(stockCode)
+                .orElseThrow(() -> new IllegalStateException("Official company was not found for stock code " + stockCode));
+        var profile = profileClient.fetch(record.corpCode());
+        if (!record.corpCode().equals(profile.corpCode())) throw new IllegalStateException("OpenDART company identity is inconsistent");
+        var filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
+                "11011", "CFS"),
+                List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME, FactPredicate.NET_INCOME,
+                        FactPredicate.TOTAL_ASSETS, FactPredicate.TOTAL_LIABILITIES, FactPredicate.TOTAL_EQUITY));
+        UUID entityId = persistence.persist(filing, record).companyId();
+        var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());
+        log.info("Stock code {} maps to {} known alias(es): {}", stockCode, knownAliases.size(), knownAliases);
+        knownAliases.forEach(alias -> {
+            try {
+                aliases.registerOrReuse(entityId, alias);
+                log.info("Registered alias '{}' for entity {} (stock code {})", alias, entityId, stockCode);
+            } catch (RuntimeException ex) {
+                log.error("Failed to register alias '{}' for entity {} (stock code {}): {}",
+                        alias, entityId, stockCode, ex.toString(), ex);
+            }
+        });
+        return new PreparedCompany(entityId, record.corpCode(), record.stockCode(),
+                record.corpName(), profile.fiscalYearEndMonth(), businessYear);
     }
 
     public record PreparedCompany(UUID entityId, String corpCode, String stockCode,

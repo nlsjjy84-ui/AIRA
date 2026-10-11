@@ -5,6 +5,7 @@ import com.aira.api.auth.dto.LoginResponse;
 import com.aira.api.auth.dto.SignupRequest;
 import com.aira.api.auth.dto.SignupResponse;
 import com.aira.api.auth.service.AuthService;
+import com.aira.api.auth.service.DemoLoginService;
 import com.aira.api.auth.service.LoginResult;
 import com.aira.api.auth.service.LoginService;
 import com.aira.api.auth.service.LogoutService;
@@ -27,9 +28,11 @@ public class AuthController {
     private final LoginService loginService;
     private final LogoutService logoutService;
     private final SessionCookieFactory sessionCookieFactory;
+    private final DemoLoginService demoLoginService;
 
     public AuthController(AuthService authService, LoginService loginService, LogoutService logoutService,
-            SessionCookieFactory sessionCookieFactory) {
+            SessionCookieFactory sessionCookieFactory, DemoLoginService demoLoginService) {
+        this.demoLoginService = demoLoginService;
         this.authService = authService;
         this.loginService = loginService;
         this.logoutService = logoutService;
@@ -45,6 +48,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
         LoginResult result = loginService.login(request);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, sessionCookieFactory.create(result.rawSessionToken()).toString())
+                .body(result.response());
+    }
+
+    /** One click, read-only: lets reviewers see login-only screens without creating an account. */
+    @PostMapping("/demo")
+    public ResponseEntity<LoginResponse> demo() {
+        if (!demoLoginService.isEnabled()) return ResponseEntity.notFound().build();
+        LoginResult result = demoLoginService.login();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, sessionCookieFactory.create(result.rawSessionToken()).toString())
                 .body(result.response());

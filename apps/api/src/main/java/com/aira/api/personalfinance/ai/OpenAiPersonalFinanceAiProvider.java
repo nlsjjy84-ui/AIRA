@@ -107,7 +107,7 @@ public class OpenAiPersonalFinanceAiProvider implements PersonalFinanceAiProvide
         return new AiProviderResult(text, inputTokens, outputTokens);
     }
 
-    private static String prompt(AiExplanationInput input) {
+    static String prompt(AiExplanationInput input) {
         StringBuilder out = new StringBuilder();
         out.append("You explain a user's spending changes factually in Korean. ")
                 .append("Do not recommend spending, investments, products, budgets, or actions. ")

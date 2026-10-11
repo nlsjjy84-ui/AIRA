@@ -4,6 +4,11 @@ import { searchEntities, readFinancialExact, readFinancialComparison, readAssess
 import { getCompanyEvents, getFinancialPeriods } from './api/companyApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
 import { getEventDetail } from './api/eventApi.js'
+import AiAssist from './AiAssist.jsx'
+import AiRoute from './AiRoute.jsx'
+import AiRelate from './AiRelate.jsx'
+import FilingQuote from './FilingQuote.jsx'
+import ClaimCheck from './ClaimCheck.jsx'
 import { advance, contextTrail, EXPLORER_HISTORY_KEY, initialExplorerState, selectTarget, stateCopy, STEPS } from './explorerState.js'
 import { formatQuantity, FinancialSplit, MarketOverview, MarketChangeSummary, MarketSeriesView, MarketPreviousView,
   OhlcCandle, AssessmentFlow, EvidenceChain } from './visualizations.jsx'
@@ -87,6 +92,9 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const contextRef = useRef(context)
   contextRef.current = context
   const eventRequestNumber = useRef(0)
+  const routeRef = useRef(null)
+  const preferredYear = useRef(null)
+  const [routeNotice, setRouteNotice] = useState('')
 
   useEffect(() => {
     const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetailState({ loading: false, value: null, error: null }) }
@@ -121,7 +129,12 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       if (cancelled) return
       const options = buildFilingOptions(periodsResponse?.periods ?? [], eventsResponse?.events ?? [])
       setFilings({ loading: false, options, error: false, forTarget: companyId })
-      const first = options.find(option => option.receipt)
+      const wanted = preferredYear.current
+      preferredYear.current = null
+      const withReceipt = options.filter(option => option.receipt)
+      const matched = wanted ? withReceipt.find(option => String(option.periodEnd).startsWith(String(wanted))) : null
+      const first = matched ?? withReceipt[0]
+      if (wanted) setRouteNotice(matched ? `요청하신 ${wanted}년 사업연도 공시를 열었습니다.` : `${wanted}년 사업연도 공시를 찾지 못해 가장 최근 공시를 열었습니다.`)
       if (first && !context.receipt && !context.periodStart && !context.periodEnd) chooseFiling(first)
     }).catch(() => { if (!cancelled) setFilings({ loading: false, options: [], error: true, forTarget: companyId }) })
     return () => { cancelled = true }
@@ -198,8 +211,47 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     setMarketRange(previous => ({ ...previous, [field]: value, loading: false, data: null, state: null }))
   }
 
+  function applyRoute(entity, route) {
+    routeRef.current = null
+    const base = selectTarget(context, entity)
+    if (route.perspective === 'RELATE') {
+      navigate({ ...base, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })
+    } else {
+      preferredYear.current = route.year ?? null
+      setRouteNotice('')
+      navigate({ ...base, perspective: '공식 사실과 근거', step: 'Inspect', category: '재무', detail: 'Historical Exact' })
+    }
+  }
+
+  function pickResult(item) {
+    const route = routeRef.current
+    if (route?.understood && item.entityType === 'COMPANY') { applyRoute(item, route); return }
+    routeRef.current = null
+    navigate(selectTarget(context, item))
+  }
+
+  async function followRoute(route) {
+    const query = String(route.entityQuery ?? '').trim()
+    if (!query) return
+    routeRef.current = route.understood ? route : null
+    setTerm(query)
+    const request = ++requestNumber.current
+    setResults({ loading: true, state: null, entities: [] })
+    try {
+      const response = await searchEntities(query)
+      if (request !== requestNumber.current) return
+      const entities = response.entities ?? []
+      setResults({ loading: false, state: response.state, entities })
+      const companies = entities.filter(item => item.entityType === 'COMPANY')
+      if (route.understood && companies.length === 1) applyRoute(companies[0], route)
+    } catch {
+      if (request === requestNumber.current) setResults({ loading: false, state: 'UNAVAILABLE', entities: [] })
+    }
+  }
+
   async function submitSearch(event) {
     event.preventDefault()
+    routeRef.current = null
     const query = term.trim()
     if (!query) { setResults({ loading: false, state: 'UNSUPPORTED', entities: [] }); return }
     const request = ++requestNumber.current
@@ -370,6 +422,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   return <div className={`canonical-explorer ${embedded ? 'embedded' : ''} stage-${context.step.toLowerCase()}`}>
     <header className="explorer-head stage-hero"><p className="eyebrow">{stageVisual.eyebrow}</p><h1>{stageVisual.title}</h1>
       <p className="explorer-head-copy">{stageVisual.copy}</p></header>
+    {routeNotice && context.step === 'Inspect' && <p className="route-notice" role="status">AI 길찾기 · {routeNotice}</p>}
     {!embedded && <form role="search" onSubmit={submitSearch} className="explorer-search">
       <label htmlFor="canonical-search">기업·종목 찾기</label>
       <input id="canonical-search" type="search" value={term} onChange={event => setTerm(event.target.value)}
@@ -386,13 +439,15 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         const identifier = item.symbol ?? item.externalIdentifier
         const identifierLabel = item.entityType === 'COMPANY' && item.externalIdentifier ? `OpenDART ${item.externalIdentifier}` : identifier
         return <li key={`${item.entityType}:${item.entityId}`}><button type="button" className={`search-result ${item.entityType.toLowerCase()}`}
-          aria-label={`${item.canonicalName} ${typeLabel}${identifier ? ` · ${identifier}` : ''} 선택`} onClick={() => navigate(selectTarget(context, item))}>
+          aria-label={`${item.canonicalName} ${typeLabel}${identifier ? ` · ${identifier}` : ''} 선택`} onClick={() => pickResult(item)}>
           <span className="result-identity"><strong>{item.canonicalName}</strong><small>{typeLabel}</small></span>
           {identifierLabel && <span className="result-key">{identifierLabel}</span>}<span className="result-action" aria-hidden="true">선택 →</span>
         </button></li>
       })}</ul>
     </section>}
 
+    {context.step === 'MAIN' && <AiRoute loggedIn={Boolean(interest?.user)} labels={FINANCIAL_LABEL} onFollow={followRoute} />}
+    {context.step === 'MAIN' && <ClaimCheck loggedIn={Boolean(interest?.user)} />}
     {context.step === 'MAIN' && <section className="main-entry" aria-labelledby="main-entry-title">
       <div className="main-entry-copy"><p className="eyebrow">START HERE</p><h2 id="main-entry-title">위 검색창에서 기업·종목을 찾는 것부터 시작합니다.</h2>
         <p>추천 순위가 아니라 정확한 대상을 고른 뒤, 필요한 관점과 공식 근거를 따라 확인합니다.</p></div>
@@ -439,7 +494,10 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           <span className="choice-route">INSPECT · 살피기</span><strong>공식 사실과 근거</strong><small>정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.</small></button>
         <button type="button" className="choice-card ask-choice relate-choice" aria-label="사건과 분석" onClick={() => navigate({ ...context, perspective: '사건과 분석', step: 'Relate', category: null, detail: null })}>
           <span className="choice-route">RELATE · 잇기</span><strong>사건과 분석</strong><small>확인된 사건과 관련 회사, 현재 판단의 근거를 잇습니다.</small></button></div>
-      <p className="panel-lead panel-note">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p></section>}
+      <p className="panel-lead panel-note">검색은 대상을 찾는 곳입니다. Ask는 질문을 입력하는 챗봇이 아니라, 같은 대상을 어떤 관점으로 확인할지 정하는 단계입니다.</p>
+      <AiAssist kind="ASK" subject={`${target.canonicalName} · ${target.entityType === 'COMPANY' ? '기업' : '종목'}`} loggedIn={Boolean(interest?.user)}
+        facts={[{ label: '공식 사실과 근거(Inspect)', value: '정확한 값·기간·공시와 공식 출처를 따라 살펴봅니다.', period: '' },
+          { label: '사건과 분석(Relate)', value: '확인된 사건과 관련 회사, 현재 판단의 근거를 잇습니다.', period: '' }]} /></section>}
     {context.step === 'Inspect' && target && <section className="explorer-panel"><h2>자료를 하위 분류로 좁혀 확인하세요.</h2>
       {!context.category && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, category: target.entityType === 'COMPANY' ? '재무' : '시장', detail: null })}><strong>{target.entityType === 'COMPANY' ? '재무' : '시장'}</strong><small>{target.entityType === 'COMPANY' ? '공식 재무 값과 정확한 보고기간' : 'KRX 공식 거래일 관측값'}</small></button></div>}
       {context.category && !context.detail && <div className="explorer-options branch-options"><button type="button" className="choice-card" onClick={() => navigate({ ...context, detail: target.entityType === 'COMPANY' ? 'Historical Exact' : 'KRX Current' })}><strong>{target.entityType === 'COMPANY' ? '정확한 기간·공시' : '공식 거래일 현재값'}</strong><small>{target.entityType === 'COMPANY' ? '기간과 접수번호까지 지정해 같은 관측을 다시 확인합니다.' : '추천 순위가 아닌 공식 관측값 자체를 확인합니다.'}</small></button></div>}
@@ -457,7 +515,8 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           <label>기간 종료 <input type="date" value={context.periodEnd} onChange={event => edit({ ...context, periodEnd: event.target.value })} /></label>
           <label className="receipt-field">공시 접수번호 <input value={context.receipt} onChange={event => edit({ ...context, receipt: event.target.value })} /></label>
           <button type="button" onClick={() => loadDetail()}>정확한 자료 확인</button></div>
-          <aside className="exact-selection-note" aria-label="정확한 관측 기준"><strong>정확한 관측 기준</strong><p>기간 시작·종료와 공시 접수번호를 함께 지정해 같은 공식 관측을 다시 확인합니다.</p><span>기간 + 접수번호를 함께 확인</span></aside></div></>
+          <aside className="exact-selection-note" aria-label="정확한 관측 기준"><strong>정확한 관측 기준</strong><p>기간 시작·종료와 공시 접수번호를 함께 지정해 같은 공식 관측을 다시 확인합니다.</p><span>기간 + 접수번호를 함께 확인</span></aside></div>
+          <FilingQuote receipt={context.receipt} loggedIn={Boolean(interest?.user)} /></>
           : <><label>시장 항목 <select value={context.predicate} onChange={event => edit({ ...context, predicate: event.target.value })}><option value="CLOSE_PRICE">종가</option><option value="TRADING_VOLUME">거래량</option><option value="MARKET_CAP">시가총액</option></select></label><button type="button" onClick={() => loadDetail()}>정확한 자료 확인</button></>}
         </div>}
       <p className="panel-lead panel-note">선택한 대상과 관점은 유지한 채 분류 → 세부 자료 → 정확한 관측 순서로 내려갑니다.</p></section>}
@@ -479,8 +538,12 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
         <p className="panel-lead panel-note">공식 근거로 확인된 연결만 표시하고 확인되지 않은 관계는 이어 붙이지 않습니다.</p></div>}
       {relateSection === 'correction' && <div className="subsection-panel subview-empty" aria-label="정정 이력 연결"><strong>현재 확인된 정정 이력 연결이 없습니다.</strong>
         <p>공시의 정정 관계가 공식 데이터로 명시적으로 확인될 때만 연결합니다. Evidence revision만으로 정정 계보를 추론하지 않습니다.</p></div>}
-      {relateSection === 'review' && <div className="subsection-panel subview-empty" aria-label="추가로 살펴볼 연결"><strong>현재 저장된 추가 확인 연결이 없습니다.</strong>
-        <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p></div>}
+      {relateSection === 'review' && <div className="subsection-panel" aria-label="추가로 살펴볼 연결">
+        <div className="subview-empty"><strong>현재 저장된 추가 확인 연결이 없습니다.</strong>
+          <p>공식 자료에서 직접 확인되지 않은 인과관계는 자동으로 만들지 않습니다. 별도 근거가 확보된 경우에만 이 영역에 표시합니다.</p>
+          {target.entityType === 'COMPANY' && !Array.isArray(data.value) && <button type="button" className="secondary-action" onClick={() => loadDetail()}>확인된 사건 불러오기</button>}</div>
+        {target.entityType === 'COMPANY' && Array.isArray(data.value) && <AiRelate loggedIn={Boolean(interest?.user)} subject={target.canonicalName}
+          events={data.value} typeLabels={EVENT_TYPE_LABEL} onSelect={selectEvent} />}</div>}
     </section>}
     {context.step === 'Assess' && context.eventId && <section className="explorer-panel"><h2>확인된 사실과 AIRA 해석을 구분해 확인하세요.</h2>
       <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : eventDetailState.loading ? '선택한 사건 확인 중…'
@@ -532,6 +595,9 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       {inspectSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실"><div className="inspect-fact-list" role="list">{data.value.facts.map(fact => <div className="inspect-fact-row" role="listitem" key={`${fact.predicate}:${fact.evidenceId}`}>
         <span>{FINANCIAL_LABEL[fact.predicate] ?? fact.predicate}</span><strong>{formatQuantity(fact.value, fact.currency)}</strong><small>{fact.periodStart ?? data.periodStart} — {fact.periodEnd ?? data.periodEnd}</small>
       </div>)}</div></div>}
+      {inspectSection === 'fact' && <AiAssist kind="INSPECT" subject={`${target.canonicalName} · ${data.periodStart} — ${data.periodEnd}`} loggedIn={Boolean(interest?.user)}
+        facts={data.value.facts.map(fact => ({ label: FINANCIAL_LABEL[fact.predicate] ?? fact.predicate, value: formatQuantity(fact.value, fact.currency),
+          period: `${fact.periodStart ?? data.periodStart} — ${fact.periodEnd ?? data.periodEnd}` }))} />}
       {inspectSection === 'evidence' && <div className="subsection-panel" aria-label="공식 근거"><div className="inspect-evidence-list">{[...new Map(data.value.facts.filter(fact => fact.evidenceId).map(fact => [fact.evidenceId, fact])).values()].map(fact => <div className="inspect-evidence-row" key={fact.evidenceId}>
         <div><strong>{fact.sourceName ?? '공식 출처'}</strong><span>공시 접수번호 {fact.evidenceExternalId ?? data.receipt}</span><small>근거 식별자 · {fact.evidenceId}</small></div>
         <button type="button" className="inspect-evidence-action" onClick={() => openEvidence(fact.evidenceId, { type: 'FACT', label: `${target.canonicalName} · ${data.periodStart} — ${data.periodEnd}` })}>공식 근거 상세</button>
@@ -548,7 +614,11 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           {compare.loading && <LoadingNotice>B 관측값 확인 중…</LoadingNotice>}
           {compare.state && compare.state !== 'AVAILABLE' && <StateNotice state={compare.state} lead="비교할 수 없습니다."
             detail={COMPARISON_REASON_COPY[compare.data?.reason]} />}
-          {compare.data?.state === 'AVAILABLE' && <FinancialSplit comparison={compare.data} onEvidence={openEvidence} />}</>}
+          {compare.data?.state === 'AVAILABLE' && <FinancialSplit comparison={compare.data} onEvidence={openEvidence} />}
+          {compare.data?.state === 'AVAILABLE' && <AiAssist kind="COMPARE" subject={target.canonicalName} loggedIn={Boolean(interest?.user)}
+            facts={(compare.data.metrics ?? []).map(metric => ({ label: FINANCIAL_LABEL[metric.predicate] ?? metric.predicate,
+              value: `A ${formatQuantity(metric.a.value, metric.a.currency)} → B ${formatQuantity(metric.b.value, metric.b.currency)}, 증감액 ${formatQuantity(metric.changeAmountBMinusA, metric.a.currency)}, 증감률 ${metric.changePercentBOverA == null ? '계산 불가' : formatQuantity(metric.changePercentBOverA, '%')}`,
+              period: `A ${compare.data.a.periodStart} — ${compare.data.a.periodEnd} / B ${compare.data.b.periodStart} — ${compare.data.b.periodEnd}` }))} />}</>}
       </section></div>}
     </section>}
     {context.step === 'Inspect' && target?.entityType === 'SECURITY' && context.detail &&
@@ -581,6 +651,11 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     {evidence.value && <section id="explorer-evidence-detail" className="evidence-inspector" aria-label="열린 근거 상세">
       <div className="evidence-inspector-head"><strong>공식 근거 상세</strong><button type="button" onClick={() => setEvidence({ loading: false, value: null, state: null, relation: null })}>근거 상세 닫기</button></div>
       <EvidenceChain evidence={evidence.value} relation={evidence.relation} />
+      <AiAssist kind="EVIDENCE" subject={evidence.value.title ?? evidence.value.externalId ?? ''} loggedIn={Boolean(interest?.user)}
+        facts={[{ label: '출처', value: evidence.value.source?.sourceName ?? '', period: '' },
+          { label: '자료', value: evidence.value.title ?? evidence.value.externalId ?? '', period: '' },
+          { label: '종류', value: evidence.value.source?.sourceType ?? '', period: '' },
+          { label: '식별자', value: evidence.value.externalId ?? '', period: '' }].filter(item => item.value)} />
     </section>}
   </div>
 }

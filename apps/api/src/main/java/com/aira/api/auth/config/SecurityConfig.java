@@ -1,5 +1,6 @@
 package com.aira.api.auth.config;
 
+import com.aira.api.auth.security.DemoReadOnlyFilter;
 import com.aira.api.auth.security.SessionAuthenticationFilter;
 import com.aira.api.auth.service.SessionAuthenticationService;
 import org.springframework.context.annotation.Bean;
@@ -34,7 +35,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications/confirm",
                                 "/api/auth/password-reset/requests",
-                                "/api/auth/password-reset/confirm").permitAll()
+                                "/api/auth/password-reset/confirm",
+                                "/api/auth/demo").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/auth/recovery-email/verifications").authenticated()
                         // Private ownership is checked behind this authenticated boundary, never by public read routes.
@@ -57,7 +59,8 @@ public class SecurityConfig {
                                 "/api/companies/*/financial-facts",
                                 "/api/companies/*/events").permitAll()
                         .anyRequest().permitAll())
-                .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class);
+                .addFilterBefore(sessionAuthenticationFilter, AnonymousAuthenticationFilter.class)
+                .addFilterAfter(new DemoReadOnlyFilter(), AnonymousAuthenticationFilter.class);
         return http.build();
     }
 }

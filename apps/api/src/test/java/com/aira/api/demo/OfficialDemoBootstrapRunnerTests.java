@@ -3,6 +3,7 @@ package com.aira.api.demo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -39,6 +40,17 @@ class OfficialDemoBootstrapRunnerTests {
         var runner = new OfficialDemoBootstrapRunner(bootstrap, "live", "configured-key", 2025);
 
         runner.run(new DefaultApplicationArguments());
+
+        verify(bootstrap).prepare(2025);
+    }
+
+    @Test
+    void keepsServerRunningWhenOfficialDataPreparationFails() {
+        var bootstrap = mock(OfficialDemoBootstrapOperation.class);
+        when(bootstrap.prepare(2025)).thenThrow(new IllegalStateException("OpenDART company directory ZIP has no XML entry"));
+        var runner = new OfficialDemoBootstrapRunner(bootstrap, "live", "configured-key", 2025);
+
+        assertDoesNotThrow(() -> runner.run(new DefaultApplicationArguments()));
 
         verify(bootstrap).prepare(2025);
     }

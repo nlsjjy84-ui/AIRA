@@ -5,6 +5,8 @@ const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'applicatio
 export const getCurrentUser = () => request('/api/me')
 export const signup = (nickname, password) => request('/api/auth/signup', json({ nickname, password }))
 export const login = (nickname, password) => request('/api/auth/login', json({ nickname, password }))
+/** One click into the shared read-only demo account (no password involved). */
+export const demoLogin = () => request('/api/auth/demo', { method: 'POST' })
 export const logout = () => request('/api/auth/logout', { method: 'POST' })
 export const requestRecoveryEmailVerification = (email) => request('/api/auth/recovery-email/verifications', json({ email }))
 export const confirmRecoveryEmail = (token) => request('/api/auth/recovery-email/verifications/confirm', json({ token }))

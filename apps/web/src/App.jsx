@@ -13,8 +13,9 @@ import { getLatestRealGdp } from './api/economicIndicatorApi.js'
 import { getRecentEvents } from './api/eventApi.js'
 import { getLatestMarketNews } from './api/newsApi.js'
 import { getOfficialEvidence } from './api/evidenceApi.js'
-import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
+import { addInterest, confirmPasswordReset, confirmRecoveryEmail, disableInterestAlert, enableInterestAlert, getCurrentUser, getInterests, login, logout, demoLogin, removeInterest, requestPasswordReset, requestRecoveryEmailVerification, signup } from './api/authApi.js'
 import { getOrCreateBriefing } from './api/briefingApi.js'
+import AiAssist from './AiAssist.jsx'
 import { alertEmptyMessage } from './alertEmptyState.js'
 import { getAlert, reconcileAlerts } from './api/alertApi.js'
 import { assessmentExplorerState, EXPLORER_HISTORY_KEY } from './explorerState.js'
@@ -26,7 +27,11 @@ const IMPORTANCE_LABELS = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음', CRI
 const CONFIDENCE_LABELS = { LOW: '낮음', MEDIUM: '보통', HIGH: '높음' }
 const ASSESSMENT_METHOD_LABELS = { RULE: '규칙 기반', AI: 'AI 기반', HYBRID: '혼합', HUMAN_REVIEW: '사람 검토' }
 
+export const DEMO_NICKNAME = '데모계정'
+const DEMO_READ_ONLY_NOTICE = '데모 계정은 읽기 전용이라 저장·변경은 되지 않습니다. 둘러보기와 AI 읽기 도움은 그대로 쓸 수 있어요.'
+
 function messageFor(error, subject) {
+  if (error?.status === 423) return DEMO_READ_ONLY_NOTICE
   if (error?.status === 400) return `${subject} 요청을 확인해 주세요.`
   if (error?.status === 404) return `이용 가능한 ${subject}을 찾지 못했습니다.`
   if (error?.status === 409) return subject === '관심회사' ? '이미 저장된 관심회사입니다.' : '공식 근거를 일관되게 확인할 수 없습니다.'
@@ -49,7 +54,42 @@ function formatDateTime(value) {
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
-function AuthPanel({ mode, setMode, close, authenticated }) {
+// 첫 화면 오른쪽: 면접관·처음 온 사람이 가입 없이 로그인 전용 화면(관심회사·브리핑·알림·AI)을 바로 보게 한다.
+function DemoCard({ user, onDemo, demoState, onLogout }) {
+  if (user?.nickname === DEMO_NICKNAME) return <aside className="demo-card" aria-labelledby="demo-card-title">
+    <p className="eyebrow">DEMO · 읽기 전용</p>
+    <h2 id="demo-card-title">데모 계정으로 둘러보는 중</h2>
+    <ol className="demo-steps">
+      <li><a href="#my-interests"><strong>내 관심회사</strong><span>미리 저장된 회사 3곳</span></a></li>
+      <li><a href="#my-briefing"><strong>내 브리핑</strong><span>새 변화를 AI가 읽기 쉽게 정리</span></a></li>
+      <li><a href="/explore"><strong>질문·주장 확인</strong><span>공시 원문 인용과 숫자 대조</span></a></li>
+    </ol>
+    <button type="button" className="secondary-action" onClick={onLogout}>데모 끝내기</button>
+  </aside>
+  if (user) return <aside className="demo-card" aria-labelledby="demo-card-title">
+    <p className="eyebrow">MY AIRA</p>
+    <h2 id="demo-card-title">{user.nickname}님, 바로 가기</h2>
+    <ol className="demo-steps">
+      <li><a href="#my-interests"><strong>내 관심회사</strong><span>저장한 회사 모아 보기</span></a></li>
+      <li><a href="#my-briefing"><strong>내 브리핑</strong><span>새로 정리된 변화</span></a></li>
+      <li><a href="#my-alerts"><strong>알림</strong><span>알림을 켠 회사의 새 소식</span></a></li>
+    </ol>
+  </aside>
+  return <aside className="demo-card" aria-labelledby="demo-card-title">
+    <p className="eyebrow">처음 오셨나요?</p>
+    <h2 id="demo-card-title">가입 없이 30초 둘러보기</h2>
+    <ol className="demo-steps">
+      <li><span className="demo-num" aria-hidden="true">1</span><div><strong>관심회사</strong><span>회사 3곳이 미리 저장된 화면</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">2</span><div><strong>브리핑·알림</strong><span>공시 변화를 AI가 읽기 쉽게 정리</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">3</span><div><strong>주장 확인</strong><span>기사 속 숫자를 공식 값과 대조</span></div></li>
+    </ol>
+    <button type="button" className="primary-action demo-action" onClick={onDemo} disabled={demoState.loading}>
+      {demoState.loading ? '데모 계정으로 들어가는 중…' : '데모로 둘러보기'}</button>
+    <p className="demo-note">{demoState.error ? '지금은 데모에 들어갈 수 없습니다. 잠시 후 다시 시도해 주세요.' : '읽기 전용 데모 계정이에요. 저장·변경은 되지 않습니다.'}</p>
+  </aside>
+}
+
+function AuthPanel({ mode, setMode, close, authenticated, onDemo }) {
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [visible, setVisible] = useState(false)
@@ -87,6 +127,7 @@ function AuthPanel({ mode, setMode, close, authenticated }) {
       <p className="eyebrow">AIRA ACCOUNT</p>
       <h2 id="auth-title">{mode === 'signup' ? '회원가입' : '로그인'}</h2>
       <p className="auth-intro">{mode === 'signup' ? '관심회사를 저장하고 다음 방문에도 이어서 확인하세요.' : '저장한 관심회사를 다시 확인하세요.'}</p>
+      {onDemo && <p className="auth-demo">가입 없이 먼저 보고 싶다면 <button type="button" onClick={onDemo}>데모로 둘러보기</button></p>}
       <div className="auth-tabs" role="tablist" aria-label="계정 메뉴">
         <button type="button" role="tab" aria-selected={mode === 'login'} onClick={() => setMode('login')}>로그인</button>
         <button type="button" role="tab" aria-selected={mode === 'signup'} onClick={() => setMode('signup')}>회원가입</button>
@@ -261,6 +302,9 @@ export default function App() {
   const exploring = routePath === '/explore'
   const finance = routePath === '/finance'
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [demoState, setDemoState] = useState({ loading: false, error: null })
+  const isDemo = session.user?.nickname === DEMO_NICKNAME
   const shouldOfferAlertSettings = interestsState.data.length > 0 && (alertsState.emptyReason === 'NO_ALERT_ENABLED_INTERESTS' || (!alertsState.emptyReason && !interestsState.data.some(item => item.alertEnabled)))
   const [workflowContext, setWorkflowContext] = useState(() => {
     const saved = exploring ? window.history.state?.[EXPLORER_HISTORY_KEY] : null
@@ -438,6 +482,24 @@ export default function App() {
     }
   }
 
+  async function startDemo() {
+    setMenuOpen(false)
+    setDemoState({ loading: true, error: null })
+    try {
+      await demoLogin()
+      const user = await getCurrentUser()
+      setSession({ loading: false, user, error: null, notice: '데모 계정으로 들어왔습니다. 관심회사·브리핑·알림과 AI 읽기 도움을 둘러보세요.' })
+      setAuthMode(null)
+      setDemoState({ loading: false, error: null })
+    } catch (error) { setDemoState({ loading: false, error }) }
+  }
+
+  useEffect(() => {
+    const readOnly = () => setSession(current => ({ ...current, notice: DEMO_READ_ONLY_NOTICE }))
+    window.addEventListener('aira-demo-readonly', readOnly)
+    return () => window.removeEventListener('aira-demo-readonly', readOnly)
+  }, [])
+
   async function performLogout() {
     setSession(current => ({ ...current, loading: true, error: null }))
     try { await logout(); becomeAnonymous('로그아웃되었습니다. 공개 정보는 계속 볼 수 있습니다.') }
@@ -482,16 +544,23 @@ export default function App() {
   }
 
   return <>
-    <header className="site-header"><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={48} /></a>
+    <header className={`site-header ${menuOpen ? 'menu-open' : ''}`}><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={48} /></a>
       <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
         <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>
-      <nav className="account-nav" aria-label="계정 메뉴">
-        {session.loading && <span className="session-label">세션 확인 중…</span>}
-        {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-        {!session.loading && session.user && <><a href={routePath === '/' ? '#my-interests' : '/#my-interests'}>관심회사</a><a href={routePath === '/' ? '#my-briefing' : '/#my-briefing'}>브리핑</a><a href={routePath === '/' ? '#my-alerts' : '/#my-alerts'}>알림</a><span className="session-user">사용자 {session.user.nickname}</span><button type="button" onClick={performLogout}>로그아웃</button></>}
+      <div className="header-actions">
+        <nav id="account-menu" className={`account-nav ${menuOpen ? 'open' : ''}`} aria-label="계정 메뉴" onClick={event => { if (event.target.closest('a,button')) setMenuOpen(false) }}>
+          {session.loading && <span className="session-label">세션 확인 중…</span>}
+          {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" className="nav-demo" onClick={startDemo} disabled={demoState.loading}>데모로 둘러보기</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
+          {!session.loading && session.user && <><a href={routePath === '/' ? '#my-interests' : '/#my-interests'}>관심회사</a><a href={routePath === '/' ? '#my-briefing' : '/#my-briefing'}>브리핑</a><a href={routePath === '/' ? '#my-alerts' : '/#my-alerts'}>알림</a><span className="session-user">{isDemo ? '데모 · 읽기 전용' : `사용자 ${session.user.nickname}`}</span><button type="button" onClick={performLogout}>{isDemo ? '데모 끝내기' : '로그아웃'}</button></>}
+        </nav>
         <ThemeToggle />
-      </nav>
+        <button type="button" className="nav-menu-toggle" aria-controls="account-menu" aria-expanded={menuOpen}
+          aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'} onClick={() => setMenuOpen(value => !value)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}</svg>
+        </button>
+      </div>
     </header>
     <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
       <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
@@ -524,6 +593,7 @@ export default function App() {
       }} /> : <>
       <div className="home-orientation">
         <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
+        <DemoCard user={session.loading ? null : session.user} onDemo={startDemo} demoState={demoState} onLogout={performLogout} />
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
       <EconomicIndicatorBoard state={realGdpState} retry={loadRealGdp} onEvidence={openOfficialEvidence} />
@@ -549,6 +619,9 @@ export default function App() {
           <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '관심회사를 저장하면 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.' : '이 브리핑 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason !== 'NO_INTERESTS' && <a className="secondary-action" href="/explore">관심회사 살펴보기</a>}</div>}
         {briefingState.data?.emptyReason !== 'NO_INTERESTS' && briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.emptyReason !== 'NO_INTERESTS' && briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
+        {(briefingState.data?.items?.length ?? 0) > 0 && <AiAssist kind="BRIEFING" loggedIn={Boolean(session.user)}
+          facts={briefingState.data.items.slice(0, 10).map(item => ({ label: item.companies.map(company => company.companyName).join(' · '),
+            value: `${item.eventTitle}${item.summary ? ` — ${item.summary}` : ''}`.slice(0, 600), period: item.occurredAt ? String(item.occurredAt).slice(0, 10) : '' }))} />}
         <div className="briefing-list">{briefingState.data?.items?.map(item => <article className="briefing-card" key={item.assessmentId}>
           <div className="briefing-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
             <p className="insight-reason">관심회사 기반 AIRA 분석</p>
@@ -575,6 +648,10 @@ export default function App() {
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
         {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{shouldOfferAlertSettings && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}
+        {alertsState.data.length > 0 && <AiAssist kind="ALERT" loggedIn={Boolean(session.user)}
+          facts={alertsState.data.slice(0, 5).map(item => ({ label: item.companies.map(company => company.companyName).join(' · '),
+            value: `${item.eventTitle} — 새 분석: ${item.summary ?? ''} / 아직 확인할 점: ${item.uncertainty ?? ''}`.slice(0, 600),
+            period: item.occurredAt ? String(item.occurredAt).slice(0, 10) : '' }))} />}
         <div className="alert-list">{alertsState.data.map(item => <article className="alert-card" key={item.alertId}>
           <div className="alert-main"><p className="eyebrow">관련 회사: {item.companies.map(company => company.companyName).join(' · ')}</p><h3>{item.eventTitle}</h3>
             <div className="alert-meaning"><div><h4>새 분석</h4><p>{item.summary}</p></div><div className="uncertainty"><h4>아직 확인할 점</h4><p>{item.uncertainty}</p></div></div>
@@ -653,7 +730,7 @@ export default function App() {
     </main>
     {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}
     {routePath === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
-    {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} />}
+    {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} onDemo={startDemo} />}
     {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}
   </>
 }

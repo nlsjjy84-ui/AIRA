@@ -25,6 +25,11 @@ export async function request(path, options = {}) {
   if (response.status !== 204) {
     try { body = await response.json() } catch { /* Non-JSON failures stay generic. */ }
   }
+  if (response.status === 403 && body?.code === 'DEMO_READ_ONLY') {
+    // The demo session stays signed in; it just cannot change anything.
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aira-demo-readonly'))
+    throw new ApiError(423, body)
+  }
   if (!response.ok) throw new ApiError(response.status, body)
   return body
 }

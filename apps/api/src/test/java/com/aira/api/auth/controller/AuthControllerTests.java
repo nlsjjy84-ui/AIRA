@@ -14,6 +14,7 @@ import com.aira.api.auth.exception.NicknameAlreadyExistsException;
 import com.aira.api.auth.security.SessionCookieFactory;
 import com.aira.api.auth.config.AuthProperties;
 import com.aira.api.auth.service.AuthService;
+import com.aira.api.auth.service.DemoLoginService;
 import com.aira.api.auth.service.LoginResult;
 import com.aira.api.auth.service.LoginService;
 import com.aira.api.auth.service.LogoutService;
@@ -29,6 +30,7 @@ class AuthControllerTests {
     AuthService service = mock(AuthService.class);
     LoginService loginService = mock(LoginService.class);
     LogoutService logoutService = mock(LogoutService.class);
+    DemoLoginService demoLoginService = mock(DemoLoginService.class);
     MockMvc mvc;
 
     @BeforeEach
@@ -36,7 +38,7 @@ class AuthControllerTests {
         AuthProperties properties = new AuthProperties();
         mvc = MockMvcBuilders.standaloneSetup(
                         new AuthController(service, loginService, logoutService,
-                                new SessionCookieFactory(properties.getSession())))
+                                new SessionCookieFactory(properties.getSession()), demoLoginService))
                 .addFilters(new AuthRequestBodyLimitFilter())
                 .setControllerAdvice(new AuthExceptionHandler()).build();
     }
@@ -54,6 +56,27 @@ class AuthControllerTests {
                 .andExpect(jsonPath("$.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.token").doesNotExist())
                 .andExpect(cookie().doesNotExist("AIRA_SESSION"));
+    }
+
+    @Test
+    void demoLoginSetsSessionCookieAndReturnsDemoUser() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(demoLoginService.isEnabled()).thenReturn(true);
+        when(demoLoginService.login()).thenReturn(new LoginResult(
+                new LoginResponse(new LoginResponse.User(id, DemoLoginService.DEMO_NICKNAME)), "demo-raw-token"));
+        mvc.perform(post("/api/auth/demo"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.nickname").value(DemoLoginService.DEMO_NICKNAME))
+                .andExpect(jsonPath("$.token").doesNotExist())
+                .andExpect(cookie().value("AIRA_SESSION", "demo-raw-token"))
+                .andExpect(cookie().httpOnly("AIRA_SESSION", true));
+    }
+
+    @Test
+    void demoLoginIsHiddenWhenDisabled() throws Exception {
+        when(demoLoginService.isEnabled()).thenReturn(false);
+        mvc.perform(post("/api/auth/demo")).andExpect(status().isNotFound());
+        verify(demoLoginService, never()).login();
     }
 
     @Test

@@ -759,3 +759,33 @@ it('shows exact ECOS real GDP observations without turning them into an assessme
   await user.click(within(board).getByRole('button', { name: '한국은행 공식 근거 확인' }))
   expect(backend.fetch).toHaveBeenCalledWith('/api/evidence/ecos-evidence', expect.anything())
 })
+
+describe('one-click read-only demo', () => {
+  it('lets a first-time visitor enter the demo account from the first screen', async () => {
+    const backend = server({ overrides: {
+      'POST /api/auth/demo': state => { state.user = { userId: 'demo-1', nickname: '데모계정' }; return json({ user: { id: 'demo-1', nickname: '데모계정' } }) },
+    } })
+    global.fetch = backend.fetch
+    const user = userEvent.setup()
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: '가입 없이 30초 둘러보기' })).toBeInTheDocument()
+    const demoButtons = screen.getAllByRole('button', { name: '데모로 둘러보기' })
+    await user.click(demoButtons.at(-1))
+    expect(await screen.findByRole('heading', { name: '데모 계정으로 둘러보는 중' })).toBeInTheDocument()
+    expect(screen.getByText('데모 · 읽기 전용')).toHaveClass('session-user')
+    expect(screen.getAllByRole('button', { name: '데모 끝내기' }).length).toBeGreaterThan(0)
+    const demoCall = backend.fetch.mock.calls.find(([path, options]) => path === '/api/auth/demo' && options?.method === 'POST')
+    expect(demoCall[1].headers['X-XSRF-TOKEN']).toBe('test-csrf')
+  })
+
+  it('folds account links into one menu button', async () => {
+    global.fetch = server().fetch
+    const user = userEvent.setup()
+    render(<App />)
+    const toggle = screen.getByRole('button', { name: '메뉴 열기' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await user.click(toggle)
+    expect(screen.getByRole('button', { name: '메뉴 닫기' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('navigation', { name: '계정 메뉴' })).toHaveClass('open')
+  })
+})

@@ -38,6 +38,13 @@ public class OfficialDemoBootstrapRunner implements ApplicationRunner {
             throw new IllegalStateException(
                     "Official demo bootstrap live mode requires OPENDART_API_KEY");
         }
-        log.info(bootstrap.prepare(businessYear).summary());
+        // 외부(OpenDART) 응답이 일시적으로 이상해도 서버 전체가 꺼지지 않게 한다.
+        // 설정 오류(모드/키 없음)는 위에서 그대로 시작을 막고, 데이터 준비 실패만 기록하고 계속 켠다.
+        try {
+            log.info(bootstrap.prepare(businessYear).summary());
+        } catch (RuntimeException ex) {
+            log.error("Official demo bootstrap failed; the server keeps running with the data already stored: {}",
+                    ex.toString(), ex);
+        }
     }
 }
