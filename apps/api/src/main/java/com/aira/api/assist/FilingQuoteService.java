@@ -231,7 +231,7 @@ public class FilingQuoteService {
         Instant now = clock.instant();
         ArrayDeque<Instant> queue = calls.computeIfAbsent(userId, key -> new ArrayDeque<>());
         while (!queue.isEmpty() && queue.peekFirst().isBefore(now.minus(Duration.ofHours(1)))) queue.pollFirst();
-        if (queue.size() >= MAX_CALLS_PER_HOUR) return false;
+        if (queue.size() >= com.aira.api.auth.service.DemoLoginService.hourlyLimit(userId, MAX_CALLS_PER_HOUR)) return false;
         queue.addLast(now);
         return true;
     }

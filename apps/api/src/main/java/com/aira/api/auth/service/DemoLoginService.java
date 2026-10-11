@@ -17,6 +17,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +28,7 @@ import org.springframework.stereotype.Service;
  * nobody knows, its nickname is reserved for normal signup/login, and DemoReadOnlyFilter blocks writes.
  */
 @Service
-public class DemoLoginService {
+public class DemoLoginService implements ApplicationRunner {
     public static final String DEMO_NICKNAME = "데모계정";
     private static final List<String> PREFERRED_COMPANIES = List.of("삼성전자", "SK하이닉스", "NAVER", "현대자동차");
     private static final Logger log = LoggerFactory.getLogger(DemoLoginService.class);
@@ -42,6 +44,28 @@ public class DemoLoginService {
     private final UserInterestService interests;
     private final MarketEntityRepository entities;
     private final SecureRandom random = new SecureRandom();
+    /** Many reviewers share one demo account, so its AI hourly quota is larger than a normal user's. */
+    static final int DEMO_QUOTA_MULTIPLIER = 10;
+    private static volatile UUID demoUserId;
+
+    /** Hourly AI call limit for this user: the normal limit, or a larger shared one for the demo account. */
+    public static int hourlyLimit(UUID userId, int normalLimit) {
+        UUID demo = demoUserId;
+        return demo != null && demo.equals(userId) ? normalLimit * DEMO_QUOTA_MULTIPLIER : normalLimit;
+    }
+
+    static void rememberDemoUser(UUID id) { demoUserId = id; }
+
+    /** After a restart, existing demo sessions keep working, so learn the demo account id at startup too. */
+    @Override
+    public void run(ApplicationArguments args) {
+        if (!enabled) return;
+        try {
+            users.findByNicknameNormalized(DEMO_NICKNAME).ifPresent(user -> rememberDemoUser(user.getId()));
+        } catch (RuntimeException lookupFailure) {
+            log.warn("Demo account lookup skipped: {}", lookupFailure.getClass().getSimpleName());
+        }
+    }
 
     public DemoLoginService(@Value("${aira.demo.login.enabled:${AIRA_DEMO_LOGIN_ENABLED:true}}") boolean enabled,
             AppUserRepository users, AuthenticationCredentialRepository credentials, PasswordHasher passwordHasher,
@@ -70,6 +94,7 @@ public class DemoLoginService {
         if (!enabled) throw new IllegalStateException("Demo login is disabled");
         AppUser user = users.findByNicknameNormalized(DEMO_NICKNAME).orElseGet(this::create);
         AuthenticationCredential credential = credentials.findByUserId(user.getId()).orElseThrow();
+        rememberDemoUser(user.getId());
         seedInterests(user.getId());
         String rawToken = tokenGenerator.generate();
         loginPersistence.save(user, credential, tokenHasher.hash(rawToken));
