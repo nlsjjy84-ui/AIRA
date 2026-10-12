@@ -21,7 +21,7 @@ const routes = {
   [`/api/stocks/${ID}/report-section/audit`]: { state: 'AVAILABLE', year: 2025, source: 'OpenDART 정기보고서 주요정보 · 사업보고서', receiptNo: '20260310002820', dartUrl: 'https://dart.fss.or.kr/a',
     items: [{ bsns_year: '제57기(당기)', adtor: '삼정회계법인', adt_opinion: '적정', core_adt_matter: '수익 인식', rcept_no: '20260310002820' }] },
   [`/api/stocks/${ID}/statements`]: { state: 'AVAILABLE', year: 2025, fsDiv: 'CFS', names: { BS: '재무상태표', CIS: '포괄손익계산서' }, receiptNo: '20260310002820',
-    groups: { BS: [{ account: '유동자산', current: 1000, previous: 900, beforePrevious: null }, { account: '재고자산', current: 300, previous: 250, beforePrevious: 200 }], CIS: [{ account: '매출액', current: 5000, previous: 4000, beforePrevious: 3000 }] } },
+    groups: { BS: [{ account: '유동자산', current: 1000, previous: 900, beforePrevious: null, order: '1' }, { account: '재고자산', current: 300, previous: 250, beforePrevious: 200, order: '2' }], CIS: [{ account: '영업이익', current: 500, previous: 400, beforePrevious: 300, order: '9' }, { account: '매출액', current: 5000, previous: 4000, beforePrevious: 3000, order: '1' }] } },
   [`/api/companies/${ID}/events`]: { events: [{ eventId: 'e1', title: '삼양패키징가 2024 회계연도 연간 재무결과를 공식 공시했습니다.', evidence: [{ externalId: '20250311001085' }] }] },
 }
 
@@ -108,7 +108,8 @@ describe('StockPage', () => {
     window.history.replaceState({}, '', `/stock/${ID}?v=inspect.statements.IS`)
     render(<StockPage companyId={ID} />)
     expect(await screen.findByText('포괄손익계산서')).toBeTruthy()
-    expect(screen.getByRole('cell', { name: '매출액' })).toBeTruthy()
+    const firstCells = screen.getAllByRole('row').slice(1).map(row => row.querySelector('td')?.textContent)
+    expect(firstCells.slice(0, 2)).toEqual(['매출액', '영업이익'])
     await userEvent.click(screen.getByRole('button', { name: '재무상태표' }))
     await userEvent.type(await screen.findByRole('searchbox'), '재고')
     expect(screen.queryByRole('cell', { name: '유동자산' })).toBeNull()
@@ -130,5 +131,15 @@ describe('StockPage', () => {
     render(<StockPage companyId={ID} />)
     expect(await screen.findByText('반기보고서 (2026.06)')).toBeTruthy()
     expect(screen.getAllByText('반기보고서').length).toBeGreaterThan(0)
+  })
+
+  it('counts treasury shares from the total rows only', async () => {
+    const { sectionInsight } = await import('./StockPage.jsx')
+    const rows = [
+      { acqs_mth1: '배당가능이익범위 이내 취득', acqs_mth2: '직접취득', acqs_mth3: '장내직접취득', stock_knd: '보통주', change_qy_acqs: '100', change_qy_incnr: '40', trmend_qy: '60' },
+      { acqs_mth1: '배당가능이익범위 이내 취득', acqs_mth2: '직접취득', acqs_mth3: '소계', stock_knd: '보통주', change_qy_acqs: '100', change_qy_incnr: '40', trmend_qy: '60' },
+      { acqs_mth1: '총계', acqs_mth2: '총계', acqs_mth3: '총계', stock_knd: '보통주', change_qy_acqs: '100', change_qy_incnr: '40', trmend_qy: '60' },
+      { acqs_mth1: '총계', acqs_mth2: '총계', acqs_mth3: '총계', stock_knd: '우선주', change_qy_acqs: '10', change_qy_incnr: '-', trmend_qy: '10' }]
+    expect(sectionInsight('treasury', rows)).toBe('이 해에 자기주식을 110주 샀고, 40주를 소각(없앰)했어요. 소각하면 주식 수가 줄어 1주의 몫이 커져요. 연말에 회사가 들고 있는 자기주식은 70주예요(보통주·우선주 합계).')
   })
 })

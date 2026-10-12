@@ -70,6 +70,14 @@ public class DartStockClient {
         return all;
     }
 
+    /** 공시 유형 하나만(A 정기공시, B 주요사항보고, I 거래소공시 등) 최근 100건. 지분 보고가 많은 회사도 정기·실적 공시를 놓치지 않게 한다. */
+    public List<Map<String, String>> filingsOfType(String corpCode, LocalDate from, LocalDate to, String type) {
+        if (!type.matches("[A-J]")) throw new IllegalArgumentException("Unsupported filing type");
+        JsonNode body = call("list.json", "corp_code=" + enc(corpCode) + "&bgn_de=" + from.format(DAY)
+                + "&end_de=" + to.format(DAY) + "&pblntf_ty=" + type + "&page_no=1&page_count=100");
+        return body == null ? List.of() : rows(body);
+    }
+
     /** 전체 시장 최근 공시(유가·코스닥만). 회사 지정 없이 받을 수 있는 기간은 3개월 이내다. */
     public List<Map<String, String>> marketFilings(LocalDate from, LocalDate to, String corpClass) {
         JsonNode body = call("list.json", "bgn_de=" + from.format(DAY) + "&end_de=" + to.format(DAY)

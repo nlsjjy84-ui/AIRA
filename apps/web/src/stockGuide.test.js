@@ -50,3 +50,13 @@ describe('stockGuide', () => {
     expect([...courseDone(notes, 'c1')]).toEqual([0])
   })
 })
+
+describe('report section rows', () => {
+  it('drops rows whose values are all dashes but keeps label-only differences', async () => {
+    const { visibleRows } = await import('./stockGuide.js')
+    const rows = [{ acqs_mth1: '총계', acqs_mth2: '총계', acqs_mth3: '총계', stock_knd: '보통주', bsis_qy: '1', change_qy_acqs: '2' },
+      { acqs_mth1: '기타취득', acqs_mth2: '기타', acqs_mth3: '기타', stock_knd: '우선주', bsis_qy: '-', change_qy_acqs: '-' }]
+    expect(visibleRows('treasury', rows)).toHaveLength(1)
+    expect(visibleRows('capital', [{ isu_dcrs_de: '-', isu_dcrs_stle: '-' }])).toHaveLength(0)
+  })
+})

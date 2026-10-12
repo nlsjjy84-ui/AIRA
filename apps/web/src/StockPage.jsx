@@ -12,7 +12,7 @@ import { requestAssist, requestQuote } from './api/assistApi.js'
 import { StockPriceAlerts } from './PriceAlerts.jsx'
 import SaveToStudy from './SaveToStudy.jsx'
 import { getStudy, learnTerm, getStockSection, getStockStatements, saveStudyNote } from './api/stockApi.js'
-import { guideFor, SECTION_META, sectionColumns, COURSE, coursePrefix, courseDone, buildCalendar } from './stockGuide.js'
+import { guideFor, SECTION_META, sectionColumns, visibleRows, COURSE, coursePrefix, courseDone, buildCalendar } from './stockGuide.js'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
@@ -1504,10 +1504,12 @@ export function sectionInsight(name, rows) {
     return `발행한 주식 ${total.toLocaleString('ko-KR')}주 중 회사가 들고 있는 자기주식은 ${(own / total * 100).toFixed(1)}%예요. 나머지가 시장에 도는 주식이에요.`
   }
   if (name === 'treasury') {
-    const burned = rows.reduce((sum, r) => sum + (plainNumber(r.change_qy_incnr) ?? 0), 0)
-    const bought = rows.filter(r => /총계|합계/.test(`${r.acqs_mth1 ?? ''}${r.acqs_mth2 ?? ''}`)).reduce((sum, r) => sum + (plainNumber(r.change_qy_acqs) ?? 0), 0)
+    const totals = rows.filter(r => /총계/.test(`${r.acqs_mth1 ?? ''}${r.acqs_mth2 ?? ''}${r.acqs_mth3 ?? ''}`))
+    const base = totals.length ? totals : rows
+    const sum = key => base.reduce((acc, r) => acc + (plainNumber(r[key]) ?? 0), 0)
+    const bought = sum('change_qy_acqs'), burned = sum('change_qy_incnr'), held = sum('trmend_qy')
     if (!burned && !bought) return '이 해에는 자기주식을 새로 사거나 없앤 기록이 없어요.'
-    return `${bought ? `이 해에 자기주식 ${bought.toLocaleString('ko-KR')}주를 샀고` : '이 해에'}${burned ? ` ${burned.toLocaleString('ko-KR')}주를 소각(없앰)했어요. 소각하면 주식 수가 줄어 1주의 몫이 커져요.` : ' 소각한 주식은 없어요.'}`
+    return `이 해에 자기주식을 ${bought.toLocaleString('ko-KR')}주 샀고, ${burned ? `${burned.toLocaleString('ko-KR')}주를 소각(없앰)했어요. 소각하면 주식 수가 줄어 1주의 몫이 커져요.` : '소각한 주식은 없어요.'} 연말에 회사가 들고 있는 자기주식은 ${held.toLocaleString('ko-KR')}주예요(보통주·우선주 합계).`
   }
   if (name === 'minority') {
     const rate = rows.map(r => r.hold_stock_rate).find(v => v && v !== '-')
@@ -1520,6 +1522,7 @@ export function sectionInsight(name, rows) {
     return `갚지 않은 회사채 중 ${((soon ?? 0) / total * 100).toFixed(0)}%가 1년 안에 만기예요.`
   }
   if (name === 'capital') return `기록된 주식 수 변동이 ${rows.length}건 있어요. 형태(유상증자·무상증자·감자·주식배당 등)를 보세요.`
+  if (name === 'holderChange') return `최근 최대주주 변동이 ${rows.length}건 기록돼 있어요. 변동 원인을 함께 보세요.`
   return null
 }
 
@@ -1529,7 +1532,7 @@ function SectionView({ ctx, name }) {
   if (state.loading) return <p className="status">{meta.title}을(를) 사업보고서에서 불러오는 중입니다.</p>
   if (state.error || state.data?.state === 'UNAVAILABLE') return <Empty action={<button type="button" className="secondary-action" onClick={reload}>다시 시도</button>}>DART에서 지금 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.</Empty>
   const d = state.data
-  const rows = d?.items ?? []
+  const rows = visibleRows(name, d?.items)
   if (d?.state === 'NO_DATA' || !rows.length) return <><h3 className="stock-h3">{meta.title}</h3><Empty>{meta.empty} (최근 2년 사업보고서 기준)</Empty></>
   const cols = sectionColumns(name, rows)
   const insight = sectionInsight(name, rows)
@@ -1552,7 +1555,7 @@ function StatementsView({ ctx, view }) {
   const d = state.data
   if (d?.state === 'NO_DATA') return <Empty>최근 2년 사업보고서의 재무제표가 없습니다(금융업·신규 상장 등).</Empty>
   const key = view === 'IS' && !d.groups.IS ? 'CIS' : view
-  const lines = d.groups[key] ?? []
+  const lines = [...(d.groups[key] ?? [])].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
   const shown = query.trim() ? lines.filter(l => `${l.account}${l.detail ?? ''}`.includes(query.trim())) : lines
   const money = v => v === null || v === undefined ? '—' : formatWon(v)
   return <>

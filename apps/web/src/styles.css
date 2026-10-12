@@ -2679,7 +2679,8 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .course-head > b { flex: none; display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--accent); color: var(--surface); }
 .course-head p { margin: .15rem 0; }
 .course-head small { color: var(--muted); }
-.course-actions { display: grid; gap: .45rem; }
+.course-actions { display: grid; gap: .45rem; justify-items: start; }
+.course-actions textarea { justify-self: stretch; }
 .course-actions textarea { width: 100%; box-sizing: border-box; padding: .5rem .65rem; border: 1px solid var(--line); border-radius: .6rem; font: inherit; background: var(--surface); color: inherit; resize: vertical; }
 .plans-page { display: grid; gap: 1.2rem; }
 .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); gap: 1rem; }

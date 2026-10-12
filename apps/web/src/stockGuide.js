@@ -89,20 +89,30 @@ export function guideFor(path) {
 // ---------- 사업보고서 주요정보 (한 갈래씩) ----------
 // cols: [OpenDART 필드, 화면 이름]. 보고서마다 없는 칸은 건너뛴다.
 export const SECTION_META = {
-  audit: { title: '회계감사인과 감사의견', cols: [['bsns_year', '사업연도'], ['adtor', '감사인'], ['adt_opinion', '감사의견'], ['adt_reprt_spcmnt_matter', '감사보고서 특기사항'], ['emphs_matter', '강조사항 등'], ['core_adt_matter', '핵심감사사항']], empty: '감사의견 자료가 없습니다.' },
-  execs: { title: '임원 현황', cols: [['nm', '이름'], ['ofcps', '직위'], ['rgist_exctv_at', '등기 여부'], ['fte_at', '상근 여부'], ['chrg_job', '담당 업무'], ['hffc_pd', '재직 기간'], ['tenure_end_on', '임기 만료']], empty: '임원 현황 자료가 없습니다.' },
-  payAll: { title: '이사·감사 전체 보수', cols: [['se', '구분'], ['nmpr', '인원(명)'], ['mendng_totamt', '보수 총액(원)'], ['jan_avrg_mendng_am', '1인 평균 보수(원)'], ['rm', '비고']], empty: '보수 자료가 없습니다.' },
-  payTop: { title: '보수 5억 원 이상 (개인별)', cols: [['nm', '이름'], ['ofcps', '직위'], ['mendng_totamt', '보수 총액(원)'], ['mendng_totamt_ct_incls_mendng', '총액에 포함되지 않는 보수']], empty: '5억 원 이상 받은 사람이 없거나 공개 대상이 아닙니다.' },
-  affiliates: { title: '다른 회사 출자 현황', cols: [['inv_prm', '회사 이름'], ['invstmnt_purps', '출자 목적'], ['frst_acqs_de', '처음 취득일'], ['trmend_blce_qy', '기말 주식 수'], ['trmend_blce_qota_rt', '기말 지분율(%)'], ['trmend_blce_acntbk_amount', '기말 장부가액'], ['recent_bsns_year_fnnr_sttus_tot_assets', '그 회사 총자산'], ['recent_bsns_year_fnnr_sttus_thstrm_ntpf', '그 회사 순이익']], empty: '다른 회사 출자 자료가 없습니다.' },
-  shares: { title: '주식의 총수', cols: [['se', '구분'], ['isu_stock_totqy', '발행할 주식 총수(한도)'], ['now_to_isu_stock_totqy', '지금까지 발행'], ['now_to_dcrs_stock_totqy', '지금까지 감소'], ['istc_totqy', '발행주식 총수'], ['tesstk_co', '자기주식 수'], ['distb_stock_co', '유통주식 수']], empty: '주식 총수 자료가 없습니다.' },
-  treasury: { title: '자기주식 취득·처분', cols: [['acqs_mth1', '취득 방법'], ['acqs_mth2', '세부'], ['acqs_mth3', '세부2'], ['stock_knd', '주식 종류'], ['bsis_qy', '기초 수량'], ['change_qy_acqs', '취득'], ['change_qy_dsps', '처분'], ['change_qy_incnr', '소각'], ['trmend_qy', '기말 수량'], ['rm', '비고']], empty: '자기주식 자료가 없습니다(보유하지 않았거나 보고서에 없음).' },
-  capital: { title: '증자·감자 현황', cols: [['isu_dcrs_de', '날짜'], ['isu_dcrs_stle', '형태'], ['isu_dcrs_stock_knd', '주식 종류'], ['isu_dcrs_qy', '수량'], ['isu_dcrs_mstvdv_fval_amount', '주당 액면가'], ['isu_dcrs_mstvdv_amount', '주당 발행가']], empty: '최근 증자·감자 기록이 없습니다.' },
-  minority: { title: '소액주주 현황', cols: [['se', '구분'], ['shrholdr_co', '소액주주 수'], ['shrholdr_tot_co', '전체 주주 수'], ['shrholdr_rate', '주주 수 비율'], ['hold_stock_co', '소액주주 보유 주식'], ['stock_tot_co', '총 발행 주식'], ['hold_stock_rate', '보유 비율']], empty: '소액주주 자료가 없습니다.' },
-  holderChange: { title: '최대주주 변동', cols: [['change_on', '변동일'], ['mxmm_shrholdr_nm', '최대주주'], ['posesn_stock_co', '소유 주식 수'], ['qota_rt', '지분율(%)'], ['change_cause', '변동 원인'], ['rm', '비고']], empty: '최근 최대주주 변동이 없습니다.' },
-  bonds: { title: '회사채 미상환 잔액 (남은 만기별)', cols: [['remndr_exprtn1', '구분'], ['remndr_exprtn2', '발행 방법'], ['yy1_below', '1년 이하'], ['yy1_excess_yy2_below', '1~2년'], ['yy2_excess_yy3_below', '2~3년'], ['yy3_excess_yy4_below', '3~4년'], ['yy4_excess_yy5_below', '4~5년'], ['yy5_excess_yy10_below', '5~10년'], ['yy10_excess', '10년 초과'], ['sm', '합계']], empty: '갚지 않은 회사채가 없습니다.' },
+  audit: { labels: 1, title: '회계감사인과 감사의견', cols: [['bsns_year', '사업연도'], ['adtor', '감사인'], ['adt_opinion', '감사의견'], ['adt_reprt_spcmnt_matter', '감사보고서 특기사항'], ['emphs_matter', '강조사항 등'], ['core_adt_matter', '핵심감사사항']], empty: '감사의견 자료가 없습니다.' },
+  execs: { labels: 2, title: '임원 현황', cols: [['nm', '이름'], ['ofcps', '직위'], ['rgist_exctv_at', '등기 여부'], ['fte_at', '상근 여부'], ['chrg_job', '담당 업무'], ['hffc_pd', '재직 기간'], ['tenure_end_on', '임기 만료']], empty: '임원 현황 자료가 없습니다.' },
+  payAll: { labels: 1, title: '이사·감사 전체 보수', cols: [['se', '구분'], ['nmpr', '인원(명)'], ['mendng_totamt', '보수 총액(원)'], ['jan_avrg_mendng_am', '1인 평균 보수(원)'], ['rm', '비고']], empty: '보수 자료가 없습니다.' },
+  payTop: { labels: 2, title: '보수 5억 원 이상 (개인별)', cols: [['nm', '이름'], ['ofcps', '직위'], ['mendng_totamt', '보수 총액(원)'], ['mendng_totamt_ct_incls_mendng', '총액에 포함되지 않는 보수']], empty: '5억 원 이상 받은 사람이 없거나 공개 대상이 아닙니다.' },
+  affiliates: { labels: 1, title: '다른 회사 출자 현황', cols: [['inv_prm', '회사 이름'], ['invstmnt_purps', '출자 목적'], ['frst_acqs_de', '처음 취득일'], ['trmend_blce_qy', '기말 주식 수'], ['trmend_blce_qota_rt', '기말 지분율(%)'], ['trmend_blce_acntbk_amount', '기말 장부가액'], ['recent_bsns_year_fnnr_sttus_tot_assets', '그 회사 총자산'], ['recent_bsns_year_fnnr_sttus_thstrm_ntpf', '그 회사 순이익']], empty: '다른 회사 출자 자료가 없습니다.' },
+  shares: { labels: 1, title: '주식의 총수', cols: [['se', '구분'], ['isu_stock_totqy', '발행할 주식 총수(한도)'], ['now_to_isu_stock_totqy', '지금까지 발행'], ['now_to_dcrs_stock_totqy', '지금까지 감소'], ['istc_totqy', '발행주식 총수'], ['tesstk_co', '자기주식 수'], ['distb_stock_co', '유통주식 수']], empty: '주식 총수 자료가 없습니다.' },
+  treasury: { labels: 4, title: '자기주식 취득·처분', cols: [['acqs_mth1', '취득 방법'], ['acqs_mth2', '세부'], ['acqs_mth3', '세부2'], ['stock_knd', '주식 종류'], ['bsis_qy', '기초 수량'], ['change_qy_acqs', '취득'], ['change_qy_dsps', '처분'], ['change_qy_incnr', '소각'], ['trmend_qy', '기말 수량'], ['rm', '비고']], empty: '자기주식 자료가 없습니다(보유하지 않았거나 보고서에 없음).' },
+  capital: { labels: 0, title: '증자·감자 현황', cols: [['isu_dcrs_de', '날짜'], ['isu_dcrs_stle', '형태'], ['isu_dcrs_stock_knd', '주식 종류'], ['isu_dcrs_qy', '수량'], ['isu_dcrs_mstvdv_fval_amount', '주당 액면가'], ['isu_dcrs_mstvdv_amount', '주당 발행가']], empty: '최근 증자·감자 기록이 없습니다.' },
+  minority: { labels: 1, title: '소액주주 현황', cols: [['se', '구분'], ['shrholdr_co', '소액주주 수'], ['shrholdr_tot_co', '전체 주주 수'], ['shrholdr_rate', '주주 수 비율'], ['hold_stock_co', '소액주주 보유 주식'], ['stock_tot_co', '총 발행 주식'], ['hold_stock_rate', '보유 비율']], empty: '소액주주 자료가 없습니다.' },
+  holderChange: { labels: 0, title: '최대주주 변동', cols: [['change_on', '변동일'], ['mxmm_shrholdr_nm', '최대주주'], ['posesn_stock_co', '소유 주식 수'], ['qota_rt', '지분율(%)'], ['change_cause', '변동 원인'], ['rm', '비고']], empty: '최근 최대주주 변동이 없습니다.' },
+  bonds: { labels: 2, title: '회사채 미상환 잔액 (남은 만기별)', cols: [['remndr_exprtn1', '구분'], ['remndr_exprtn2', '발행 방법'], ['yy1_below', '1년 이하'], ['yy1_excess_yy2_below', '1~2년'], ['yy2_excess_yy3_below', '2~3년'], ['yy3_excess_yy4_below', '3~4년'], ['yy4_excess_yy5_below', '4~5년'], ['yy5_excess_yy10_below', '5~10년'], ['yy10_excess', '10년 초과'], ['sm', '합계']], empty: '갚지 않은 회사채가 없습니다.' },
 }
 
 const META_FIELDS = new Set(['rcept_no', 'corp_cls', 'corp_code', 'corp_name', 'stlm_dt'])
+
+const blank = v => v === undefined || v === null || String(v).trim() === '' || String(v).trim() === '-'
+
+/** 값이 하나도 없는 줄(모든 값 칸이 「-」)은 뺀다. 앞쪽 이름 칸(labels개)은 값으로 치지 않는다. */
+export function visibleRows(name, rows) {
+  const meta = SECTION_META[name]
+  if (!meta) return rows ?? []
+  const valueKeys = meta.cols.slice(meta.labels ?? 0).map(([key]) => key)
+  return (rows ?? []).filter(r => valueKeys.some(key => !blank(r[key])))
+}
 
 /** 표에 보일 칸: 정해 둔 이름 중 실제 값이 있는 칸. 하나도 안 맞으면 받은 칸을 그대로 쓴다. */
 export function sectionColumns(name, rows) {

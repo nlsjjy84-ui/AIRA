@@ -149,7 +149,17 @@ public class StockPageService {
             items = cached.getValue();
         } else {
             try {
-                items = dart.filings(company.corpCode(), from, to).stream().map(StockPageService::filing)
+                // 최근 300건만 받으면 지분 보고가 많은 회사는 몇 달치밖에 안 된다. 정기·주요사항·거래소 공시는 1년치를 따로 받아 합친다.
+                Map<String, Map<String, String>> merged = new LinkedHashMap<>();
+                for (var row : dart.filings(company.corpCode(), from, to)) merged.putIfAbsent(row.get("rcept_no"), row);
+                for (String type : List.of("A", "B", "I")) {
+                    try {
+                        for (var row : dart.filingsOfType(company.corpCode(), from, to, type)) merged.putIfAbsent(row.get("rcept_no"), row);
+                    } catch (RuntimeException e) {
+                        // 유형별 보충은 실패해도 기본 목록은 보여 준다.
+                    }
+                }
+                items = merged.values().stream().filter(row -> row.get("rcept_no") != null).map(StockPageService::filing)
                         .sorted(Comparator.comparing((Map<String, Object> m) -> String.valueOf(m.get("date"))).reversed()
                                 .thenComparing(m -> String.valueOf(m.get("receiptNo")), Comparator.reverseOrder()))
                         .toList();

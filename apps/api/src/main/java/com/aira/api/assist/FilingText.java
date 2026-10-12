@@ -124,23 +124,48 @@ final class FilingText {
     static final List<String> CAUSE_WORDS = List.of("원인", "이유", "왜", "때문");
     static final List<String> CAUSE_MARKERS = List.of("때문", "영향", "기인", "인해", "인한", "따라", "효과", "덕분", "확대", "축소", "개선", "악화", "상승", "하락");
 
+    /** 원인 질문에서 "무엇의" 원인인지 가리키는 낱말. 이 낱말이 맞아야 그 문단이 질문과 관련 있다고 본다. */
+    static final List<String> SUBJECT_WORDS = List.of("매출", "영업이익", "순이익", "이익", "손실", "배당", "현금", "투자", "부채", "차입",
+            "원가", "비용", "수요", "가격", "판매", "실적", "점유율", "제품", "주가", "수익", "마진");
+    /** 어디에나 나오는 변화 낱말. 점수를 적게 준다(「환율변동」 같은 문단이 끼어들지 않게). */
+    static final List<String> GENERIC_WORDS = List.of("증가", "감소", "변동", "상승", "하락", "개선", "악화", "시장", "환경", "요인", "정책", "주요", "내용", "결정", "기준");
+    /** 회계 처리 방법을 설명하는 문단(원인 설명이 아니다). */
+    static final List<String> POLICY_MARKERS = List.of("회계정책", "인식하고", "인식합니다", "인식하며", "측정합니다", "측정하고", "기대값", "공정가치",
+            "손상검사", "추정치", "할인율", "기업회계기준서", "적용하고");
+    static final List<String> COMPARE_MARKERS = List.of("전년", "전기 대비", "전년 동기", "대비");
+
     static List<Integer> rank(List<String> passages, String question, int top) {
         List<String> tokens = new ArrayList<>(questionTokens(question));
         boolean causal = CAUSE_WORDS.stream().anyMatch(word -> question != null && question.contains(word));
         // 원인을 묻는 질문: "원인·이유" 같은 낱말은 원문에 잘 안 쓰이므로 빼고, 대신 원인을 말하는 표현이 있는 문단에 점수를 더 준다.
         if (causal) tokens.removeIf(token -> CAUSE_WORDS.stream().anyMatch(token::startsWith) || token.matches("\\d{4}년?|대비"));
         if (tokens.isEmpty()) return List.of();
+        List<String> subjects = tokens.stream().filter(t -> SUBJECT_WORDS.stream().anyMatch(t::contains)).toList();
         int need = causal ? 1 : tokens.size() >= 3 ? 2 : 1;
         List<int[]> scored = new ArrayList<>();
         for (int i = 0; i < passages.size(); i++) {
             String lower = passages.get(i).toLowerCase();
             int score = 0;
-            for (String token : tokens) if (lower.contains(token)) score++;
-            if (causal && score > 0) {
-                long markers = CAUSE_MARKERS.stream().filter(lower::contains).count();
-                score = score * 2 + (int) Math.min(3, markers);
+            if (!causal) {
+                for (String token : tokens) if (lower.contains(token)) score++;
+                if (score >= need) scored.add(new int[] {i, score});
+                continue;
             }
-            if (score >= need) scored.add(new int[] {i, score});
+            int hits = 0;
+            boolean subjectHit = subjects.isEmpty();
+            for (String token : tokens) {
+                if (!lower.contains(token)) continue;
+                hits++;
+                boolean subject = SUBJECT_WORDS.stream().anyMatch(token::contains);
+                if (subject) subjectHit = true;
+                score += subject ? 4 : GENERIC_WORDS.stream().anyMatch(token::startsWith) ? 1 : 2;
+            }
+            if (hits == 0 || !subjectHit) continue;
+            long markers = CAUSE_MARKERS.stream().filter(lower::contains).count();
+            score += (int) Math.min(3, markers) * 2;
+            if (COMPARE_MARKERS.stream().anyMatch(lower::contains)) score += 1;
+            if (POLICY_MARKERS.stream().anyMatch(lower::contains)) score -= 6;
+            if (score >= 3) scored.add(new int[] {i, score});
         }
         scored.sort(Comparator.<int[]>comparingInt(item -> -item[1]).thenComparingInt(item -> item[0]));
         List<Integer> out = new ArrayList<>();

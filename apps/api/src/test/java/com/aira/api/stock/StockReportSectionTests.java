@@ -88,6 +88,24 @@ class StockReportSectionTests {
     }
 
     @Test
+    void filingsAddPeriodicMaterialAndExchangeFilingsBeyondTheLatestThreeHundred() {
+        DartStockClient dart = mock(DartStockClient.class);
+        when(dart.filings(eq("00126380"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(Map.of("rcept_no", "20261010000001", "rcept_dt", "20261010", "report_nm", "임원ㆍ주요주주특정증권등소유상황보고서")));
+        when(dart.filingsOfType(eq("00126380"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), eq("A")))
+                .thenReturn(List.of(Map.of("rcept_no", "20260310002820", "rcept_dt", "20260310", "report_nm", "사업보고서 (2025.12)")));
+        when(dart.filingsOfType(eq("00126380"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), eq("B")))
+                .thenThrow(new DartStockClient.DartUnavailableException("020"));
+        when(dart.filingsOfType(eq("00126380"), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), eq("I")))
+                .thenReturn(List.of(Map.of("rcept_no", "20251014800001", "rcept_dt", "20251014", "report_nm", "연결재무제표기준영업(잠정)실적(공정공시)"),
+                        Map.of("rcept_no", "20261010000001", "rcept_dt", "20261010", "report_nm", "중복")));
+        var out = service(dart).filings(SAMSUNG);
+        @SuppressWarnings("unchecked") var items = (List<Map<String, Object>>) out.get("items");
+        assertEquals(List.of("20261010000001", "20260310002820", "20251014800001"), items.stream().map(i -> i.get("receiptNo")).toList());
+        assertEquals("AVAILABLE", out.get("state"));
+    }
+
+    @Test
     void naverNewsComesFirstKeepsTitlesWithTheCompanyAndFallsBackToGdelt() {
         String naver = "{\"items\":["
                 + "{\"title\":\"<b>삼성전자</b> 3분기 잠정실적\",\"originallink\":\"https://www.news.example/a\",\"link\":\"https://n.news.naver.com/a\",\"description\":\"영업이익 &quot;증가&quot;\",\"pubDate\":\"Mon, 12 Oct 2026 09:10:00 +0900\"},"
