@@ -136,6 +136,8 @@ public class StockPageService {
     }
 
     // ---------- 공시 ----------
+    private final java.util.Set<String> truncatedFilings = ConcurrentHashMap.newKeySet();
+
     public Map<String, Object> filings(StockCompanyLookup.Company company) {
         LocalDate to = LocalDate.now(clock.withZone(KST));
         LocalDate from = to.minusMonths(12);
@@ -151,7 +153,10 @@ public class StockPageService {
             try {
                 // 최근 300건만 받으면 지분 보고가 많은 회사는 몇 달치밖에 안 된다. 정기·주요사항·거래소 공시는 1년치를 따로 받아 합친다.
                 Map<String, Map<String, String>> merged = new LinkedHashMap<>();
-                for (var row : dart.filings(company.corpCode(), from, to)) merged.putIfAbsent(row.get("rcept_no"), row);
+                var general = dart.filings(company.corpCode(), from, to);
+                // 일반 목록은 최근 300건까지만 받으므로, 300건이 다 찼으면 1년 전체 공시 수는 이보다 많다.
+                if (general.size() >= 300) truncatedFilings.add(company.corpCode()); else truncatedFilings.remove(company.corpCode());
+                for (var row : general) merged.putIfAbsent(row.get("rcept_no"), row);
                 for (String type : List.of("A", "B", "I")) {
                     try {
                         for (var row : dart.filingsOfType(company.corpCode(), from, to, type)) merged.putIfAbsent(row.get("rcept_no"), row);
@@ -171,6 +176,7 @@ public class StockPageService {
             }
         }
         out.put("state", items.isEmpty() ? "NO_DATA" : "AVAILABLE");
+        out.put("truncated", truncatedFilings.contains(company.corpCode()));
         out.put("items", items);
         return out;
     }

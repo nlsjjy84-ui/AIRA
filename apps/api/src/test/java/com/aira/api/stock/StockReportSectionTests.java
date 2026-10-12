@@ -103,6 +103,7 @@ class StockReportSectionTests {
         @SuppressWarnings("unchecked") var items = (List<Map<String, Object>>) out.get("items");
         assertEquals(List.of("20261010000001", "20260310002820", "20251014800001"), items.stream().map(i -> i.get("receiptNo")).toList());
         assertEquals("AVAILABLE", out.get("state"));
+        assertEquals(false, out.get("truncated"), "fewer than 300 general rows means the year is complete");
     }
 
     @Test

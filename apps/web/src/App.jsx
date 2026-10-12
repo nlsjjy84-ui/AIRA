@@ -508,8 +508,10 @@ export default function App() {
 
   useEffect(() => {
     const readOnly = () => setSession(current => ({ ...current, notice: DEMO_READ_ONLY_NOTICE }))
+    const planLimit = () => setSession(current => ({ ...current, notice: '오늘 무료 한도를 다 썼어요. 내일 다시 쓸 수 있고, 「요금 안내」에서 AIRA 플러스를 볼 수 있어요.' }))
     window.addEventListener('aira-demo-readonly', readOnly)
-    return () => window.removeEventListener('aira-demo-readonly', readOnly)
+    window.addEventListener('aira-plan-limit', planLimit)
+    return () => { window.removeEventListener('aira-demo-readonly', readOnly); window.removeEventListener('aira-plan-limit', planLimit) }
   }, [])
 
   async function performLogout() {
@@ -622,7 +624,7 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/plans' ? <PlansPage /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{

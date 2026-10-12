@@ -2689,3 +2689,30 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .plan-card h2 { margin: 0; }
 .plan-card .plan-price { margin: 0; font-size: 1.25rem; font-weight: 800; }
 .plan-card ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .35rem; }
+
+/* ---------- v10: 공부 리포트 · 여러 종목 비교 · 사용량 ---------- */
+.study-report { display: grid; gap: 1.1rem; padding: 1.2rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.study-report header h2 { margin: .2rem 0; font-size: 1.6rem; }
+.study-report h3 { margin: 0 0 .5rem; font-size: 1.05rem; }
+.study-report section { min-width: 0; }
+.report-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: .4rem .8rem; margin: 0; }
+.report-facts dt { font-size: .78rem; color: var(--muted); }
+.report-facts dd { margin: 0; font-weight: 750; font-variant-numeric: tabular-nums; }
+.report-checks, .report-notes, .report-filings, .report-sources { margin: 0; padding-left: 1.2rem; display: grid; gap: .35rem; }
+.report-notes p { margin: .2rem 0; }
+.report-checks b { display: inline-block; min-width: 3.6rem; }
+.peer-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.peer-chip { display: inline-flex; align-items: center; gap: .3rem; padding: .25rem .35rem .25rem .7rem; border: 2px solid var(--line); border-radius: 999px; }
+.peer-chip a { color: inherit; font-weight: 700; text-decoration: none; }
+.peer-chip button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; padding: 0 .3rem; }
+.plan-usage ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+.plan-usage li { display: grid; grid-template-columns: minmax(6rem, auto) 1fr auto; align-items: center; gap: .7rem; }
+.usage-bar { height: .5rem; border-radius: 999px; background: var(--line); overflow: hidden; }
+.usage-bar span { display: block; height: 100%; background: var(--accent); }
+@media print {
+  body.printing-report * { visibility: hidden !important; }
+  body.printing-report .study-report, body.printing-report .study-report * { visibility: visible !important; }
+  body.printing-report .study-report { position: absolute; left: 0; top: 0; width: 100%; border: 0; background: #fff; color: #111; }
+  body.printing-report .study-report .muted, body.printing-report .report-facts dt { color: #555; }
+  body.printing-report .table-scroll { overflow: visible; }
+}

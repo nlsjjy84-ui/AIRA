@@ -15,6 +15,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class PriceAlertService {
     static final int MAX_PER_USER = 50;
+    private PlanLimits limits;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setLimits(PlanLimits limits) { this.limits = limits; }
     private final JdbcTemplate jdbc;
     private final StockCompanyLookup companies;
     private final StockPageService pages;
@@ -52,7 +56,8 @@ public class PriceAlertService {
         String shortCode = pages.shortCode(company, pages.profile(company.corpCode()));
         if (shortCode == null) return "NO_SECURITY";
         Integer count = jdbc.queryForObject("SELECT count(*) FROM user_price_alert WHERE user_id=?", Integer.class, userId);
-        if (count != null && count >= MAX_PER_USER) return "TOO_MANY";
+        int max = limits == null ? MAX_PER_USER : limits.alertsLimit(userId);
+        if (count != null && count >= max) return max < MAX_PER_USER ? "PLAN_LIMIT" : "TOO_MANY";
         jdbc.update("""
                 INSERT INTO user_price_alert(id,user_id,company_id,company_name,short_code,direction,target,created_at)
                 VALUES(?,?,?,?,?,?,?,?)

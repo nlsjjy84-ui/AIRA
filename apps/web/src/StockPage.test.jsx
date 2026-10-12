@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import StockPage, { nodeFor, STOCK_TREE } from './StockPage.jsx'
 
 const ID = '24f7883e-6992-452e-a5e0-099b886a923c'
+const ID2 = '74cbcca4-e68e-4504-b7bd-47e898cf8926'
 const points = Array.from({ length: 30 }, (_, i) => {
   const d = new Date(Date.UTC(2026, 8, 1 + i)); const date = d.toISOString().slice(0, 10)
   return { date, open: 100 + i, high: 110 + i, low: 95 + i, close: 105 + i, changeRate: 1, volume: 1000 + i, value: 100000, marketCap: 1e12 + i * 1e10, listedShares: 1e7 }
@@ -22,6 +23,9 @@ const routes = {
     items: [{ bsns_year: '제57기(당기)', adtor: '삼정회계법인', adt_opinion: '적정', core_adt_matter: '수익 인식', rcept_no: '20260310002820' }] },
   [`/api/stocks/${ID}/statements`]: { state: 'AVAILABLE', year: 2025, fsDiv: 'CFS', names: { BS: '재무상태표', CIS: '포괄손익계산서' }, receiptNo: '20260310002820',
     groups: { BS: [{ account: '유동자산', current: 1000, previous: 900, beforePrevious: null, order: '1' }, { account: '재고자산', current: 300, previous: 250, beforePrevious: 200, order: '2' }], CIS: [{ account: '영업이익', current: 500, previous: 400, beforePrevious: 300, order: '9' }, { account: '매출액', current: 5000, previous: 4000, beforePrevious: 3000, order: '1' }] } },
+  [`/api/stocks/${ID2}/overview`]: { companyId: ID2, name: '현대차', corpCode: '00164742', shortCode: '005380', market: 'KOSPI', profile: {} },
+  [`/api/stocks/${ID2}/prices`]: { state: 'AVAILABLE', source: 'KRX', points: points.map(p => ({ ...p, close: p.close * 2, marketCap: 5e13 })) },
+  [`/api/stocks/${ID2}/financials`]: { state: 'AVAILABLE', source: 'OpenDART', years },
   [`/api/companies/${ID}/events`]: { events: [{ eventId: 'e1', title: '삼양패키징가 2024 회계연도 연간 재무결과를 공식 공시했습니다.', evidence: [{ externalId: '20250311001085' }] }] },
 }
 
@@ -141,5 +145,35 @@ describe('StockPage', () => {
       { acqs_mth1: '총계', acqs_mth2: '총계', acqs_mth3: '총계', stock_knd: '보통주', change_qy_acqs: '100', change_qy_incnr: '40', trmend_qy: '60' },
       { acqs_mth1: '총계', acqs_mth2: '총계', acqs_mth3: '총계', stock_knd: '우선주', change_qy_acqs: '10', change_qy_incnr: '-', trmend_qy: '10' }]
     expect(sectionInsight('treasury', rows)).toBe('이 해에 자기주식을 110주 샀고, 40주를 소각(없앰)했어요. 소각하면 주식 수가 줄어 1주의 몫이 커져요. 연말에 회사가 들고 있는 자기주식은 70주예요(보통주·우선주 합계).')
+  })
+
+  it('asks again when the server is briefly restarting but not for a missing page', async () => {
+    const { withRetry } = await import('./StockPage.jsx')
+    let calls = 0
+    const flaky = () => { calls++; return calls < 3 ? Promise.reject(Object.assign(new Error('x'), { status: 502 })) : Promise.resolve('ok') }
+    expect(await withRetry(flaky, [1, 1])).toBe('ok')
+    expect(calls).toBe(3)
+    let missing = 0
+    await expect(withRetry(() => { missing++; return Promise.reject(Object.assign(new Error('x'), { status: 404 })) }, [1, 1])).rejects.toThrow()
+    expect(missing).toBe(1)
+  })
+
+  it('compares up to four companies side by side and can drop one', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=relate.peer.compare.${ID2}`)
+    render(<StockPage companyId={ID} />)
+    expect(await screen.findByRole('columnheader', { name: '현대차' })).toBeTruthy()
+    expect(screen.getByRole('columnheader', { name: '삼성전자' })).toBeTruthy()
+    expect(screen.getByText('1개 회사와 비교')).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: '현대차 빼기' }))
+    expect(await screen.findByText(/최대 4개 회사를 나란히 비교합니다/)).toBeTruthy()
+  })
+
+  it('builds a study report with official numbers, checks and sources', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=assess.report`)
+    render(<StockPage companyId={ID} />)
+    expect(await screen.findByRole('article', { name: '삼성전자 회사 공부 리포트' })).toBeTruthy()
+    expect(await screen.findByText(/2025 재무: OpenDART 사업보고서 · 접수번호 20260310000001/)).toBeTruthy()
+    expect(screen.getByText(/회사 읽기 코스 \d+ \/ 10단계/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'PDF로 저장 · 인쇄' })).toBeTruthy()
   })
 })

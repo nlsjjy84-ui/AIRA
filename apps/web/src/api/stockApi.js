@@ -28,3 +28,4 @@ export const deleteStudyNote = id => request(`/api/me/study/notes/${encodeURICom
 export const learnTerm = term => request('/api/me/study/terms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ term }) })
 export const getStockSection = (id, section) => request(`${base(id)}/report-section/${encodeURIComponent(section)}`)
 export const getStockStatements = id => request(`${base(id)}/statements`)
+export const getPlan = () => request('/api/me/plan')

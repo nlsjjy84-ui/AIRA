@@ -514,3 +514,13 @@ export function spanName(stats) {
   const months = Math.max(1, Math.round(days / 30.4))
   return { change: `${months}개월`, range: `${months}개월` }
 }
+
+/** 여러 종목 주가를 기준 종목의 날짜에 맞춰 시작일 100으로 맞춘다. 모든 종목에 값이 있는 날만 쓴다. */
+export function normalizeMany(base = [], others = []) {
+  const maps = others.map(series => new Map(series.filter(p => num(p.close) !== null).map(p => [p.date, num(p.close)])))
+  const shared = base.filter(p => num(p.close) !== null && maps.every(m => m.has(p.date)))
+  if (shared.length < 2) return []
+  const first = shared[0]
+  const starts = [num(first.close), ...maps.map(m => m.get(first.date))]
+  return shared.map(p => ({ date: p.date, values: [num(p.close), ...maps.map(m => m.get(p.date))].map((v, i) => round(v / starts[i] * 100, 2)) }))
+}

@@ -1,12 +1,29 @@
+import { useEffect, useState } from 'react'
 import { PLANS } from './stockGuide.js'
+import { getPlan } from './api/stockApi.js'
 
 /** 무료·유료 안내. 결제는 아직 붙이지 않았고, 지금은 모든 기능을 무료로 써 볼 수 있다. */
-export default function PlansPage() {
+function Usage({ loggedIn }) {
+  const [plan, setPlan] = useState(null)
+  useEffect(() => { if (loggedIn) getPlan().then(setPlan).catch(() => setPlan(null)) }, [loggedIn])
+  if (!loggedIn) return <p className="stock-hint">로그인하면 내 사용량(오늘 AI 설명·공부 노트·가격 알림)을 여기서 볼 수 있어요.</p>
+  if (!plan) return null
+  const rows = [['오늘 AI 설명', plan.ai], ['공부 노트', plan.notes], ['가격 알림', plan.alerts]]
+  return <section className="plan-usage" aria-label="내 사용량">
+    <h2 className="stock-h3">내 사용량 <small className="muted">{plan.demo ? '공용 데모 계정은 한도를 걸지 않아요' : plan.enforced ? '무료 한도 적용 중' : '출시 전이라 한도 없이 세기만 해요'}</small></h2>
+    <ul>{rows.map(([label, v]) => <li key={label}><span>{label}</span>
+      <div className="usage-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, v.used / v.freeLimit * 100)}%` }} /></div>
+      <strong>{v.used} / 무료 {v.freeLimit}</strong></li>)}</ul>
+  </section>
+}
+
+export default function PlansPage({ loggedIn = false }) {
   return <section className="plans-page" aria-labelledby="plans-title">
     <header><p className="eyebrow">AIRA 요금 안내 · 출시 계획</p>
       <h1 id="plans-title">광고도, 종목 추천도 없이 이해를 돕는 데에만 돈을 받습니다</h1>
       <p>AIRA는 「사라·팔라」를 말하지 않고 광고도 싣지 않습니다. 대신 내가 이해하고 쌓아 가는 데 드는 AI와 기록 기능을 유료로 둡니다.
         지금은 출시 전이라 <strong>모든 기능을 무료로 열어 두었습니다.</strong></p></header>
+    <Usage loggedIn={loggedIn} />
     <div className="plans-grid">{PLANS.map(plan => <article key={plan.key} className={`plan-card ${plan.key}`}>
       <h2>{plan.name}</h2><p className="plan-price">{plan.price}</p>
       <ul>{plan.lines.map(line => <li key={line}>{line}</li>)}</ul></article>)}</div>

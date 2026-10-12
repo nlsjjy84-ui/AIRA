@@ -149,3 +149,13 @@ describe('quiz', () => {
     expect(buildQuiz('x', [], null)).toEqual([])
   })
 })
+
+describe('normalizeMany', () => {
+  it('starts every company at 100 on the first shared day', async () => {
+    const { normalizeMany } = await import('./stockMath.js')
+    const a = [{ date: 'd1', close: 10 }, { date: 'd2', close: 20 }, { date: 'd3', close: 15 }]
+    const b = [{ date: 'd2', close: 50 }, { date: 'd3', close: 100 }]
+    expect(normalizeMany(a, [b])).toEqual([{ date: 'd2', values: [100, 100] }, { date: 'd3', values: [75, 200] }])
+    expect(normalizeMany(a, [[{ date: 'd9', close: 1 }]])).toEqual([])
+  })
+})

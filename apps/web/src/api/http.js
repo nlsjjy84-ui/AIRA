@@ -30,6 +30,9 @@ export async function request(path, options = {}) {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('aira-demo-readonly'))
     throw new ApiError(423, body)
   }
+  if (response.status === 429 && body?.code === 'PLAN_LIMIT' && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('aira-plan-limit'))
+  }
   if (!response.ok) throw new ApiError(response.status, body)
   return body
 }

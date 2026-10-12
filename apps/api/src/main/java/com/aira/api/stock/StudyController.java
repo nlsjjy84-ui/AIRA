@@ -28,7 +28,12 @@ public class StudyController {
     static final Set<String> KINDS = Set.of("EXPLAIN", "TERM", "QA", "WHY", "DAY", "MEMO", "QUIZ", "INSPECT", "CHECK", "COMPARE", "COURSE");
     private final JdbcTemplate jdbc;
 
+    private PlanLimits limits;
+
     public StudyController(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setLimits(PlanLimits limits) { this.limits = limits; }
 
     public record NoteRequest(UUID companyId, String companyName, String kind, String title, String body, String source) {}
     public record TermRequest(String term) {}
@@ -56,7 +61,11 @@ public class StudyController {
         String body = clean(request.body(), 6000);
         if (title.isEmpty() || body.isEmpty()) return ResponseEntity.badRequest().build();
         Integer count = jdbc.queryForObject("SELECT count(*) FROM user_study_note WHERE user_id=?", Integer.class, principal.userId());
-        if (count != null && count >= MAX_NOTES) return ResponseEntity.badRequest().body(Map.of("code", "TOO_MANY"));
+        int max = limits == null ? MAX_NOTES : limits.notesLimit(principal.userId());
+        if (count != null && count >= max) {
+            return max < MAX_NOTES ? ResponseEntity.status(429).body(Map.of("code", "PLAN_LIMIT"))
+                    : ResponseEntity.badRequest().body(Map.of("code", "TOO_MANY"));
+        }
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO user_study_note(id,user_id,company_id,company_name,kind,title,body,source,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
                 id, principal.userId(), request.companyId(), clean(request.companyName(), 300), request.kind(), title, body,

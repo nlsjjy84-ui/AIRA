@@ -31,6 +31,7 @@ public class PriceAlertController {
     public ResponseEntity<Map<String, Object>> create(@AuthenticationPrincipal AiraPrincipal principal, @RequestBody CreateRequest request) {
         if (request == null) return ResponseEntity.badRequest().build();
         String error = service.create(principal.userId(), request.companyId(), request.direction(), request.target());
+        if ("PLAN_LIMIT".equals(error)) return ResponseEntity.status(429).body(Map.of("code", error));
         if (error != null) return ResponseEntity.badRequest().body(Map.of("code", error));
         return ResponseEntity.ok(Map.of("alerts", service.list(principal.userId())));
     }

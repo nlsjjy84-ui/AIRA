@@ -16,7 +16,7 @@ import { guideFor, SECTION_META, sectionColumns, visibleRows, orderStatement, CO
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
-  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf, ratioText, downloadCsv, buildQuiz, spanName,
+  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf, ratioText, downloadCsv, buildQuiz, spanName, normalizeMany,
 } from './stockMath.js'
 
 const COLORS = { a: 'var(--series-a)', b: 'var(--series-b)', c: 'var(--series-c)', d: 'var(--series-d)', n: 'var(--series-neutral)', up: 'var(--up)', down: 'var(--down)' }
@@ -56,7 +56,7 @@ export const STOCK_TREE = [
     ['market', '주가 × 시장', '같은 기간 이 종목과 시장 지수(코스피·코스닥)를 시작일 100으로 맞춰 비교합니다.', [['compare', '그래프'], ['table', '표']]],
     ['around', '공시 전후 주가', '공시 전날 종가와 5거래일 뒤 종가를 나란히 봅니다.', [['list', '목록']]],
     ['industry', '업종 안에서', '같은 업종(통계청 업종코드) 회사들과 규모·수익성·안정성·시장 평가를 나란히 봅니다.', [['table', '같은 업종 회사'], ['rank', '이 회사의 위치']]],
-    ['peer', '종목 × 종목', '다른 회사 하나를 골라 주가·실적·비율을 나란히 비교합니다.', [['compare', '나란히 보기']]],
+    ['peer', '여러 종목 비교', '다른 회사를 최대 3개 골라 4개 회사의 주가·실적·비율을 나란히 비교합니다.', [['compare', '나란히 보기']]],
     ['events', '관련 사건', 'AIRA가 공식 근거로 확인해 둔 이 회사의 사건입니다.', [['timeline', '시간순']]],
     ['calendar', '회사 일정', '보고서 제출 기한과 작년 같은 시기에 낸 공시로 다가올 일정을 봅니다.', [['upcoming', '다가올 일정'], ['past', '지난 1년']]],
   ]],
@@ -67,6 +67,7 @@ export const STOCK_TREE = [
     ['industry', '업종 중간값 대비', '이 회사의 비율을 같은 업종 회사들의 중간값과 나란히 놓았습니다.'],
     ['check', '확인 체크리스트', '많이 확인하는 기본 질문에 자료로 예·아니오를 답합니다. 좋다·나쁘다를 정하지 않습니다.'],
     ['quiz', '이해 확인 퀴즈', '이 회사의 실제 숫자로 낸 짧은 문제예요. 답을 고르면 왜 그런지 계산과 함께 알려 드리고, 맞힌 용어는 「내 공부」에 쌓여요.'],
+    ['report', '공부 리포트', '공식 숫자와 내가 쌓은 노트를 한 장으로 묶어 PDF로 저장합니다(AIRA 플러스 기능 · 출시 전이라 지금은 무료).'],
     ['unknown', '아직 모르는 것', '이 화면만으로는 알 수 없는 것과 자료의 한계입니다.'],
   ]],
 ]
@@ -84,12 +85,22 @@ export function nodeFor(path) {
   return { top, second, third }
 }
 
+/** 서버가 다시 켜지는 중(배포·재시작)이면 잠깐 실패할 수 있어, 네트워크 오류·5xx는 두 번까지 다시 묻는다. */
+export function withRetry(loader, waits = [2000, 5000]) {
+  const attempt = n => loader().catch(error => {
+    const transient = !error?.status || error.status >= 500
+    if (!transient || n >= waits.length) throw error
+    return new Promise(resolve => setTimeout(resolve, waits[n])).then(() => attempt(n + 1))
+  })
+  return attempt(0)
+}
+
 function useLoad(loader, deps) {
   const [state, setState] = useState({ loading: true, data: null, error: null })
   const reload = useCallback(() => {
     let alive = true
     setState(current => ({ ...current, loading: true, error: null }))
-    loader().then(data => alive && setState({ loading: false, data, error: null }))
+    withRetry(loader).then(data => alive && setState({ loading: false, data, error: null }))
       .catch(error => alive && setState({ loading: false, data: null, error }))
     return () => { alive = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,8 +202,10 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
         <div><dt>{latestYear ? `${latestYear.year} 매출` : '최근 매출'}</dt><dd>{latestYear ? formatWon(latestYear.values.REVENUE) : '—'}</dd></div>
         <div><dt>영업이익률</dt><dd>{latestYear ? formatPercent(latestYear.ratios.operatingMargin, { sign: false }) : '—'}</dd></div>
         <div><dt>PER · PBR</dt><dd>{(() => { const v = valuation(last, latestYear); return v ? `${v.per ?? '—'}배 · ${v.pbr ?? '—'}배` : '—' })()}</dd></div>
-        <div><dt>최근 1년 공시</dt><dd>{filingState.data ? `${filings.length}건${filings.length >= 300 ? ' 이상' : ''}` : '—'}</dd></div>
+        <div><dt>최근 1년 공시</dt><dd>{filingState.data ? `${filings.length}건${filingState.data.truncated ? ' 이상' : ''}` : '—'}</dd></div>
       </dl>
+      {(finState.error || pricesState.error || filingState.error) && <p className="stock-hint" role="status">일부 자료를 불러오지 못했어요(서버가 잠깐 다시 켜지는 중일 수 있어요).{' '}
+        <button type="button" className="link-button" onClick={() => { if (finState.error) reloadFin(); if (pricesState.error) reloadPrices(); if (filingState.error) reloadFilings() }}>다시 불러오기</button></p>}
     </header>
 
     <Guide go={go} />
@@ -252,6 +265,7 @@ function breadcrumbs(path, ctx) {
   extra.forEach((key, i) => {
     const label = /^\d{14}$/.test(key) ? (ctx.filings.find(f => f.receiptNo === key)?.title ?? `공시 ${key}`)
       : /^\d{4}-\d{2}-\d{2}$/.test(key) ? key : /^\d{4}$/.test(key) ? `${key}년`
+      : /^[0-9a-f-]{36}(,[0-9a-f-]{36})*$/i.test(key) ? `${key.split(',').length}개 회사와 비교`
       : RATIOS.find(r => r.key === key)?.label ?? ACCOUNT_LABEL[key] ?? key
     out.push({ label, path: path.slice(0, (third ? 3 : 2) + i + 1) })
   })
@@ -297,6 +311,7 @@ function StockView({ ctx }) {
     case 'assess/check': return <AssessCheck ctx={ctx} />
     case 'assess/quiz': return <QuizView ctx={ctx} />
     case 'assess/unknown': return <AssessUnknown ctx={ctx} />
+    case 'assess/report': return <ReportView ctx={ctx} />
     default: return null
   }
 }
@@ -824,13 +839,13 @@ function AssessCheck({ ctx }) {
 
 function AssessUnknown({ ctx }) {
   return <ul className="stock-bullets">
-    <li>분기 실적은 아직 넣지 않았습니다. 재무는 사업보고서(1년 단위) 기준입니다.</li>
-    <li>현금흐름·배당·업종 평균은 아직 없습니다. 같은 업종 회사와의 비교는 직접 해야 합니다.</li>
-    <li>주가는 하루 단위 종가 기준이며 실시간 시세가 아닙니다.</li>
-    <li>공시 분류는 제목으로 묶은 것입니다. 정확한 내용은 원문에서 확인하세요.</li>
-    <li>기사는 공식 근거가 아니며, 기사 목록은 일부만 보일 수 있습니다.</li>
-    <li>투자자별 매매동향(외국인·기관), 외국인 지분율, 증권사 목표주가·컨센서스는 무료 공식 자료로 받을 수 없어 넣지 않았습니다.</li>
-    <li>미래 실적·주가는 예측하지 않습니다.</li>
+    <li>재무는 사업보고서·분기보고서의 주요 계정 기준입니다. 회사가 정정 공시를 내면 숫자가 바뀔 수 있습니다.</li>
+    <li>주가는 하루 단위 종가이며 실시간 시세가 아닙니다. 보관 기간이 1년보다 짧을 때는 화면에 실제 개월 수를 적습니다.</li>
+    <li>투자자별 매매동향(외국인·기관), 외국인 지분율, 공매도, 증권사 목표주가·컨센서스는 무료 공식 자료로 받을 수 없어 넣지 않았습니다.</li>
+    <li>업종 비교는 통계청 업종 코드가 같은 회사끼리 묶은 것이라, 실제 사업이 다른 회사가 섞일 수 있습니다.</li>
+    <li>공시 분류는 제목으로 묶은 것입니다. 정확한 내용은 원문에서 확인하세요. 「왜 그럴까」는 회사가 쓴 원문 문장만 근거로 씁니다.</li>
+    <li>기사는 공식 근거가 아니며, 기사 제공처 사정에 따라 목록이 비어 있을 수 있습니다.</li>
+    <li>미래 실적·주가는 예측하지 않고, 사라·팔라는 말을 하지 않습니다.</li>
     {!ctx.years.length && <li>이 회사는 사업보고서 주요계정을 아직 받지 못했습니다.</li>}
   </ul>
 }
@@ -875,19 +890,24 @@ function ValuationView({ ctx }) {
   </>
 }
 
+const PEER_COLORS = [COLORS.a, COLORS.b, COLORS.c, COLORS.d]
+
 function PeerCompare({ ctx, peerId }) {
+  const ids = String(peerId ?? '').split(',').filter(id => /^[0-9a-f-]{36}$/i.test(id) && id !== ctx.companyId).slice(0, 3)
+  const key = ids.join(',')
   const [term, setTerm] = useState('')
   const [found, setFound] = useState({ loading: false, items: [], error: null })
-  const [peer, setPeer] = useState({ loading: false, overview: null, prices: null, financials: null, error: null })
+  const [peers, setPeers] = useState({ loading: false, list: [] })
   useEffect(() => {
-    if (!peerId) { setPeer({ loading: false, overview: null, prices: null, financials: null, error: null }); return undefined }
+    if (!key) { setPeers({ loading: false, list: [] }); return undefined }
     let alive = true
-    setPeer({ loading: true, overview: null, prices: null, financials: null, error: null })
-    Promise.all([getStockOverview(peerId), getStockPrices(peerId, 370), getStockFinancials(peerId)])
-      .then(([overview, prices, financials]) => alive && setPeer({ loading: false, overview, prices, financials, error: null }))
-      .catch(error => alive && setPeer({ loading: false, overview: null, prices: null, financials: null, error }))
+    setPeers(current => ({ ...current, loading: true }))
+    Promise.all(key.split(',').map(id => Promise.all([getStockOverview(id), getStockPrices(id, 370), getStockFinancials(id)])
+      .then(([overview, prices, financials]) => ({ id, overview, prices, financials })).catch(() => ({ id, error: true }))))
+      .then(list => alive && setPeers({ loading: false, list }))
     return () => { alive = false }
-  }, [peerId])
+  }, [key])
+  const setIds = next => ctx.go(next.length ? ['relate', 'peer', 'compare', next.join(',')] : ['relate', 'peer', 'compare'])
   async function search(event) {
     event.preventDefault()
     if (!term.trim()) return
@@ -897,41 +917,43 @@ function PeerCompare({ ctx, peerId }) {
       setFound({ loading: false, items: (data?.entities ?? []).filter(item => item.entityType === 'COMPANY' && item.entityId !== ctx.companyId), error: null })
     } catch (error) { setFound({ loading: false, items: [], error }) }
   }
-  const peerYears = withRatios(peer.financials?.years ?? [])
-  const peerPoints = peer.prices?.points ?? []
-  const shown = lastDays(ctx.points, Number(ctx.range))
-  const pair = normalizeTogether(shown, peerPoints)
-  const a = { name: ctx.name, last: ctx.points[ctx.points.length - 1], year: ctx.years[ctx.years.length - 1], stats: priceStats(lastDays(ctx.points, 365)) }
-  const b = { name: peer.overview?.name ?? '비교 회사', last: peerPoints[peerPoints.length - 1], year: peerYears[peerYears.length - 1], stats: priceStats(lastDays(peerPoints, 365)) }
-  const va = valuation(a.last, a.year)
-  const vb = valuation(b.last, b.year)
+  const companies = [{ id: ctx.companyId, name: ctx.name, points: ctx.points, years: ctx.years },
+    ...peers.list.filter(p => !p.error && p.overview).map(p => ({ id: p.id, name: p.overview.name, points: p.prices?.points ?? [], years: withRatios(p.financials?.years ?? []) }))]
+    .map(c => ({ ...c, last: c.points[c.points.length - 1], year: c.years[c.years.length - 1], stats: priceStats(lastDays(c.points, 365)) }))
+  const chart = normalizeMany(lastDays(ctx.points, Number(ctx.range)), companies.slice(1).map(c => c.points))
+  const span = spanName(companies[0].stats)
   const rows = [
-    ['시가총액', x => formatWon(x.last?.marketCap)], ['1년 주가 변화', x => formatPercent(x.stats?.change)],
+    ['시가총액', x => formatWon(x.last?.marketCap)], [`${span.change} 주가 변화`, x => formatPercent(x.stats?.change)],
     ['최근 사업연도', x => x.year ? `${x.year.year}` : '—'], ['매출', x => formatWon(x.year?.values?.REVENUE)], ['영업이익', x => formatWon(x.year?.values?.OPERATING_INCOME)],
     ['영업이익률', x => formatPercent(x.year?.ratios?.operatingMargin, { sign: false })], ['ROE', x => formatPercent(x.year?.ratios?.roe, { sign: false })],
     ['부채비율', x => formatPercent(x.year?.ratios?.debtRatio, { sign: false })], ['매출 증가율', x => formatPercent(x.year?.ratios?.revenueGrowth)],
+    ['PER · PBR', x => { const v = valuation(x.last, x.year); return v ? `${v.per ?? '—'}배 · ${v.pbr ?? '—'}배` : '—' }],
   ]
+  const failed = peers.list.filter(p => p.error).length
   return <>
     <form className="stock-find stock-peer-search" onSubmit={search}>
-      <label htmlFor="peer-q">비교할 회사</label>
-      <div><input id="peer-q" value={term} onChange={event => setTerm(event.target.value)} placeholder="예: SK하이닉스" /><button type="submit" className="secondary-action">찾기</button></div>
+      <label htmlFor="peer-q">비교할 회사 더하기 <small className="muted">({ids.length}/3)</small></label>
+      <div><input id="peer-q" value={term} onChange={event => setTerm(event.target.value)} placeholder="예: SK하이닉스" disabled={ids.length >= 3} /><button type="submit" className="secondary-action" disabled={ids.length >= 3}>찾기</button></div>
     </form>
     {found.loading && <p className="status">찾는 중입니다.</p>}
     {found.items.length > 0 && <ul className="stock-question-list">{found.items.slice(0, 8).map(item => <li key={item.entityId}>
-      <button type="button" onClick={() => { setFound({ loading: false, items: [], error: null }); ctx.go(['relate', 'peer', 'compare', item.entityId]) }}>{item.canonicalName}<span aria-hidden="true">비교 →</span></button></li>)}</ul>}
-    {!peerId && !found.items.length && <p className="stock-hint">회사 이름을 찾아 고르면 두 회사를 나란히 비교합니다. 같은 업종끼리 비교하면 비율을 읽기 쉽습니다.</p>}
-    {peer.loading && <p className="status">비교 회사 자료를 불러오는 중입니다.</p>}
-    {peerId && !peer.loading && peer.overview && <>
+      <button type="button" disabled={ids.includes(item.entityId) || ids.length >= 3} onClick={() => { setFound({ loading: false, items: [], error: null }); setTerm(''); setIds([...ids, item.entityId]) }}>
+        {item.canonicalName}<span aria-hidden="true">{ids.includes(item.entityId) ? '이미 비교 중' : '＋ 더하기'}</span></button></li>)}</ul>}
+    {ids.length > 0 && <div className="peer-chips" aria-label="비교 중인 회사">{companies.slice(1).map((c, i) => <span key={c.id} className="peer-chip" style={{ borderColor: PEER_COLORS[i + 1] }}>
+      <a href={`/stock/${c.id}`}>{c.name}</a><button type="button" aria-label={`${c.name} 빼기`} onClick={() => setIds(ids.filter(id => id !== c.id))}>✕</button></span>)}</div>}
+    {!ids.length && !found.items.length && <p className="stock-hint">회사 이름을 찾아 더하면 최대 4개 회사를 나란히 비교합니다. 같은 업종끼리 비교하면 비율을 읽기 쉽습니다.</p>}
+    {peers.loading && <p className="status">비교 회사 자료를 불러오는 중입니다.</p>}
+    {failed > 0 && <p className="stock-hint">{failed}개 회사 자료를 불러오지 못했습니다.</p>}
+    {companies.length > 1 && !peers.loading && <>
       <RangePicker ctx={ctx} />
-      <LineChart ariaLabel={`${a.name}과 ${b.name} 주가 비교`} dates={pair.map(p => p.date)} baseline={100}
-        series={[{ key: 'a', label: a.name, color: COLORS.a, values: pair.map(p => p.a) }, { key: 'b', label: b.name, color: COLORS.b, values: pair.map(p => p.b) }]} format={value => Number(value).toFixed(0)} />
-      <div className="table-scroll"><table className="stock-table"><thead><tr><th>항목</th><th>{a.name}</th><th>{b.name}</th></tr></thead>
-        <tbody>{rows.map(([label, pick]) => <tr key={label}><th scope="row">{label}</th><td>{pick(a)}</td><td>{pick(b)}</td></tr>)}
-          <tr><th scope="row">PER · PBR</th><td>{va ? `${va.per ?? '—'}배 · ${va.pbr ?? '—'}배` : '—'}</td><td>{vb ? `${vb.per ?? '—'}배 · ${vb.pbr ?? '—'}배` : '—'}</td></tr></tbody></table></div>
-      <AiAssist kind="COMPARE" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${a.name} vs ${b.name}`} loggedIn={ctx.loggedIn} facts={rows.flatMap(([label, pick]) => [
-        { label: `A ${a.name} ${label}`, value: String(pick(a)), period: '' }, { label: `B ${b.name} ${label}`, value: String(pick(b)), period: '' }]).slice(0, 20)} />
-      <div className="stock-actions"><a className="secondary-action" href={`/stock/${peerId}`}>{b.name} 종목 화면으로 →</a></div>
-      <Learn>주가 그래프는 두 회사 모두 시작일을 100으로 맞췄습니다. 비율은 각 회사의 최근 사업연도 기준이라 연도가 다를 수 있으니 표의 「최근 사업연도」를 함께 보세요.</Learn>
+      {chart.length > 1 ? <LineChart ariaLabel={`${companies.map(c => c.name).join(', ')} 주가 비교`} dates={chart.map(p => p.date)} baseline={100}
+        series={companies.map((c, i) => ({ key: c.id, label: c.name, color: PEER_COLORS[i], values: chart.map(p => p.values[i]) }))} format={value => Number(value).toFixed(0)} />
+        : <Empty>같은 날짜의 주가가 모자라 그래프를 그릴 수 없습니다.</Empty>}
+      <div className="table-scroll"><table className="stock-table"><thead><tr><th>항목</th>{companies.map((c, i) => <th key={c.id} style={{ color: PEER_COLORS[i] }}>{c.name}</th>)}</tr></thead>
+        <tbody>{rows.map(([label, pick]) => <tr key={label}><th scope="row">{label}</th>{companies.map(c => <td key={c.id}>{pick(c)}</td>)}</tr>)}</tbody></table></div>
+      <AiAssist kind="COMPARE" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={companies.map(c => c.name).join(' vs ')} loggedIn={ctx.loggedIn}
+        facts={rows.slice(0, 9).flatMap(([label, pick]) => companies.map((c, i) => ({ label: `${String.fromCharCode(65 + i)} ${c.name} ${label}`, value: String(pick(c)), period: '' }))).slice(0, 24)} />
+      <Learn>주가 그래프는 모든 회사를 시작일 100으로 맞췄습니다. 비율은 각 회사의 최근 사업연도 기준이라 연도가 다를 수 있으니 표의 「최근 사업연도」를 함께 보세요.</Learn>
       <Source>KRX 일별 매매정보 · OpenDART 주요계정</Source>
     </>}
   </>
@@ -1639,5 +1661,75 @@ function CourseView({ ctx }) {
         <textarea rows={2} maxLength={300} aria-label={`${i + 1}단계에서 본 것`} placeholder="내가 본 것을 한 줄로 (예: 매출은 5년째 늘었다)" value={memo[i] ?? ''} onChange={e => setMemo({ ...memo, [i]: e.target.value })} />
         <button type="button" className="study-save" onClick={() => finish(i)}>{done.has(i) ? '✔ 이해했어요 · 다시 쌓기' : '이해했어요 · 노트에 쌓기'}</button>
       </div></li>)}</ol>
+  </>
+}
+
+// ---------------- 회사 공부 리포트 (AIRA 플러스 기능 · 출시 전 무료) ----------------
+function ReportView({ ctx }) {
+  const [notes, setNotes] = useState({ loading: ctx.loggedIn, items: [] })
+  useEffect(() => {
+    if (!ctx.loggedIn) { setNotes({ loading: false, items: [] }); return undefined }
+    let alive = true
+    getStudy(ctx.companyId).then(data => alive && setNotes({ loading: false, items: data.notes ?? [] })).catch(() => alive && setNotes({ loading: false, items: [] }))
+    return () => { alive = false }
+  }, [ctx.companyId, ctx.loggedIn])
+  const years = ctx.years
+  const latest = years[years.length - 1]
+  const last = ctx.points[ctx.points.length - 1]
+  const v = valuation(last, latest)
+  const span = spanName(ctx.yearStats)
+  const checks = checklist(years, ctx.yearStats, ctx.marketStats, ctx.filings)
+  const done = new Set([...readLocalCourse(ctx.companyId), ...courseDone(notes.items, ctx.companyId)])
+  const courseNotes = notes.items.filter(n => n.kind === 'COURSE').sort((a, b) => String(a.title).localeCompare(String(b.title), 'ko', { numeric: true }))
+  const otherNotes = notes.items.filter(n => n.kind !== 'COURSE').slice(0, 12)
+  const keyFilings = ctx.filings.filter(f => ['PERIODIC', 'EARNINGS', 'MATERIAL'].includes(f.category)).slice(0, 8)
+  const today = todayIso()
+  function print() {
+    const done = () => { document.body.classList.remove('printing-report'); window.removeEventListener('afterprint', done) }
+    document.body.classList.add('printing-report')
+    window.addEventListener('afterprint', done)
+    window.print()
+  }
+  return <>
+    <div className="stock-actions"><button type="button" className="primary-action" onClick={print}>PDF로 저장 · 인쇄</button>
+      <a className="secondary-action" href="/plans">AIRA 플러스 기능 · 출시 전이라 지금은 무료</a></div>
+    <article className="study-report" aria-label={`${ctx.name} 회사 공부 리포트`}>
+      <header><p className="eyebrow">AIRA 회사 공부 리포트 · {today}</p><h2>{ctx.name}</h2>
+        <p className="muted">{ctx.overview.data?.market ?? ''}{ctx.overview.data?.shortCode ? ` · ${ctx.overview.data.shortCode}` : ''} · 공식 자료(KRX·OpenDART)와 내가 쌓은 공부를 한 장으로 묶었습니다.</p></header>
+      <section><h3>1. 한눈에</h3>
+        <dl className="report-facts">
+          <div><dt>종가</dt><dd>{last ? `${formatPrice(last.close)} (${last.date})` : '—'}</dd></div>
+          <div><dt>시가총액</dt><dd>{last ? formatWon(last.marketCap) : '—'}</dd></div>
+          <div><dt>{span.change} 주가 변화</dt><dd>{ctx.yearStats ? formatPercent(ctx.yearStats.change) : '—'}</dd></div>
+          <div><dt>{latest ? `${latest.year} 매출` : '매출'}</dt><dd>{latest ? formatWon(latest.values.REVENUE) : '—'}</dd></div>
+          <div><dt>영업이익률</dt><dd>{latest ? formatPercent(latest.ratios.operatingMargin, { sign: false }) : '—'}</dd></div>
+          <div><dt>ROE</dt><dd>{latest ? formatPercent(latest.ratios.roe, { sign: false }) : '—'}</dd></div>
+          <div><dt>부채비율</dt><dd>{latest ? formatPercent(latest.ratios.debtRatio, { sign: false }) : '—'}</dd></div>
+          <div><dt>PER · PBR</dt><dd>{v ? `${v.per ?? '—'}배 · ${v.pbr ?? '—'}배` : '—'}</dd></div>
+        </dl></section>
+      <section><h3>2. 해마다 실적</h3>
+        {years.length ? <div className="table-scroll"><table className="stock-table"><thead><tr><th>사업연도</th><th>매출</th><th>영업이익</th><th>당기순이익</th><th>영업이익률</th><th>부채비율</th></tr></thead>
+          <tbody>{years.slice(-10).map(y => <tr key={y.year}><td>{y.year}</td><td>{formatWon(y.values.REVENUE)}</td><td>{formatWon(y.values.OPERATING_INCOME)}</td><td>{formatWon(y.values.NET_INCOME)}</td>
+            <td>{formatPercent(y.ratios.operatingMargin, { sign: false })}</td><td>{formatPercent(y.ratios.debtRatio, { sign: false })}</td></tr>)}</tbody></table></div>
+          : <p className="muted">사업보고서 주요계정을 아직 받지 못했습니다.</p>}</section>
+      <section><h3>3. 기본 확인</h3>
+        <ul className="report-checks">{checks.map(item => <li key={item.label}><b>{item.value === true ? '예' : item.value === false ? '아니오' : '자료 없음'}</b> {item.label} <small>({item.basis})</small></li>)}</ul></section>
+      <section><h3>4. 내가 쌓은 공부</h3>
+        <p>회사 읽기 코스 {done.size} / {COURSE.length}단계</p>
+        {notes.loading ? <p className="status">노트를 불러오는 중입니다.</p> : <>
+          {courseNotes.length > 0 && <ol className="report-notes">{courseNotes.map(n => <li key={n.id}><strong>{String(n.title).replace(/^회사 읽기 코스 \d+\.\s*/, '')}</strong> — {n.body}</li>)}</ol>}
+          {otherNotes.length > 0 && <ul className="report-notes">{otherNotes.map(n => <li key={n.id}><strong>{n.title}</strong><p>{n.body}</p>{n.source && <small>근거: {n.source}</small>}</li>)}</ul>}
+          {!courseNotes.length && !otherNotes.length && <p className="muted">{ctx.loggedIn ? '아직 이 회사에 쌓은 노트가 없어요. 「묻다 › 회사 읽기 코스」부터 따라가 보세요.' : '로그인하면 내가 적은 코스 노트와 저장한 설명이 여기에 함께 담겨요.'}</p>}</>}
+      </section>
+      <section><h3>5. 최근 주요 공시</h3>
+        {keyFilings.length ? <ul className="report-filings">{keyFilings.map(f => <li key={f.receiptNo}>{f.date} · {f.title} <small>(접수번호 {f.receiptNo})</small></li>)}</ul> : <p className="muted">최근 1년 주요 공시가 없습니다.</p>}</section>
+      <section><h3>6. 출처</h3>
+        <ul className="report-sources">
+          <li>주가: 한국거래소(KRX) 일별 매매정보{last ? ` · ${last.date} 종가 기준` : ''}</li>
+          {years.slice(-3).map(y => <li key={y.year}>{y.year} 재무: OpenDART 사업보고서{y.receiptNo ? ` · 접수번호 ${y.receiptNo}` : ''}</li>)}
+          <li>공시: OpenDART 공시검색</li>
+        </ul></section>
+      <footer className="muted">이 리포트는 공부 기록입니다. AIRA는 매수·매도를 권하거나 주가를 예측하지 않습니다.</footer>
+    </article>
   </>
 }

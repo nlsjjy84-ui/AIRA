@@ -56,6 +56,12 @@ public class DemoLoginService implements ApplicationRunner {
 
     static void rememberDemoUser(UUID id) { demoUserId = id; }
 
+    /** 공용 데모 계정인가(면접관이 함께 쓰므로 무료 한도를 걸지 않는다). */
+    public static boolean isDemoUser(UUID userId) {
+        UUID demo = demoUserId;
+        return demo != null && demo.equals(userId);
+    }
+
     /** After a restart, existing demo sessions keep working, so learn the demo account id at startup too. */
     @Override
     public void run(ApplicationArguments args) {

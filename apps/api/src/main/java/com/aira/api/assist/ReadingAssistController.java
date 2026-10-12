@@ -16,11 +16,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReadingAssistController {
     private final ReadingAssistService service;
 
+    private com.aira.api.stock.PlanLimits limits;
+
     public ReadingAssistController(ReadingAssistService service) { this.service = service; }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setLimits(com.aira.api.stock.PlanLimits limits) { this.limits = limits; }
+
+    private void spend(java.util.UUID user) {
+        if (limits != null && !limits.useAi(user)) throw new com.aira.api.stock.PlanLimits.LimitReached();
+    }
 
     @PostMapping("/summary")
     public AssistResponse summary(@AuthenticationPrincipal AiraPrincipal principal,
             @RequestBody AssistRequest request) {
+        spend(principal.userId());
         return service.assist(principal.userId(), request);
     }
 
@@ -33,7 +43,13 @@ public class ReadingAssistController {
     @PostMapping("/screen")
     public ScreenResponse screen(@AuthenticationPrincipal AiraPrincipal principal,
             @RequestBody RouteRequest request) {
+        spend(principal.userId());
         return service.screen(principal.userId(), request == null ? null : request.question());
+    }
+
+    @ExceptionHandler(com.aira.api.stock.PlanLimits.LimitReached.class)
+    org.springframework.http.ResponseEntity<java.util.Map<String, String>> planLimit() {
+        return org.springframework.http.ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(java.util.Map.of("code", "PLAN_LIMIT"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
