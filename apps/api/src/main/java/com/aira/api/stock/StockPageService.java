@@ -35,6 +35,7 @@ public class StockPageService {
     private final FinancialHistoryStore financials;
     private final DartStockClient dart;
     private final CompanyNewsService news;
+    private final ProfileStore profiles;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final Clock clock;
@@ -42,14 +43,14 @@ public class StockPageService {
 
     @Autowired
     public StockPageService(StockCompanyLookup companies, StockPriceStore prices, FinancialHistoryStore financials,
-            DartStockClient dart, CompanyNewsService news, JdbcTemplate jdbc, ObjectMapper json) {
-        this(companies, prices, financials, dart, news, jdbc, json, Clock.systemUTC());
+            DartStockClient dart, CompanyNewsService news, ProfileStore profiles, JdbcTemplate jdbc, ObjectMapper json) {
+        this(companies, prices, financials, dart, news, profiles, jdbc, json, Clock.systemUTC());
     }
 
     StockPageService(StockCompanyLookup companies, StockPriceStore prices, FinancialHistoryStore financials,
-            DartStockClient dart, CompanyNewsService news, JdbcTemplate jdbc, ObjectMapper json, Clock clock) {
+            DartStockClient dart, CompanyNewsService news, ProfileStore profiles, JdbcTemplate jdbc, ObjectMapper json, Clock clock) {
         this.companies = companies; this.prices = prices; this.financials = financials; this.dart = dart;
-        this.news = news; this.jdbc = jdbc; this.json = json; this.clock = clock;
+        this.news = news; this.profiles = profiles; this.jdbc = jdbc; this.json = json; this.clock = clock;
     }
 
     public Optional<StockCompanyLookup.Company> company(UUID id) { return companies.find(id); }
@@ -258,6 +259,79 @@ public class StockPageService {
         return null;
     }
 
+    // ---------- 분기 실적 ----------
+    public Map<String, Object> quarters(StockCompanyLookup.Company company) {
+        Map<String, Map<String, BigDecimal>> cum = new java.util.HashMap<>();
+        Map<String, String> receipts = new java.util.HashMap<>();
+        for (var c : financials.quartersFor(company.corpCode())) {
+            cum.computeIfAbsent(c.fiscalYear() + "|" + c.period(), k -> new java.util.HashMap<>()).put(c.account(), c.amount());
+            receipts.put(c.fiscalYear() + "|" + c.period(), c.receiptNo());
+        }
+        Map<Integer, Map<String, BigDecimal>> annual = new java.util.HashMap<>();
+        Map<Integer, String> annualReceipt = new java.util.HashMap<>();
+        for (var v : financials.forCompany(company.corpCode())) {
+            annual.computeIfAbsent(v.fiscalYear(), k -> new java.util.HashMap<>()).put(v.account(), v.amount());
+            if (v.reportYear() == v.fiscalYear()) annualReceipt.put(v.fiscalYear(), v.receiptNo());
+        }
+        java.util.TreeSet<Integer> years = new java.util.TreeSet<>();
+        cum.keySet().forEach(k -> years.add(Integer.parseInt(k.substring(0, 4))));
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (int year : years) {
+            String[][] steps = {{"Q1", null}, {"H1", "Q1"}, {"Q3", "H1"}, {"FY", "Q3"}};
+            for (int q = 0; q < 4; q++) {
+                Map<String, BigDecimal> now = q == 3 ? annual.get(year) : cum.get(year + "|" + steps[q][0]);
+                Map<String, BigDecimal> before = steps[q][1] == null ? Map.of() : cum.get(year + "|" + steps[q][1]);
+                if (now == null || before == null) continue;
+                Map<String, Object> values = new LinkedHashMap<>();
+                for (String account : List.of("REVENUE", "OPERATING_INCOME", "NET_INCOME")) {
+                    BigDecimal a = now.get(account);
+                    BigDecimal b = steps[q][1] == null ? BigDecimal.ZERO : before.get(account);
+                    if (a != null && b != null) values.put(account, a.subtract(b));
+                }
+                if (values.isEmpty()) continue;
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("year", year);
+                item.put("quarter", q + 1);
+                item.put("label", year + " " + (q + 1) + "분기");
+                item.put("values", values);
+                String receipt = q == 3 ? annualReceipt.get(year) : receipts.get(year + "|" + steps[q][0]);
+                item.put("receiptNo", receipt);
+                item.put("derived", q > 0);
+                items.add(item);
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 다중회사 주요계정 · 분기·반기·3분기·사업보고서 누적 손익에서 계산 (연결 우선)");
+        out.put("state", items.isEmpty() ? "NO_DATA" : "AVAILABLE");
+        out.put("items", items);
+        return out;
+    }
+
+    // ---------- 내부자·대량보유 ----------
+    private final Map<String, Map.Entry<Instant, Map<String, Object>>> ownershipCache = new ConcurrentHashMap<>();
+
+    public Map<String, Object> ownership(StockCompanyLookup.Company company) {
+        var cached = ownershipCache.get(company.corpCode());
+        if (cached != null && cached.getKey().plus(Duration.ofHours(6)).isAfter(clock.instant())) return cached.getValue();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 지분공시 종합정보 (임원·주요주주 소유보고 · 대량보유 상황보고)");
+        try {
+            List<Map<String, String>> insiders = new ArrayList<>(dart.ownershipReports("elestock", company.corpCode()));
+            List<Map<String, String>> major = new ArrayList<>(dart.ownershipReports("majorstock", company.corpCode()));
+            Comparator<Map<String, String>> newest = Comparator.comparing((Map<String, String> m) -> String.valueOf(m.get("rcept_no"))).reversed();
+            insiders.sort(newest);
+            major.sort(newest);
+            out.put("insiders", insiders.size() > 200 ? insiders.subList(0, 200) : insiders);
+            out.put("major", major.size() > 100 ? major.subList(0, 100) : major);
+            out.put("state", insiders.isEmpty() && major.isEmpty() ? "NO_DATA" : "AVAILABLE");
+            ownershipCache.put(company.corpCode(), Map.entry(clock.instant(), out));
+        } catch (RuntimeException e) {
+            if (cached != null) return cached.getValue();
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
+    }
+
     // ---------- 뉴스 ----------
     public Map<String, Object> news(StockCompanyLookup.Company company) {
         var result = news.latest(company.name());
@@ -273,21 +347,57 @@ public class StockPageService {
     // ---------- 공통 ----------
     Map<String, String> profile(String corpCode) {
         try {
-            var rows = jdbc.query("SELECT payload, fetched_at FROM company_profile_cache WHERE corp_code=?",
-                    (rs, i) -> Map.entry(rs.getString(1), rs.getTimestamp(2).toInstant()), corpCode);
-            if (!rows.isEmpty() && rows.get(0).getValue().plus(PROFILE_KEEP).isAfter(clock.instant())) {
-                return json.readValue(rows.get(0).getKey(), new TypeReference<Map<String, String>>() {});
-            }
-            if (!dart.configured()) return rows.isEmpty() ? Map.of() : json.readValue(rows.get(0).getKey(), new TypeReference<Map<String, String>>() {});
+            ProfileStore.Cached cached = profiles.find(corpCode);
+            if (cached != null && cached.fetchedAt().plus(PROFILE_KEEP).isAfter(clock.instant())) return cached.payload();
+            if (!dart.configured()) return cached == null ? Map.of() : cached.payload();
             Map<String, String> fresh = dart.company(corpCode);
-            if (fresh.isEmpty()) return Map.of();
-            jdbc.update("DELETE FROM company_profile_cache WHERE corp_code=?", corpCode);
-            jdbc.update("INSERT INTO company_profile_cache(corp_code,payload,fetched_at) VALUES(?,?,?)",
-                    corpCode, json.writeValueAsString(fresh), Timestamp.from(clock.instant()));
+            if (fresh.isEmpty()) return cached == null ? Map.of() : cached.payload();
+            profiles.save(corpCode, fresh, clock.instant());
             return fresh;
         } catch (RuntimeException e) {
             return Map.of();
         }
+    }
+
+    // ---------- 같은 업종 ----------
+    public Map<String, Object> peers(StockCompanyLookup.Company company) {
+        Map<String, String> mine = profile(company.corpCode());
+        String code = mine.get("induty_code") == null ? null : mine.get("induty_code").trim();
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 기업개황(업종코드) · 주요계정 · KRX 일별 매매정보");
+        out.put("indutyCode", code);
+        if (code == null || code.isBlank()) { out.put("state", "NO_INDUSTRY"); out.put("items", List.of()); return out; }
+        // 가장 좁은 업종코드부터 넓혀 가며 비교할 회사가 5곳 이상인 단계를 고른다.
+        List<ProfileStore.Peer> found = List.of();
+        String used = code;
+        for (int len = code.length(); len >= 2; len--) {
+            used = code.substring(0, len);
+            found = profiles.peers(used);
+            if (found.size() >= 5) break;
+        }
+        out.put("matchedCode", used);
+        var fin = profiles.latestFinancials(found.stream().map(ProfileStore.Peer::corpCode).toList());
+        var px = profiles.latestPrices(found.stream().map(ProfileStore.Peer::stockCode).toList());
+        List<Map<String, Object>> items = new ArrayList<>();
+        for (var peer : found) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("companyId", peer.companyId());
+            item.put("name", peer.name());
+            item.put("market", "Y".equals(peer.corpCls()) ? "KOSPI" : "KOSDAQ");
+            item.put("indutyCode", peer.indutyCode());
+            item.put("self", peer.companyId().equals(company.entityId()));
+            item.put("financials", fin.getOrDefault(peer.corpCode(), Map.of()));
+            item.put("price", px.getOrDefault(peer.stockCode(), Map.of()));
+            items.add(item);
+        }
+        items.sort(Comparator.comparing((Map<String, Object> m) -> {
+            Object cap = ((Map<?, ?>) m.get("price")).get("marketCap");
+            return cap instanceof BigDecimal b ? b : BigDecimal.ZERO;
+        }).reversed());
+        out.put("state", items.size() <= 1 ? "TOO_FEW" : "AVAILABLE");
+        out.put("items", items.size() > 80 ? items.subList(0, 80) : items);
+        out.put("total", items.size());
+        return out;
     }
 
     String shortCode(StockCompanyLookup.Company company, Map<String, String> profile) {

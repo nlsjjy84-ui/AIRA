@@ -363,3 +363,72 @@ export function aggregateCandles(points = [], unit = 'day') {
     volume: list.reduce((sum, p) => sum + Number(p.volume ?? 0), 0), days: list.length,
   }))
 }
+
+/** 통계청 한국표준산업분류(10차) 중분류 이름. DART 업종코드 앞 두 자리로 찾는다. */
+const KSIC = { '01': '농업', '02': '임업', '03': '어업', '05': '석탄·원유·천연가스 광업', '06': '금속 광업', '07': '비금속광물 광업', '08': '광업 지원 서비스업',
+  '10': '식료품 제조업', '11': '음료 제조업', '12': '담배 제조업', '13': '섬유제품 제조업', '14': '의복·모피제품 제조업', '15': '가죽·가방·신발 제조업',
+  '16': '목재·나무제품 제조업', '17': '펄프·종이 제조업', '18': '인쇄·기록매체 복제업', '19': '코크스·석유정제품 제조업', '20': '화학물질·화학제품 제조업',
+  '21': '의약품 제조업', '22': '고무·플라스틱제품 제조업', '23': '비금속 광물제품 제조업', '24': '1차 금속 제조업', '25': '금속가공제품 제조업',
+  '26': '전자부품·컴퓨터·통신장비 제조업', '27': '의료·정밀·광학기기 제조업', '28': '전기장비 제조업', '29': '기타 기계·장비 제조업', '30': '자동차·트레일러 제조업',
+  '31': '기타 운송장비 제조업', '32': '가구 제조업', '33': '기타 제품 제조업', '34': '산업용 기계 수리업', '35': '전기·가스·증기 공급업', '36': '수도업',
+  '37': '하수·폐수 처리업', '38': '폐기물 처리·원료 재생업', '39': '환경 정화·복원업', '41': '종합 건설업', '42': '전문직별 공사업', '45': '자동차·부품 판매업',
+  '46': '도매·상품 중개업', '47': '소매업', '49': '육상 운송업', '50': '수상 운송업', '51': '항공 운송업', '52': '창고·운송 서비스업', '55': '숙박업',
+  '56': '음식점·주점업', '58': '출판업', '59': '영상·오디오 제작·배급업', '60': '방송업', '61': '우편·통신업', '62': '컴퓨터 프로그래밍·시스템 통합업',
+  '63': '정보서비스업', '64': '금융업', '65': '보험·연금업', '66': '금융·보험 서비스업', '68': '부동산업', '70': '연구개발업', '71': '전문 서비스업',
+  '72': '건축기술·엔지니어링 서비스업', '73': '기타 과학기술 서비스업', '74': '사업시설 관리·조경 서비스업', '75': '사업 지원 서비스업', '76': '임대업',
+  '84': '공공행정', '85': '교육 서비스업', '86': '보건업', '87': '사회복지 서비스업', '90': '창작·예술·여가 서비스업', '91': '스포츠·오락 서비스업',
+  '94': '협회·단체', '95': '개인·소비용품 수리업', '96': '기타 개인 서비스업' }
+export function industryName(code) {
+  if (!code) return '업종 정보 없음'
+  return KSIC[String(code).slice(0, 2)] ?? `업종코드 ${code}`
+}
+
+/** 같은 업종 회사 하나의 비교 지표. */
+export function peerMetrics(item) {
+  const f = item.financials ?? {}
+  const p = item.price ?? {}
+  const n = key => (f[key] === undefined || f[key] === null ? null : Number(f[key]))
+  const cap = p.marketCap === undefined || p.marketCap === null ? null : Number(p.marketCap)
+  const pct = (a, b) => (a === null || b === null || b === 0 ? null : round(a / b * 100))
+  const times = (a, b) => (a === null || b === null || b <= 0 ? null : round(a / b, 2))
+  return { marketCap: cap, revenue: n('REVENUE'), year: f.year ?? null,
+    operatingMargin: pct(n('OPERATING_INCOME'), n('REVENUE')), roe: pct(n('NET_INCOME'), n('TOTAL_EQUITY')),
+    debtRatio: pct(n('TOTAL_LIABILITIES'), n('TOTAL_EQUITY')), per: times(cap, n('NET_INCOME')), pbr: times(cap, n('TOTAL_EQUITY')) }
+}
+
+export const PEER_METRICS = [
+  { key: 'marketCap', label: '시가총액', better: 'high', kind: 'won' }, { key: 'revenue', label: '매출', better: 'high', kind: 'won' },
+  { key: 'operatingMargin', label: '영업이익률', better: 'high', kind: 'pct' }, { key: 'roe', label: 'ROE', better: 'high', kind: 'pct' },
+  { key: 'debtRatio', label: '부채비율', better: 'low', kind: 'pct' }, { key: 'per', label: 'PER', better: null, kind: 'x' }, { key: 'pbr', label: 'PBR', better: null, kind: 'x' },
+]
+
+export function median(values = []) {
+  const list = values.filter(v => v !== null && v !== undefined && Number.isFinite(v)).sort((a, b) => a - b)
+  if (!list.length) return null
+  const mid = Math.floor(list.length / 2)
+  return list.length % 2 ? list[mid] : round((list[mid - 1] + list[mid]) / 2, 2)
+}
+
+/** 업종 안에서 이 회사의 순위(큰 값이 1위)와 중간값. */
+export function peerPosition(items = [], key) {
+  const rows = items.map(item => ({ self: item.self, value: peerMetrics(item)[key] })).filter(row => row.value !== null && Number.isFinite(row.value))
+  const sorted = [...rows].sort((a, b) => b.value - a.value)
+  const index = sorted.findIndex(row => row.self)
+  return { count: sorted.length, rank: index >= 0 ? index + 1 : null, value: index >= 0 ? sorted[index].value : null, median: median(rows.map(r => r.value)),
+    min: sorted.length ? sorted[sorted.length - 1].value : null, max: sorted.length ? sorted[0].value : null }
+}
+
+/** 다섯 방향 요약: 같은 업종 안에서 이 회사가 몇 번째 백분위인지(100 = 가장 높음). 점수·등급이 아니다. */
+export const RADAR_AXES = [
+  { key: 'revenueGrowth', label: '성장', hint: '매출 증가율' }, { key: 'operatingMargin', label: '수익성', hint: '영업이익률' },
+  { key: 'roe', label: '효율', hint: 'ROE' }, { key: 'debtRatio', label: '안정성', hint: '부채비율이 낮은 순', invert: true },
+  { key: 'marketCap', label: '규모', hint: '시가총액' },
+]
+
+export function percentileOf(values, value, invert = false) {
+  const list = values.filter(v => v !== null && v !== undefined && Number.isFinite(v))
+  if (value === null || value === undefined || !Number.isFinite(value) || list.length < 2) return null
+  const below = list.filter(v => (invert ? v > value : v < value)).length
+  const equal = list.filter(v => v === value).length
+  return Math.round(((below + (equal - 1) / 2) / (list.length - 1)) * 100)
+}

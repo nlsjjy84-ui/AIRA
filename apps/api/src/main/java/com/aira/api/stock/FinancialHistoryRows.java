@@ -33,7 +33,9 @@ final class FinancialHistoryRows {
         ACCOUNTS.put("유동부채", "CURRENT_LIABILITIES");
     }
 
-    static List<Value> convert(List<Map<String, String>> rows) {
+    static List<Value> convert(List<Map<String, String>> rows) { return convert(rows, null); }
+
+    static List<Value> convert(List<Map<String, String>> rows, Integer requestedYear) {
         Set<String> hasConsolidated = new HashSet<>();
         for (Map<String, String> row : rows) {
             if ("CFS".equals(row.get("fs_div"))) hasConsolidated.add(row.get("corp_code"));
@@ -47,7 +49,8 @@ final class FinancialHistoryRows {
             String account = ACCOUNTS.get(normalize(row.get("account_nm")));
             if (account == null) continue;
             int year;
-            try { year = Integer.parseInt(row.get("bsns_year").trim()); } catch (RuntimeException e) { continue; }
+            try { year = Integer.parseInt(row.get("bsns_year").trim()); }
+            catch (RuntimeException e) { if (requestedYear == null) continue; year = requestedYear; }
             String receipt = row.get("rcept_no");
             if (receipt == null || receipt.isBlank()) continue;
             add(unique, corp, year, account, row.get("thstrm_amount"), fs, receipt, year);
@@ -63,6 +66,29 @@ final class FinancialHistoryRows {
         if (amount == null) return;
         unique.putIfAbsent(corp + "|" + fiscalYear + "|" + account,
                 new Value(corp, fiscalYear, account, amount, fs, receipt.trim(), reportYear));
+    }
+
+    record Cumulative(String corpCode, int fiscalYear, String period, String account, BigDecimal amount, String receiptNo) {}
+
+    /** 분기·반기·3분기 보고서에서 손익 항목의 1월부터 누적 값을 꺼낸다(1분기는 당기 금액이 곧 누적). */
+    static List<Cumulative> cumulative(List<Map<String, String>> rows, int year, String period) {
+        Set<String> hasConsolidated = new HashSet<>();
+        for (Map<String, String> row : rows) if ("CFS".equals(row.get("fs_div"))) hasConsolidated.add(row.get("corp_code"));
+        Map<String, Cumulative> unique = new LinkedHashMap<>();
+        for (Map<String, String> row : rows) {
+            String corp = row.get("corp_code");
+            String fs = row.get("fs_div");
+            if (corp == null || !corp.matches("[0-9]{8}") || fs == null) continue;
+            if (hasConsolidated.contains(corp) ? !"CFS".equals(fs) : !"OFS".equals(fs)) continue;
+            String account = ACCOUNTS.get(normalize(row.get("account_nm")));
+            if (account == null || !Set.of("REVENUE", "OPERATING_INCOME", "NET_INCOME").contains(account)) continue;
+            BigDecimal amount = KrxDailyRows.number(row.get("thstrm_add_amount"));
+            if (amount == null && "Q1".equals(period)) amount = KrxDailyRows.number(row.get("thstrm_amount"));
+            String receipt = row.get("rcept_no");
+            if (amount == null || receipt == null || receipt.isBlank()) continue;
+            unique.putIfAbsent(corp + "|" + account, new Cumulative(corp, year, period, account, amount, receipt.trim()));
+        }
+        return new ArrayList<>(unique.values());
     }
 
     static String normalize(String name) {

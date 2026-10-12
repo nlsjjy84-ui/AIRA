@@ -38,6 +38,7 @@ public class StockHistoryBackfill {
     private final DartStockClient dart;
     private final FinancialHistoryStore financials;
     private final StockCompanyLookup companies;
+    private ProfileStore profiles;
     private final boolean enabled;
     private final String krxKey;
     private final int priceDays;
@@ -84,7 +85,7 @@ public class StockHistoryBackfill {
             } else {
                 log.warn("Stock price backfill skipped: AIRA_KRX_AUTH_KEY is not configured");
             }
-            if (dart.configured()) backfillFinancials();
+            if (dart.configured()) { backfillFinancials(); backfillQuarters(); backfillProfiles(); }
             else log.warn("Financial history backfill skipped: OPENDART_API_KEY is not configured");
         } catch (RuntimeException e) {
             log.error("Stock history backfill stopped", e);
@@ -152,13 +153,13 @@ public class StockHistoryBackfill {
         int latest = LocalDate.now(clock.withZone(KST)).getYear() - 1;
         int saved = 0;
         // 한 번의 사업보고서에 당기·전기·전전기가 함께 있으므로 3년 간격 두 번이면 6개 사업연도가 된다.
-        for (int reportYear : List.of(latest, latest - 3)) {
+        for (int reportYear : List.of(latest, latest - 3, latest - 6, latest - 9)) {
             Set<String> doneChunks = financials.loadedChunks(reportYear);
             for (int i = 0; i < codes.size(); i += 100) {
                 List<String> chunk = new ArrayList<>(codes.subList(i, Math.min(codes.size(), i + 100)));
                 if (doneChunks.contains(chunk.get(0))) continue;
                 try {
-                    var rows = FinancialHistoryRows.convert(dart.multiAccounts(chunk, reportYear));
+                    var rows = FinancialHistoryRows.convert(dart.multiAccounts(chunk, reportYear), reportYear);
                     financials.saveChunk(reportYear, chunk.get(0), rows);
                     saved += rows.size();
                 } catch (RuntimeException e) {
@@ -168,6 +169,60 @@ public class StockHistoryBackfill {
             }
         }
         log.info("Financial history backfill complete: {} values", saved);
+        return saved;
+    }
+
+    /** 분기 실적: 올해와 지난 2년의 1분기·반기·3분기 보고서. 아직 나오지 않은 보고서는 다음에 다시 시도한다. */
+    int backfillQuarters() {
+        List<String> codes = companies.allCorpCodes();
+        if (codes.isEmpty()) return 0;
+        LocalDate today = LocalDate.now(clock.withZone(KST));
+        int saved = 0;
+        for (int year = today.getYear(); year >= today.getYear() - 2; year--) {
+            for (String[] report : new String[][]{{"Q1", "11013"}, {"H1", "11012"}, {"Q3", "11014"}}) {
+                // 보고서 제출 기한(분기 말 + 45일) 전이면 묻지 않는다.
+                LocalDate due = LocalDate.of(year, switch (report[0]) { case "Q1" -> 5; case "H1" -> 8; default -> 11; }, 14);
+                if (today.isBefore(due)) continue;
+                Set<String> done = financials.loadedQuarterChunks(year, report[0]);
+                for (int i = 0; i < codes.size(); i += 100) {
+                    List<String> chunk = new ArrayList<>(codes.subList(i, Math.min(codes.size(), i + 100)));
+                    if (done.contains(chunk.get(0))) continue;
+                    try {
+                        var rows = FinancialHistoryRows.cumulative(dart.multiAccounts(chunk, year, report[1]), year, report[0]);
+                        financials.saveQuarterChunk(year, report[0], chunk.get(0), rows);
+                        saved += rows.size();
+                    } catch (RuntimeException e) {
+                        log.warn("OpenDART quarterly failed for {} {} chunk {}: {}", year, report[0], chunk.get(0), e.getMessage());
+                    }
+                    pause();
+                }
+            }
+        }
+        log.info("Quarterly backfill complete: {} values", saved);
+        return saved;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setProfiles(ProfileStore profiles) { this.profiles = profiles; }
+
+    /** 같은 업종 비교를 위해 전 회사의 기업개황(업종코드)을 30일마다 한 번 받는다. */
+    int backfillProfiles() {
+        if (profiles == null) return 0;
+        java.time.Instant now = clock.instant();
+        Set<String> fresh = profiles.freshCorpCodes(now.minus(java.time.Duration.ofDays(30)));
+        int saved = 0, failures = 0;
+        for (String corpCode : companies.allCorpCodes()) {
+            if (fresh.contains(corpCode)) continue;
+            try {
+                var payload = dart.company(corpCode);
+                if (!payload.isEmpty()) { profiles.save(corpCode, payload, clock.instant()); saved++; }
+            } catch (RuntimeException e) {
+                failures++;
+                if (failures >= 30) { log.warn("Company profile backfill paused after repeated failures: {}", e.getMessage()); break; }
+            }
+            pause();
+        }
+        log.info("Company profile backfill complete: {} profiles", saved);
         return saved;
     }
 

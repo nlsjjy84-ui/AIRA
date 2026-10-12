@@ -38,6 +38,29 @@ public class FinancialHistoryStore {
                 reportYear, chunkStart, values.size(), Timestamp.from(Instant.now()));
     }
 
+    public Set<String> loadedQuarterChunks(int year, String period) {
+        return Set.copyOf(jdbc.query("SELECT chunk_start FROM company_quarterly_loaded WHERE fiscal_year=? AND period=?",
+                (rs, i) -> rs.getString(1), year, period));
+    }
+
+    @Transactional
+    public void saveQuarterChunk(int year, String period, String chunkStart, List<FinancialHistoryRows.Cumulative> values) {
+        for (var v : values) {
+            jdbc.update("DELETE FROM company_quarterly_cumulative WHERE corp_code=? AND fiscal_year=? AND period=? AND account=?",
+                    v.corpCode(), v.fiscalYear(), v.period(), v.account());
+            jdbc.update("INSERT INTO company_quarterly_cumulative(corp_code,fiscal_year,period,account,amount,receipt_no) VALUES(?,?,?,?,?,?)",
+                    v.corpCode(), v.fiscalYear(), v.period(), v.account(), v.amount(), v.receiptNo());
+        }
+        jdbc.update("DELETE FROM company_quarterly_loaded WHERE fiscal_year=? AND period=? AND chunk_start=?", year, period, chunkStart);
+        jdbc.update("INSERT INTO company_quarterly_loaded(fiscal_year,period,chunk_start,row_count,loaded_at) VALUES(?,?,?,?,?)",
+                year, period, chunkStart, values.size(), Timestamp.from(Instant.now()));
+    }
+
+    public List<FinancialHistoryRows.Cumulative> quartersFor(String corpCode) {
+        return jdbc.query("SELECT corp_code,fiscal_year,period,account,amount,receipt_no FROM company_quarterly_cumulative WHERE corp_code=? ORDER BY fiscal_year, period",
+                (rs, i) -> new FinancialHistoryRows.Cumulative(rs.getString(1), rs.getInt(2), rs.getString(3), rs.getString(4), rs.getBigDecimal(5), rs.getString(6)), corpCode);
+    }
+
     public List<FinancialHistoryRows.Value> forCompany(String corpCode) {
         return jdbc.query("""
                 SELECT corp_code,fiscal_year,account,amount,fs_div,receipt_no,report_year

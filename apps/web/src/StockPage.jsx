@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { getStockOverview, getStockPrices, getStockFinancials, getStockFilings, getStockNews, getMarketIndexSeries, getStockReportDetails } from './api/stockApi.js'
+import { getStockOverview, getStockPrices, getStockFinancials, getStockFilings, getStockNews, getMarketIndexSeries, getStockReportDetails, getStockPeers, getStockQuarters, getStockOwnership } from './api/stockApi.js'
 import { getCompanyEvents } from './api/companyApi.js'
 import { searchEntities } from './api/canonicalApi.js'
+import { getScreener } from './api/stockApi.js'
+import { screenRow } from './ScreenerPage.jsx'
 import { LineChart, BarChart, CandleChart } from './StockCharts.jsx'
 import ClaimCheck from './ClaimCheck.jsx'
 import FilingQuote from './FilingQuote.jsx'
@@ -9,7 +11,7 @@ import AiAssist from './AiAssist.jsx'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
-  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles,
+  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf,
 } from './stockMath.js'
 
 const COLORS = { a: 'var(--series-a)', b: 'var(--series-b)', c: 'var(--series-c)', d: 'var(--series-d)', n: 'var(--series-neutral)', up: 'var(--up)', down: 'var(--down)' }
@@ -30,12 +32,12 @@ export const STOCK_TREE = [
     ['price', '주가', '한국거래소(KRX)의 하루 단위 공식 시세입니다. 실시간 시세가 아닙니다.',
       [['trend', '가격 흐름'], ['candle', '봉 차트'], ['daily', '일별 시세'], ['volume', '거래량·거래대금'], ['cap', '시가총액'], ['range', '52주 최고·최저']]],
     ['earnings', '실적(손익)', '1년 동안 얼마를 팔고 얼마를 남겼는지 사업보고서 기준으로 봅니다.',
-      [['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익'], ['all', '한 표로 보기']]],
+      [['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익'], ['quarters', '분기 실적'], ['all', '한 표로 보기']]],
     ['balance', '재무상태', '연말 기준으로 회사가 가진 것(자산)과 빚(부채), 내 돈(자본)을 봅니다.',
       [['structure', '자산·부채·자본'], ['liquidity', '유동자산·유동부채']]],
     ['ratios', '비율', '재무 값으로 계산한 비율입니다. 같은 회사의 해마다 변화를 보는 데 씁니다.',
       [['수익성', '수익성'], ['안정성', '안정성'], ['성장성', '성장성'], ['시장 평가', '시장 평가(PER·PBR)']]],
-    ['owners', '주주·배당·직원', '사업보고서에 적힌 최대주주 지분, 배당, 직원 현황입니다.', [['dividend', '배당'], ['holders', '최대주주·지분'], ['employees', '직원']]],
+    ['owners', '주주·배당·직원', '사업보고서에 적힌 최대주주 지분, 배당, 직원 현황입니다.', [['dividend', '배당'], ['holders', '최대주주·지분'], ['insiders', '임원·주요주주 거래'], ['major', '5% 대량보유'], ['employees', '직원']]],
     ['filings', '공시', '회사가 금융감독원 전자공시(DART)에 낸 최근 1년 공시입니다.', FILING_CATEGORIES.map(([k, l]) => [k, l])],
     ['news', '뉴스', '회사 이름이 들어간 최근 2주 기사 링크입니다. 기사 내용은 공식 근거가 아닙니다.', [['list', '기사 목록'], ['links', '더 찾아보기']]],
   ]],
@@ -43,12 +45,15 @@ export const STOCK_TREE = [
     ['filings', '주가 × 공시', '주가 그래프 위에 공시 날짜를 점으로 찍어 봅니다.', [['chart', '그래프'], ['list', '날짜별 목록']]],
     ['market', '주가 × 시장', '같은 기간 이 종목과 시장 지수(코스피·코스닥)를 시작일 100으로 맞춰 비교합니다.', [['compare', '그래프'], ['table', '표']]],
     ['around', '공시 전후 주가', '공시 전날 종가와 5거래일 뒤 종가를 나란히 봅니다.', [['list', '목록']]],
+    ['industry', '업종 안에서', '같은 업종(통계청 업종코드) 회사들과 규모·수익성·안정성·시장 평가를 나란히 봅니다.', [['table', '같은 업종 회사'], ['rank', '이 회사의 위치']]],
     ['peer', '종목 × 종목', '다른 회사 하나를 골라 주가·실적·비율을 나란히 비교합니다.', [['compare', '나란히 보기']]],
     ['events', '관련 사건', 'AIRA가 공식 근거로 확인해 둔 이 회사의 사건입니다.', [['timeline', '시간순']]],
   ]],
   ['assess', 'Assess', '가늠하다', '사실을 모아 스스로 가늠해 볼 수 있게 정리합니다. 사라·팔라는 말은 하지 않습니다.', [
     ['summary', '한눈에 정리', '최근 연도에 늘어난 것과 줄어든 것을 숫자로 모았습니다.'],
+    ['radar', '다섯 방향 요약', '성장·수익성·효율·안정성·규모를 같은 업종 안 위치(백분위)로 한 도형에 그렸습니다. 점수나 등급이 아닙니다.'],
     ['yoy', '작년 대비 변화표', '항목마다 작년 값과 올해 값을 나란히 놓았습니다. 누르면 그 항목으로 더 들어갑니다.'],
+    ['industry', '업종 중간값 대비', '이 회사의 비율을 같은 업종 회사들의 중간값과 나란히 놓았습니다.'],
     ['check', '확인 체크리스트', '많이 확인하는 기본 질문에 자료로 예·아니오를 답합니다. 좋다·나쁘다를 정하지 않습니다.'],
     ['unknown', '아직 모르는 것', '이 화면만으로는 알 수 없는 것과 자료의 한계입니다.'],
   ]],
@@ -103,6 +108,14 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent }) 
   const [indexState] = useLoad(() => getMarketIndexSeries(market, 370), [market])
   const [eventState] = useLoad(() => getCompanyEvents(companyId), [companyId])
   const [newsState, setNewsState] = useState({ loading: false, data: null, error: null, asked: false })
+  const [peerState, setPeerState] = useState({ loading: false, data: null, error: null, asked: false })
+  const loadPeers = useCallback(() => {
+    if (peerState.asked) return
+    setPeerState({ loading: true, data: null, error: null, asked: true })
+    getStockPeers(companyId).then(data => setPeerState({ loading: false, data, error: null, asked: true }))
+      .catch(error => setPeerState({ loading: false, data: null, error, asked: true }))
+  }, [companyId, peerState.asked])
+  useEffect(() => { if (path[1] === 'industry' || path[1] === 'radar') loadPeers() }, [path, loadPeers])
 
   useEffect(() => {
     const onPop = () => { setPath(readPath()); setSteps(value => Math.max(0, value - 1)) }
@@ -139,7 +152,7 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent }) 
   const marketStats = useMemo(() => priceStats(lastDays(indexPoints, 365)), [indexPoints])
   const name = overview.data?.name ?? '종목'
   useEffect(() => { if (overview.data?.name) rememberStock(companyId, overview.data.name) }, [companyId, overview.data])
-  const ctx = { companyId, name, overview, pricesState, reloadPrices, finState, reloadFin, filingState, reloadFilings, indexState, eventState,
+  const ctx = { peerState, companyId, name, overview, pricesState, reloadPrices, finState, reloadFin, filingState, reloadFilings, indexState, eventState,
     newsState, loadNews, points, indexPoints, years, filings, yearStats, marketStats, range, setRange, path, go, loggedIn, onOpenEvent, market }
 
   if (overview.error?.status === 404) return <section className="stock-page"><Empty>이 회사를 찾지 못했습니다. <a href="/explore">회사 검색으로 가기</a></Empty></section>
@@ -168,6 +181,14 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent }) 
         <div><dt>최근 1년 공시</dt><dd>{filingState.data ? `${filings.length}건` : '—'}</dd></div>
       </dl>
     </header>
+
+    <Guide go={go} />
+    {last && latestYear && <AiAssist kind="INSPECT" subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
+      { label: '종가', value: formatPrice(last.close), period: last.date }, { label: '시가총액', value: formatWon(last.marketCap), period: last.date },
+      ...(yearStats ? [{ label: '1년 주가 변화', value: formatPercent(yearStats.change), period: `${yearStats.first.date} — ${yearStats.last.date}` }] : []),
+      { label: '매출', value: formatWon(latestYear.values.REVENUE), period: `${latestYear.year} 사업연도` },
+      { label: '영업이익', value: formatWon(latestYear.values.OPERATING_INCOME), period: `${latestYear.year} 사업연도` },
+      { label: '부채비율', value: formatPercent(latestYear.ratios.debtRatio, { sign: false }), period: `${latestYear.year} 말` }]} />}
 
     <nav className="stock-stages" aria-label="AIRA 단계">
       {STOCK_TREE.map(([key, english, korean]) => <button key={key} type="button" className={`stock-stage stage-${key}`} aria-label={`${english} ${korean}`} aria-current={top[0] === key ? 'page' : undefined}
@@ -236,17 +257,20 @@ function StockView({ ctx }) {
     case 'ask/glossary': return <Glossary />
     case 'inspect/company': return <CompanyView ctx={ctx} view={third[0]} />
     case 'inspect/price': return deeper[0] ? <DayDetail ctx={ctx} date={deeper[0]} /> : <PriceView ctx={ctx} view={third[0]} />
-    case 'inspect/earnings': return deeper[0] ? <YearDetail ctx={ctx} year={Number(deeper[0])} /> : <EarningsView ctx={ctx} view={third[0]} />
+    case 'inspect/earnings': return third[0] === 'quarters' ? <QuarterView ctx={ctx} /> : deeper[0] ? <YearDetail ctx={ctx} year={Number(deeper[0])} /> : <EarningsView ctx={ctx} view={third[0]} />
     case 'inspect/balance': return deeper[0] ? <YearDetail ctx={ctx} year={Number(deeper[0])} /> : <BalanceView ctx={ctx} view={third[0]} />
     case 'inspect/ratios': return third[0] === '시장 평가' ? <ValuationView ctx={ctx} /> : deeper[0] ? <RatioDetail ctx={ctx} ratioKey={deeper[0]} /> : <RatioGroup ctx={ctx} group={third[0]} />
     case 'inspect/filings': return deeper[0] ? <FilingDetail ctx={ctx} receiptNo={deeper[0]} /> : <FilingList ctx={ctx} category={third[0]} />
     case 'inspect/news': return <NewsView ctx={ctx} view={third[0]} />
-    case 'inspect/owners': return <OwnersView ctx={ctx} view={third[0]} />
+    case 'inspect/owners': return third[0] === 'insiders' || third[0] === 'major' ? <OwnershipView ctx={ctx} view={third[0]} /> : <OwnersView ctx={ctx} view={third[0]} />
     case 'relate/filings': return deeper[0] ? <FilingDetail ctx={ctx} receiptNo={deeper[0]} /> : <RelateFilings ctx={ctx} view={third[0]} />
     case 'relate/market': return <RelateMarket ctx={ctx} view={third[0]} />
     case 'relate/around': return deeper[0] ? <FilingDetail ctx={ctx} receiptNo={deeper[0]} /> : <RelateAround ctx={ctx} />
     case 'relate/events': return <RelateEvents ctx={ctx} />
     case 'relate/peer': return <PeerCompare ctx={ctx} peerId={deeper[0]} />
+    case 'relate/industry': return <IndustryView ctx={ctx} view={third[0]} />
+    case 'assess/industry': return <IndustryView ctx={ctx} view="assess" />
+    case 'assess/radar': return <RadarView ctx={ctx} />
     case 'assess/summary': return <AssessSummary ctx={ctx} />
     case 'assess/yoy': return deeper[0] ? (RATIOS.some(r => r.key === deeper[0]) ? <RatioDetail ctx={ctx} ratioKey={deeper[0]} /> : <AccountDetail ctx={ctx} account={deeper[0]} />) : <AssessYoy ctx={ctx} />
     case 'assess/check': return <AssessCheck ctx={ctx} />
@@ -890,4 +914,183 @@ function OwnersView({ ctx, view }) {
       : <Empty>직원 현황 자료가 없습니다.</Empty>}
     <Learn terms={[['평균 근속', '직원이 회사에 다닌 평균 기간입니다.'], ['1인 평균 급여', '회사가 보고서에 적은 1년 1인 평균 급여액입니다(단위는 보고서 기준).']]}>직원 수와 급여는 회사 규모와 사람에 대한 투자를 가늠하는 데 참고합니다.</Learn>
     {footer}</>
+}
+
+// ---------------- 잇다·가늠하다 · 업종 ----------------
+function metricText(kind, value) {
+  if (value === null || value === undefined) return '—'
+  if (kind === 'won') return formatWon(value)
+  if (kind === 'pct') return formatPercent(value, { sign: false })
+  return `${value}배`
+}
+
+function IndustryView({ ctx, view }) {
+  const s = ctx.peerState
+  if (s.loading || !s.asked) return <p className="status">같은 업종 회사를 모으는 중입니다.</p>
+  if (s.error) return <Empty>같은 업종 자료를 불러오지 못했습니다.</Empty>
+  const d = s.data
+  if (d?.state === 'NO_INDUSTRY') return <Empty>이 회사의 업종코드를 아직 받지 못했습니다. 서버가 전 회사의 기업개황을 받는 중이면 잠시 뒤 다시 열어 주세요.</Empty>
+  if (d?.state === 'TOO_FEW') return <Empty>같은 업종 회사 자료가 아직 모이지 않았습니다(서버가 처음 켜진 뒤 30분쯤 걸립니다).</Empty>
+  const items = d.items ?? []
+  const title = `${industryName(d.matchedCode)} · 업종코드 ${d.matchedCode}${d.matchedCode !== d.indutyCode ? ` (이 회사 ${d.indutyCode})` : ''} · ${d.total}개 회사`
+  const intro = <p className="stock-hint">{title}</p>
+  const learn = <Learn terms={[['업종코드', '통계청 한국표준산업분류 코드입니다. 회사가 DART에 신고한 코드를 쓰며, 같은 회사가 5곳보다 적으면 더 넓은 분류로 묶습니다.'],
+    ['중간값', '값을 순서대로 세웠을 때 가운데 값입니다. 아주 큰 회사 하나에 끌려가지 않아 평균보다 업종의 보통 모습을 잘 보여 줍니다.']]}>
+    업종 안에서도 사업 내용이 다를 수 있습니다. 회사 이름을 눌러 각 회사 화면으로 들어가 보세요.</Learn>
+  const source = <Source>{d.source} · 각 회사의 최근 사업연도·최근 거래일 기준</Source>
+  if (view === 'table') return <>{intro}
+    <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th>{PEER_METRICS.map(m => <th key={m.key}>{m.label}</th>)}<th>재무 연도</th></tr></thead>
+      <tbody>{items.map(item => { const m = peerMetrics(item)
+        return <tr key={item.companyId} className={item.self ? 'self-row' : ''}><td>{item.self ? <strong>{item.name} (이 회사)</strong>
+          : <a href={`/stock/${item.companyId}?v=relate.industry.table`}>{item.name}</a>}</td><td>{item.market === 'KOSPI' ? '코스피' : '코스닥'}</td>
+          {PEER_METRICS.map(metric => <td key={metric.key}>{metricText(metric.kind, m[metric.key])}</td>)}<td>{m.year ?? '—'}</td></tr> })}</tbody></table></div>
+    {learn}{source}</>
+  const rows = PEER_METRICS.map(metric => ({ metric, pos: peerPosition(items, metric.key) }))
+  if (view === 'rank') return <>{intro}
+    <div className="chart-legend"><span><i style={{ background: 'var(--ink)' }} />이 회사</span><span><i style={{ background: 'var(--muted)', borderRadius: 2 }} />업종 중간값</span></div>
+    <ul className="stock-ranks">{rows.map(({ metric, pos }) => <li key={metric.key}>
+      <div><strong>{metric.label}</strong><span>{pos.rank ? `${pos.count}곳 중 ${pos.rank}위 (큰 값 기준)` : '이 회사 값 없음'}</span></div>
+      <PositionBar pos={pos} kind={metric.kind} />
+    </li>)}</ul>
+    {learn}{source}</>
+  return <>{intro}
+    <div className="table-scroll"><table className="stock-table"><thead><tr><th>지표</th><th>이 회사</th><th>업종 중간값</th><th>비교</th></tr></thead>
+      <tbody>{rows.map(({ metric, pos }) => <tr key={metric.key}><th scope="row">{metric.label}</th><td>{metricText(metric.kind, pos.value)}</td><td>{metricText(metric.kind, pos.median)}</td>
+        <td>{pos.value === null || pos.median === null ? '—' : pos.value > pos.median ? '중간값보다 높음' : pos.value < pos.median ? '중간값보다 낮음' : '같음'}</td></tr>)}</tbody></table></div>
+    <Learn>높다·낮다는 사실만 적었습니다. PER·PBR은 높고 낮음이 좋고 나쁨을 뜻하지 않아 해석을 붙이지 않았습니다. 부채비율은 낮을수록 빚이 적다는 뜻입니다.</Learn>
+    {source}</>
+}
+
+function PositionBar({ pos, kind }) {
+  if (pos.value === null || pos.min === null || pos.max === null || pos.max === pos.min) return <div className="stock-rangebar"><span>—</span><div /><span>—</span></div>
+  const at = v => ((v - pos.min) / (pos.max - pos.min)) * 100
+  return <div className="stock-rangebar peer"><span>{metricText(kind, pos.min)}</span>
+    <div><i style={{ left: `${Math.max(0, Math.min(100, at(pos.value)))}%` }} title="이 회사" /><b style={{ left: `${Math.max(0, Math.min(100, at(pos.median)))}%` }} title="업종 중간값" /></div>
+    <span>{metricText(kind, pos.max)}</span></div>
+}
+
+// ---------------- 보다 · 분기 실적 ----------------
+function useLazy(loader, key) {
+  const [state, setState] = useState({ loading: true, data: null, error: null })
+  useEffect(() => {
+    let alive = true
+    setState({ loading: true, data: null, error: null })
+    loader().then(data => alive && setState({ loading: false, data, error: null })).catch(error => alive && setState({ loading: false, data: null, error }))
+    return () => { alive = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  return state
+}
+
+function QuarterView({ ctx }) {
+  const state = useLazy(() => getStockQuarters(ctx.companyId), ctx.companyId)
+  const [account, setAccount] = useState('REVENUE')
+  if (state.loading) return <p className="status">분기 실적을 불러오는 중입니다.</p>
+  const items = state.data?.items ?? []
+  if (state.error || !items.length) return <Empty>분기 보고서 값을 DART에서 받아 채우는 중이거나 아직 없습니다. 연간 실적은 「매출」「영업이익」에서 볼 수 있습니다.</Empty>
+  const value = (item, key) => (item.values?.[key] === undefined ? null : Number(item.values[key]))
+  const sameQuarterLastYear = item => items.find(other => other.year === item.year - 1 && other.quarter === item.quarter)
+  return <>
+    <div className="stock-range" role="group" aria-label="항목">{[['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익']].map(([k, l]) =>
+      <button key={k} type="button" aria-pressed={account === k} onClick={() => setAccount(k)}>{l}</button>)}</div>
+    <BarChart ariaLabel={`분기 ${ACCOUNT_LABEL[account]}`} categories={items.map(i => `${String(i.year).slice(2)}.${i.quarter}Q`)}
+      series={[{ key: account, label: `${ACCOUNT_LABEL[account]} (3개월)`, color: COLORS.a, values: items.map(i => value(i, account)) }]} format={formatWon} />
+    <div className="table-scroll"><table className="stock-table"><thead><tr><th>분기</th><th>매출</th><th>영업이익</th><th>당기순이익</th><th>영업이익률</th><th>전년 같은 분기 대비({ACCOUNT_LABEL[account]})</th><th>보고서</th></tr></thead>
+      <tbody>{[...items].reverse().map(item => { const prev = sameQuarterLastYear(item); const a = value(item, account); const b = prev ? value(prev, account) : null
+        return <tr key={item.label}><td>{item.label}</td><td>{formatWon(value(item, 'REVENUE'))}</td><td className={value(item, 'OPERATING_INCOME') < 0 ? 'down' : ''}>{formatWon(value(item, 'OPERATING_INCOME'))}</td>
+          <td className={value(item, 'NET_INCOME') < 0 ? 'down' : ''}>{formatWon(value(item, 'NET_INCOME'))}</td>
+          <td>{value(item, 'REVENUE') ? formatPercent(value(item, 'OPERATING_INCOME') / value(item, 'REVENUE') * 100, { sign: false }) : '—'}</td>
+          <td>{a !== null && b ? formatPercent((a - b) / Math.abs(b) * 100) : '—'}</td>
+          <td>{item.receiptNo ? <a href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${item.receiptNo}`} target="_blank" rel="noopener noreferrer">원문 ↗</a> : '—'}</td></tr> })}</tbody></table></div>
+    <Learn terms={[['분기(3개월) 값', '분기·반기·3분기 보고서는 1월부터의 누적 금액을 적습니다. AIRA는 누적끼리 빼서 3개월 값을 만듭니다(4분기 = 연간 − 3분기 누적).'],
+      ['전년 같은 분기 대비', '계절에 따라 실적이 달라지는 회사가 많아, 바로 앞 분기보다 작년 같은 분기와 비교하는 경우가 많습니다.']]}>막대 위에 마우스를 올리면 그 분기 값을 봅니다.</Learn>
+    <Source>{state.data?.source}</Source>
+  </>
+}
+
+// ---------------- 보다 · 임원·주요주주 거래 / 5% 대량보유 ----------------
+function OwnershipView({ ctx, view }) {
+  const state = useLazy(() => getStockOwnership(ctx.companyId), ctx.companyId)
+  const [limit, setLimit] = useState(30)
+  if (state.loading) return <p className="status">지분 공시를 불러오는 중입니다.</p>
+  if (state.error || state.data?.state === 'UNAVAILABLE') return <Empty>DART 지분 공시를 지금 불러오지 못했습니다.</Empty>
+  const n = v => dartNumber(v)
+  const date = r => (r.rcept_dt ? (r.rcept_dt.length === 8 ? `${r.rcept_dt.slice(0, 4)}-${r.rcept_dt.slice(4, 6)}-${r.rcept_dt.slice(6)}` : r.rcept_dt) : '—')
+  const link = r => r.rcept_no ? <a href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${r.rcept_no}`} target="_blank" rel="noopener noreferrer">원문 ↗</a> : '—'
+  if (view === 'insiders') {
+    const rows = state.data?.insiders ?? []
+    const recent = rows.filter(r => (r.rcept_no ?? '') >= new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10).replaceAll('-', ''))
+    const plus = recent.filter(r => (n(r.sp_stock_lmp_irds_cnt) ?? 0) > 0).length
+    const minus = recent.filter(r => (n(r.sp_stock_lmp_irds_cnt) ?? 0) < 0).length
+    return <>
+      <dl className="stock-stats"><div><dt>최근 90일 보고</dt><dd>{recent.length}건</dd></div><div><dt>주식이 늘어난 보고</dt><dd className="up">{plus}건</dd></div>
+        <div><dt>주식이 줄어든 보고</dt><dd className="down">{minus}건</dd></div></dl>
+      {rows.length ? <div className="table-scroll"><table className="stock-table"><thead><tr><th>접수일</th><th>보고자</th><th>직위</th><th>주요주주</th><th>보유 주식수</th><th>증감</th><th>보유 비율</th><th>원문</th></tr></thead>
+        <tbody>{rows.slice(0, limit).map((r, i) => <tr key={`${r.rcept_no}-${i}`}><td>{date(r)}</td><td>{r.repror ?? '—'}</td><td>{r.isu_exctv_ofcps && r.isu_exctv_ofcps !== '-' ? r.isu_exctv_ofcps : (r.isu_exctv_rgist_at ?? '—')}</td>
+          <td>{r.isu_main_shrholdr ?? '—'}</td><td>{r.sp_stock_lmp_cnt ?? '—'}</td><td className={(n(r.sp_stock_lmp_irds_cnt) ?? 0) > 0 ? 'up' : (n(r.sp_stock_lmp_irds_cnt) ?? 0) < 0 ? 'down' : ''}>{r.sp_stock_lmp_irds_cnt ?? '—'}</td>
+          <td>{r.sp_stock_lmp_rate ? `${r.sp_stock_lmp_rate}%` : '—'}</td><td>{link(r)}</td></tr>)}</tbody></table></div> : <Empty>임원·주요주주 소유 보고가 없습니다.</Empty>}
+      {rows.length > limit && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 50)}>더 보기 ({rows.length - limit}건)</button>}
+      <Learn terms={[['임원·주요주주 소유보고', '임원이나 10% 이상 주요주주가 자기 회사 주식을 사고팔면 5영업일 안에 알려야 하는 보고입니다.'], ['증감', '이번 보고로 늘거나 줄어든 주식 수입니다.']]}>
+        회사 안 사람들의 거래라 관심 있게 보는 자료지만, 세금·상속·담보 등 이유가 다양해 그것만으로 의미를 단정할 수 없습니다.</Learn>
+      <Source>{state.data?.source}</Source></>
+  }
+  const rows = state.data?.major ?? []
+  return <>
+    {rows.length ? <div className="table-scroll"><table className="stock-table"><thead><tr><th>접수일</th><th>보고자</th><th>보고 구분</th><th>보유 주식수</th><th>증감</th><th>보유 비율</th><th>비율 증감</th><th>사유</th><th>원문</th></tr></thead>
+      <tbody>{rows.slice(0, limit).map((r, i) => <tr key={`${r.rcept_no}-${i}`}><td>{date(r)}</td><td>{r.repror ?? '—'}</td><td>{r.report_tp ?? '—'}</td><td>{r.stkqy ?? '—'}</td>
+        <td className={(n(r.stkqy_irds) ?? 0) > 0 ? 'up' : (n(r.stkqy_irds) ?? 0) < 0 ? 'down' : ''}>{r.stkqy_irds ?? '—'}</td><td>{r.stkrt ? `${r.stkrt}%` : '—'}</td><td>{r.stkrt_irds ?? '—'}</td>
+        <td className="wrap">{r.report_resn ?? '—'}</td><td>{link(r)}</td></tr>)}</tbody></table></div> : <Empty>5% 이상 대량보유 보고가 없습니다.</Empty>}
+    {rows.length > limit && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 50)}>더 보기 ({rows.length - limit}건)</button>}
+    <Learn terms={[['대량보유 상황보고(5% 룰)', '한 회사 주식을 5% 넘게 가지게 되거나, 그 뒤 1% 넘게 바뀌면 알려야 하는 보고입니다.'], ['보고 구분', '처음 5%를 넘긴 신규 보고인지, 바뀐 것을 알리는 변동 보고인지입니다.']]}>
+      국민연금·자산운용사 같은 큰 투자자의 지분 변화를 볼 수 있습니다.</Learn>
+    <Source>{state.data?.source}</Source></>
+}
+
+// ---------------- 가늠하다 · 다섯 방향 요약 ----------------
+function RadarView({ ctx }) {
+  const table = useLazy(() => getScreener(), 'screener')
+  const peers = ctx.peerState
+  if (table.loading || peers.loading || !peers.asked) return <p className="status">같은 업종 회사와 비교하는 중입니다.</p>
+  const code = peers.data?.matchedCode
+  const rows = (table.data?.rows ?? []).map(screenRow)
+  const group = code ? rows.filter(r => String(r.indutyCode ?? '').startsWith(code)) : []
+  const me = rows.find(r => r.companyId === ctx.companyId)
+  if (!me || group.length < 3) return <Empty>같은 업종 비교 자료가 아직 충분하지 않습니다(전 회사 자료를 채우는 데 30분쯤 걸립니다).</Empty>
+  const axes = RADAR_AXES.map(axis => ({ ...axis, value: me[axis.key], pct: percentileOf(group.map(r => r[axis.key]), me[axis.key], axis.invert) }))
+  const size = 300, c = size / 2, R = 110
+  const point = (i, v) => { const a = -Math.PI / 2 + (i * 2 * Math.PI) / axes.length; return [c + Math.cos(a) * R * v, c + Math.sin(a) * R * v] }
+  const poly = axes.map((ax, i) => point(i, (ax.pct ?? 0) / 100).join(',')).join(' ')
+  const show = ax => ax.key === 'marketCap' ? formatWon(ax.value) : formatPercent(ax.value, { sign: ax.key === 'revenueGrowth' })
+  return <>
+    <p className="stock-hint">{industryName(code)} · 업종코드 {code} · {group.length}개 회사와 비교</p>
+    <div className="stock-radar">
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: 360 }} role="img" aria-label="다섯 방향 요약 도형">
+        {[0.25, 0.5, 0.75, 1].map(r => <polygon key={r} points={axes.map((_, i) => point(i, r).join(',')).join(' ')} className="radar-ring" />)}
+        {axes.map((ax, i) => { const [x, y] = point(i, 1); const [lx, ly] = point(i, 1.2)
+          return <g key={ax.key}><line x1={c} y1={c} x2={x} y2={y} className="radar-ring" /><text x={lx} y={ly + 4} textAnchor="middle" className="radar-label">{ax.label}</text></g> })}
+        <polygon points={poly} className="radar-shape" />
+        {axes.map((ax, i) => ax.pct !== null && <circle key={ax.key} cx={point(i, ax.pct / 100)[0]} cy={point(i, ax.pct / 100)[1]} r="3.5" className="radar-dot" />)}
+      </svg>
+      <ul className="stock-ranks">{axes.map(ax => <li key={ax.key}><div><strong>{ax.label} <small className="muted">({ax.hint})</small></strong>
+        <span>{ax.pct === null ? '자료 없음' : `업종 안 ${ax.pct}백분위`}</span></div><small className="muted">이 회사 {show(ax)}</small></li>)}</ul>
+    </div>
+    <Learn terms={[['백분위', '업종 회사들을 값 순서로 세웠을 때의 위치입니다. 100이면 업종에서 가장 높고, 50이면 가운데입니다.'],
+      ['안정성', '부채비율이 낮을수록 바깥쪽에 그렸습니다.']]}>도형이 크다고 좋은 회사라는 뜻은 아닙니다. 어떤 방향에서 업종과 다른지 한눈에 보려는 그림입니다. 각 항목은 「업종 안에서」에서 회사별 값으로 확인할 수 있습니다.</Learn>
+    <Source>OpenDART 주요계정 · 기업개황(업종) · KRX 일별 매매정보로 AIRA가 계산</Source>
+  </>
+}
+
+// 처음 온 사람을 위한 세 걸음 길잡이(접을 수 있음). 고른 값은 이 브라우저에만 기억한다.
+function Guide({ go }) {
+  const [open, setOpen] = useState(() => { try { return window.localStorage.getItem('aira-stock-guide') !== 'closed' } catch { return true } })
+  const close = () => { setOpen(false); try { window.localStorage.setItem('aira-stock-guide', 'closed') } catch { /* 저장이 막혀도 괜찮다 */ } }
+  if (!open) return <button type="button" className="link-button stock-guide-open" onClick={() => setOpen(true)}>처음이세요? 보는 순서 안내</button>
+  return <aside className="stock-guide" aria-label="보는 순서">
+    <ol>
+      <li><button type="button" onClick={() => go(['inspect', 'price', 'trend'])}><b>1</b><span><strong>보다</strong> 주가·실적·재무를 그래프로</span></button></li>
+      <li><button type="button" onClick={() => go(['relate', 'industry', 'table'])}><b>2</b><span><strong>잇다</strong> 시장·업종·공시와 겹쳐 보기</span></button></li>
+      <li><button type="button" onClick={() => go(['assess', 'radar'])}><b>3</b><span><strong>가늠하다</strong> 한눈에 정리하고 스스로 판단</span></button></li>
+    </ol>
+    <button type="button" className="link-button" onClick={close}>안내 닫기</button>
+  </aside>
 }

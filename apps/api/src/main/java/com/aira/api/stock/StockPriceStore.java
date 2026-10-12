@@ -36,8 +36,9 @@ public class StockPriceStore {
             ps.setString(1, r.shortCode()); ps.setDate(2, Date.valueOf(r.date())); ps.setString(3, r.market());
             ps.setBigDecimal(4, r.close()); ps.setBigDecimal(5, r.open()); ps.setBigDecimal(6, r.high());
             ps.setBigDecimal(7, r.low()); ps.setBigDecimal(8, r.changeRate());
-            ps.setObject(9, r.volume()); ps.setBigDecimal(10, r.value()); ps.setBigDecimal(11, r.marketCap());
-            ps.setObject(12, r.listedShares());
+            if (r.volume() == null) ps.setNull(9, java.sql.Types.BIGINT); else ps.setLong(9, r.volume());
+            ps.setBigDecimal(10, r.value()); ps.setBigDecimal(11, r.marketCap());
+            if (r.listedShares() == null) ps.setNull(12, java.sql.Types.BIGINT); else ps.setLong(12, r.listedShares());
         });
         jdbc.update("DELETE FROM stock_price_day_loaded WHERE market=? AND trading_date=?", market, Date.valueOf(date));
         jdbc.update("INSERT INTO stock_price_day_loaded(market,trading_date,row_count,loaded_at) VALUES(?,?,?,?)",

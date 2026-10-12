@@ -72,6 +72,23 @@ class StockHistoryBackfillTests {
     }
 
     @Test
+    void profilesSkipFreshOnesAndSaveTheRest() {
+        DartStockClient dart = mock(DartStockClient.class);
+        StockCompanyLookup lookup = mock(StockCompanyLookup.class);
+        ProfileStore profiles = mock(ProfileStore.class);
+        when(lookup.allCorpCodes()).thenReturn(List.of("00000001", "00000002", "00000003"));
+        when(profiles.freshCorpCodes(any())).thenReturn(Set.of("00000002"));
+        when(dart.company("00000001")).thenReturn(Map.of("induty_code", "264"));
+        when(dart.company("00000003")).thenReturn(Map.of());
+        var backfill = new StockHistoryBackfill(mock(KrxClient.class), mock(StockPriceStore.class), dart, mock(FinancialHistoryStore.class), lookup,
+                true, "", 6, 0, clock);
+        backfill.setProfiles(profiles);
+        assertEquals(1, backfill.backfillProfiles());
+        verify(dart, never()).company("00000002");
+        verify(profiles).save(eq("00000001"), eq(Map.of("induty_code", "264")), any());
+    }
+
+    @Test
     void nothingRunsWithoutKeys() {
         KrxClient krx = mock(KrxClient.class);
         DartStockClient dart = mock(DartStockClient.class);

@@ -87,8 +87,21 @@ public class DartStockClient {
     }
 
     public List<Map<String, String>> multiAccounts(List<String> corpCodes, int businessYear) {
+        return multiAccounts(corpCodes, businessYear, "11011");
+    }
+
+    /** reportCode: 11011 사업보고서, 11013 1분기, 11012 반기, 11014 3분기. */
+    public List<Map<String, String>> multiAccounts(List<String> corpCodes, int businessYear, String reportCode) {
+        if (!reportCode.matches("1101[1-4]")) throw new IllegalArgumentException("Unsupported report code");
         JsonNode body = call("fnlttMultiAcnt.json", "corp_code=" + enc(String.join(",", corpCodes))
-                + "&bsns_year=" + businessYear + "&reprt_code=11011");
+                + "&bsns_year=" + businessYear + "&reprt_code=" + reportCode);
+        return body == null ? List.of() : rows(body);
+    }
+
+    /** 지분공시: elestock(임원·주요주주 소유보고), majorstock(대량보유 상황보고). */
+    public List<Map<String, String>> ownershipReports(String section, String corpCode) {
+        if (!section.matches("elestock|majorstock")) throw new IllegalArgumentException("Unsupported ownership section");
+        JsonNode body = call(section + ".json", "corp_code=" + enc(corpCode));
         return body == null ? List.of() : rows(body);
     }
 

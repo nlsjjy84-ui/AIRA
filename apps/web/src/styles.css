@@ -2553,3 +2553,37 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .workflow-sidebar .workflow-label { white-space: nowrap; }
 .stock-keyfacts { grid-template-columns: repeat(auto-fit, minmax(8.25rem, 1fr)); }
 @media (max-width: 760px) { .stock-stats, .stock-table-dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stock-ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.stock-ranks li { display: grid; gap: .4rem; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: .7rem; }
+.stock-ranks li > div:first-child { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
+.stock-ranks span { color: var(--muted); }
+.stock-rangebar.peer div { background: var(--line); }
+.stock-rangebar.peer b { position: absolute; top: 50%; width: .2rem; height: 1.1rem; background: var(--muted); transform: translate(-50%, -50%); border-radius: 2px; }
+.stock-table tr.self-row td { background: var(--accent-faint); }
+.screen-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .6rem; }
+.screen-filters label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; color: var(--muted); min-width: 0; }
+.screen-filters select, .screen-input input { width: 100%; box-sizing: border-box; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--paper); color: var(--ink); font: inherit; }
+.screen-input { display: flex; align-items: center; gap: .35rem; }
+.screen-input small { color: var(--muted); white-space: nowrap; }
+.screener .stock-table td:first-child a { font-weight: 750; color: var(--ink); }
+.intro-actions { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+.stock-table td.wrap { white-space: normal; min-width: 12rem; text-align: left; }
+.market-map { position: relative; width: 100%; min-width: 0; overflow: hidden; }
+.market-map svg { display: block; max-width: 100%; }
+.map-group { fill: var(--paper); stroke: var(--line); stroke-width: 1; }
+.map-group-label { fill: var(--muted); font-size: 11px; font-weight: 800; }
+.map-tile { stroke: var(--paper); stroke-width: 1; }
+.map-tile-name { fill: var(--ink); font-weight: 800; pointer-events: none; }
+.map-tile-rate { fill: var(--ink); font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; }
+.map-tip { left: auto; right: .5rem; top: .5rem; }
+.stock-radar { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 1rem; align-items: center; }
+.radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.radar-label { fill: var(--ink); font-size: 13px; font-weight: 800; }
+.radar-shape { fill: color-mix(in srgb, var(--series-d) 35%, transparent); stroke: var(--series-d); stroke-width: 2; }
+.radar-dot { fill: var(--series-d); }
+@media (max-width: 760px) { .stock-radar { grid-template-columns: 1fr; justify-items: center; } }
+.stock-guide { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem .8rem; border-radius: var(--radius); border: 1px dashed var(--line); }
+.stock-guide ol { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; margin: 0; padding: 0; }
+.stock-guide li button { display: flex; align-items: center; gap: .5rem; padding: .45rem .75rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.stock-guide b { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: .8rem; }
+.stock-guide-open { justify-self: start; }

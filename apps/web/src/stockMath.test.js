@@ -99,3 +99,31 @@ describe('candles', () => {
     expect(aggregateCandles(days, 'month').map(m => m.close)).toEqual([14, 8])
   })
 })
+
+describe('industry', () => {
+  it('names industries and ranks this company among peers', async () => {
+    const { industryName, median, peerPosition, peerMetrics } = await import('./stockMath.js')
+    expect(industryName('264')).toBe('전자부품·컴퓨터·통신장비 제조업')
+    expect(industryName(null)).toBe('업종 정보 없음')
+    expect(median([3, 1, 2])).toBe(2)
+    expect(median([1, 2, 3, 4])).toBe(2.5)
+    const items = [
+      { self: true, financials: { REVENUE: 100, OPERATING_INCOME: 10, NET_INCOME: 8, TOTAL_EQUITY: 80, TOTAL_LIABILITIES: 40 }, price: { marketCap: 800 } },
+      { self: false, financials: { REVENUE: 50, OPERATING_INCOME: 10, NET_INCOME: 5, TOTAL_EQUITY: 50, TOTAL_LIABILITIES: 100 }, price: { marketCap: 100 } },
+      { self: false, financials: {}, price: {} },
+    ]
+    expect(peerMetrics(items[0])).toMatchObject({ operatingMargin: 10, roe: 10, debtRatio: 50, per: 100, pbr: 10 })
+    expect(peerPosition(items, 'operatingMargin')).toMatchObject({ count: 2, rank: 2, value: 10, median: 15 })
+    expect(peerPosition(items, 'marketCap')).toMatchObject({ rank: 1, max: 800, min: 100 })
+  })
+})
+
+describe('radar', () => {
+  it('computes percentiles inside the industry, inverted for debt', async () => {
+    const { percentileOf } = await import('./stockMath.js')
+    expect(percentileOf([10, 20, 30, 40, 50], 50)).toBe(100)
+    expect(percentileOf([10, 20, 30, 40, 50], 30)).toBe(50)
+    expect(percentileOf([10, 20, 30, 40, 50], 10, true)).toBe(100)
+    expect(percentileOf([10, null], 10)).toBeNull()
+  })
+})

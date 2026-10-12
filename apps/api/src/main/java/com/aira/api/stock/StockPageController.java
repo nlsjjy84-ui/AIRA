@@ -15,8 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/stocks")
 public class StockPageController {
     private final StockPageService service;
+    private final ScreenerService screener;
 
-    public StockPageController(StockPageService service) { this.service = service; }
+    public StockPageController(StockPageService service, ScreenerService screener) { this.service = service; this.screener = screener; }
+
+    @GetMapping("/screener")
+    public Map<String, Object> screener() { return screener.table(); }
 
     @GetMapping("/{companyId}/overview")
     public ResponseEntity<Map<String, Object>> overview(@PathVariable UUID companyId) {
@@ -41,6 +45,21 @@ public class StockPageController {
     @GetMapping("/{companyId}/report-details")
     public ResponseEntity<Map<String, Object>> reportDetails(@PathVariable UUID companyId) {
         return with(companyId, service::reportDetails);
+    }
+
+    @GetMapping("/{companyId}/peers")
+    public ResponseEntity<Map<String, Object>> peers(@PathVariable UUID companyId) {
+        return with(companyId, service::peers);
+    }
+
+    @GetMapping("/{companyId}/quarters")
+    public ResponseEntity<Map<String, Object>> quarters(@PathVariable UUID companyId) {
+        return with(companyId, service::quarters);
+    }
+
+    @GetMapping("/{companyId}/ownership")
+    public ResponseEntity<Map<String, Object>> ownership(@PathVariable UUID companyId) {
+        return with(companyId, service::ownership);
     }
 
     @GetMapping("/{companyId}/news")

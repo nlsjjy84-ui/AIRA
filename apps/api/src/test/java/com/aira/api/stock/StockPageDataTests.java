@@ -71,6 +71,15 @@ class StockPageDataTests {
     }
 
     @Test
+    void financialRowsFallBackToTheRequestedYear() {
+        var values = FinancialHistoryRows.convert(List.of(Map.of("corp_code", "00126380", "fs_div", "CFS", "account_nm", "매출액",
+                "rcept_no", "20260310002820", "thstrm_amount", "10", "frmtrm_amount", "9", "bfefrmtrm_amount", "8")), 2025);
+        assertEquals(new BigDecimal("8"), find(values, "00126380", 2023, "REVENUE"));
+        assertTrue(FinancialHistoryRows.convert(List.of(Map.of("corp_code", "00126380", "fs_div", "CFS", "account_nm", "매출액",
+                "rcept_no", "1", "thstrm_amount", "10"))).isEmpty());
+    }
+
+    @Test
     void filingCategoriesGroupCommonTitles() {
         assertEquals("PERIODIC", FilingCategories.of("사업보고서 (2025.12)"));
         assertEquals("EARNINGS", FilingCategories.of("연결재무제표기준영업(잠정)실적(공정공시)"));
