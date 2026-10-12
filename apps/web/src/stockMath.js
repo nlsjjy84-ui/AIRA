@@ -1,7 +1,7 @@
 // 종목 화면 계산 도우미. 모든 계산은 화면에 나온 공식 값으로만 하고, 추천·예측은 만들지 않는다.
 
 export const FILING_CATEGORIES = [
-  ['ALL', '전체'], ['PERIODIC', '정기보고서'], ['EARNINGS', '실적'], ['OWNERSHIP', '지분·주주'], ['MATERIAL', '주요사항'], ['OTHER', '기타'],
+  ['ALL', '전체'], ['PERIODIC', '정기보고서'], ['EARNINGS', '실적'], ['OWNERSHIP', '지분·주주'], ['MATERIAL', '주요사항'], ['IR', 'IR·설명회'], ['OTHER', '기타'],
 ]
 export const FILING_LABEL = Object.fromEntries(FILING_CATEGORIES)
 
@@ -26,6 +26,10 @@ export const RATIOS = [
     meaning: '1년 안에 갚아야 할 빚을 1년 안에 현금화할 수 있는 자산으로 얼마나 감당하는지 보여 줍니다.' },
   { key: 'equityRatio', group: '안정성', label: '자기자본비율', unit: '%', better: 'high', formula: '자본총계 ÷ 자산총계 × 100',
     meaning: '전체 자산 중 빌리지 않은 내 돈(자본)의 비율입니다.' },
+  { key: 'assetTurnover', group: '활동성', label: '총자산회전율', unit: '회', better: 'high', formula: '매출 ÷ 자산총계',
+    meaning: '가진 자산으로 1년에 매출을 몇 배 만들었는지 보여 줍니다. 1회면 자산만큼 매출을 냈다는 뜻입니다.' },
+  { key: 'equityTurnover', group: '활동성', label: '자기자본회전율', unit: '회', better: 'high', formula: '매출 ÷ 자본총계',
+    meaning: '주주의 돈(자본)으로 매출을 몇 배 만들었는지 보여 줍니다.' },
   { key: 'revenueGrowth', group: '성장성', label: '매출 증가율', unit: '%', better: 'high', formula: '(올해 매출 − 작년 매출) ÷ 작년 매출 × 100',
     meaning: '작년보다 매출이 얼마나 늘거나 줄었는지 보여 줍니다.' },
   { key: 'operatingGrowth', group: '성장성', label: '영업이익 증가율', unit: '%', better: 'high', formula: '(올해 영업이익 − 작년) ÷ |작년| × 100',
@@ -55,6 +59,8 @@ export function withRatios(years = []) {
       debtRatio: round(div(get(v, 'TOTAL_LIABILITIES'), get(v, 'TOTAL_EQUITY'))),
       currentRatio: round(div(get(v, 'CURRENT_ASSETS'), get(v, 'CURRENT_LIABILITIES'))),
       equityRatio: round(div(get(v, 'TOTAL_EQUITY'), get(v, 'TOTAL_ASSETS'))),
+      assetTurnover: get(v, 'REVENUE') === null || !get(v, 'TOTAL_ASSETS') ? null : round(get(v, 'REVENUE') / get(v, 'TOTAL_ASSETS'), 2),
+      equityTurnover: get(v, 'REVENUE') === null || !get(v, 'TOTAL_EQUITY') || get(v, 'TOTAL_EQUITY') <= 0 ? null : round(get(v, 'REVENUE') / get(v, 'TOTAL_EQUITY'), 2),
       revenueGrowth: round(growth(get(v, 'REVENUE'), get(prev, 'REVENUE'))),
       operatingGrowth: round(growth(get(v, 'OPERATING_INCOME'), get(prev, 'OPERATING_INCOME'))),
       netGrowth: round(growth(get(v, 'NET_INCOME'), get(prev, 'NET_INCOME'))),
@@ -431,4 +437,34 @@ export function percentileOf(values, value, invert = false) {
   const below = list.filter(v => (invert ? v > value : v < value)).length
   const equal = list.filter(v => v === value).length
   return Math.round(((below + (equal - 1) / 2) / (list.length - 1)) * 100)
+}
+
+/** 비율 하나를 단위에 맞게 쓴다(%, 회). */
+export function ratioText(ratio, value, sign = false) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '—'
+  if (ratio.unit === '회') return `${Number(value).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}회`
+  return formatPercent(value, { sign })
+}
+
+/** 표를 CSV로 만든다(엑셀에서 한글이 깨지지 않도록 BOM을 붙인다). */
+export function toCsv(header, rows) {
+  const cell = value => {
+    const text = value === null || value === undefined ? '' : String(value)
+    return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+  }
+  return '﻿' + [header, ...rows].map(row => row.map(cell).join(',')).join('\r\n')
+}
+
+export function downloadCsv(filename, header, rows) {
+  try {
+    const blob = new Blob([toCsv(header, rows)], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch { /* 내려받기를 지원하지 않는 환경에서는 아무것도 하지 않는다. */ }
 }

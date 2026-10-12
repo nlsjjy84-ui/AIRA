@@ -86,7 +86,8 @@ class StockPageDataTests {
         assertEquals("OWNERSHIP", FilingCategories.of("임원ㆍ주요주주특정증권등소유상황보고서"));
         assertEquals("MATERIAL", FilingCategories.of("주요사항보고서(자기주식취득결정)"));
         assertEquals("MATERIAL", FilingCategories.of("현금ㆍ현물배당결정"));
-        assertEquals("OTHER", FilingCategories.of("기업설명회(IR)개최(안내공시)"));
+        assertEquals("IR", FilingCategories.of("기업설명회(IR)개최(안내공시)"));
+        assertEquals("OTHER", FilingCategories.of("주주총회소집공고"));
     }
 
     @Test

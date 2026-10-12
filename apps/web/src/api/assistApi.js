@@ -31,3 +31,8 @@ export function requestCandidates(subject, events) {
 export function requestClaimCheck(text) {
   return request('/api/me/assist/claims', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ text }) })
 }
+
+/** Turns words into screener conditions only (capMin, opMin, ...). It never picks or recommends companies. */
+export function requestScreen(question) {
+  return request('/api/me/assist/screen', { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ question }) })
+}

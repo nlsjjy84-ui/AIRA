@@ -11,6 +11,7 @@ final class FilingCategories {
         if (t.matches(".*(대량보유|임원ㆍ주요주주|임원·주요주주|최대주주|주식등의|소유상황|특정증권).*")) return "OWNERSHIP";
         if (t.matches(".*(주요사항보고서|자기주식|유상증자|무상증자|합병|분할|단일판매|공급계약|타법인주식|전환사채|신주인수권|배당|투자판단).*"))
             return "MATERIAL";
+        if (t.matches(".*(기업설명회|IR개최).*")) return "IR";
         return "OTHER";
     }
 }

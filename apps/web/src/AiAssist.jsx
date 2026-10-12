@@ -8,6 +8,9 @@ const COPY = {
   COMPARE: { button: '비교 쉬운 풀이', title: 'AI 비교 풀이', lead: '서버가 계산한 증감 값을 문장으로 풀어 줍니다.' },
   ALERT: { button: '알림 쉬운 풀이', title: 'AI 알림 풀이', lead: '이 알림이 어떤 내용인지 쉽게 설명합니다.' },
   EVIDENCE: { button: '이 근거는 무엇인가요', title: 'AI 근거 안내', lead: '근거 자료의 출처와 종류를 설명합니다. 원문 내용은 읽지 않습니다.' },
+  TERM: { button: '이 회사 값으로 설명 듣기', title: 'AI 용어 선생님', lead: '용어를 이 회사의 실제 값으로 계산해 보이며 설명합니다. 좋고 나쁨은 판단하지 않습니다.' },
+  DAY: { button: '그날 있었던 일 정리', title: 'AI 하루 정리', lead: '그날 시세와 같은 날 공시를 사실만 정리합니다. 원인을 단정하지 않습니다.' },
+  CHECK: { button: '체크리스트 쉬운 풀이', title: 'AI 체크리스트 풀이', lead: '각 항목이 무엇을 확인하는지 풀어 줍니다. 투자 판단은 하지 않습니다.' },
 }
 
 /** Optional reading help. It never replaces the shown values or the official evidence. */

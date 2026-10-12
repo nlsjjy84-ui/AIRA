@@ -14,3 +14,7 @@ export const getStockPeers = id => request(`${base(id)}/peers`)
 export const getScreener = () => request('/api/stocks/screener')
 export const getStockQuarters = id => request(`${base(id)}/quarters`)
 export const getStockOwnership = id => request(`${base(id)}/ownership`)
+export const getStockCashFlow = id => request(`${base(id)}/cash-flow`)
+export const getStockNote = id => request(`/api/me/stock-notes/${encodeURIComponent(id)}`)
+export const putStockNote = (id, body) => request(`/api/me/stock-notes/${encodeURIComponent(id)}`, {
+  method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) })

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getScreener } from './api/stockApi.js'
-import { formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
+import { requestScreen } from './api/assistApi.js'
+import { downloadCsv, formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
 
 const num = v => (v === null || v === undefined || v === '' ? null : Number(v))
 const pct = (a, b) => (a === null || b === null || b === 0 ? null : Math.round(a / b * 1000) / 10)
@@ -43,13 +44,26 @@ export function applyFilters(rows, filters, market = 'ALL', industry = 'ALL') {
 const COLUMNS = [['name', '회사'], ['marketCap', '시가총액'], ['revenue', '매출'], ['operatingMargin', '영업이익률'], ['roe', 'ROE'], ['debtRatio', '부채비율'],
   ['revenueGrowth', '매출 증가율'], ['per', 'PER'], ['pbr', 'PBR'], ['changeRate', '등락률']]
 
-export default function ScreenerPage() {
+export default function ScreenerPage({ loggedIn = false, onLogin }) {
   const [state, setState] = useState({ loading: true, data: null, error: null })
   const [filters, setFilters] = useState({})
   const [market, setMarket] = useState('ALL')
   const [industry, setIndustry] = useState('ALL')
   const [sort, setSort] = useState(['marketCap', 'desc'])
   const [limit, setLimit] = useState(50)
+  const [ai, setAi] = useState({ text: '', loading: false, note: null })
+  async function askAi(event) {
+    event.preventDefault()
+    if (!ai.text.trim()) return
+    setAi(a => ({ ...a, loading: true, note: null }))
+    try {
+      const out = await requestScreen(ai.text.trim())
+      if (out.understood) { setFilters(out.filters ?? {}); setMarket(out.market ?? 'ALL'); setIndustry(out.industry ?? 'ALL') }
+      setAi(a => ({ ...a, loading: false, note: out.note }))
+    } catch (error) {
+      setAi(a => ({ ...a, loading: false, note: error.status === 401 ? '로그인하면 AI 조건 만들기를 쓸 수 있습니다.' : 'AI 조건 만들기를 지금 쓸 수 없습니다. 조건 칸을 직접 채워 주세요.' }))
+    }
+  }
   useEffect(() => { getScreener().then(data => setState({ loading: false, data, error: null })).catch(error => setState({ loading: false, data: null, error })) }, [])
   const rows = useMemo(() => (state.data?.rows ?? []).map(screenRow), [state.data])
   const industries = useMemo(() => [...new Set(rows.map(r => String(r.indutyCode ?? '').slice(0, 2)).filter(Boolean))].sort(), [rows])
@@ -71,6 +85,14 @@ export default function ScreenerPage() {
     <header className="stock-header"><div><p className="eyebrow">SCREENER · 조건으로 찾기</p><h1 id="screen-title">조건으로 종목 찾기</h1>
       <p className="stock-hint">코스피·코스닥 전 종목을 공식 재무 값과 시세로 걸러 봅니다. 결과는 조건에 맞는 회사 목록일 뿐 추천이 아닙니다.</p></div></header>
     <div className="stock-body">
+      <form className="screen-ai" onSubmit={askAi}>
+        <label htmlFor="screen-ai-q">🤖 말로 조건 만들기</label>
+        <div><input id="screen-ai-q" value={ai.text} onChange={e => setAi(a => ({ ...a, text: e.target.value }))} maxLength={150}
+          placeholder="예: 빚이 적고 흑자인 코스닥 반도체 회사" disabled={!loggedIn} />
+          {loggedIn ? <button type="submit" className="primary-action" disabled={ai.loading}>{ai.loading ? '바꾸는 중…' : '조건으로 바꾸기'}</button>
+            : <button type="button" className="secondary-action" onClick={onLogin}>로그인하고 쓰기</button>}</div>
+        {ai.note && <p className="stock-hint">{ai.note}</p>}
+      </form>
       <div className="stock-range" role="group" aria-label="자주 쓰는 조건">{PRESETS.map(([label, preset]) =>
         <button key={label} type="button" onClick={() => setFilters(preset)}>{label}</button>)}
         <button type="button" onClick={() => { setFilters({}); setMarket('ALL'); setIndustry('ALL') }}>조건 지우기</button></div>
@@ -87,7 +109,9 @@ export default function ScreenerPage() {
         <div className="table-scroll"><table className="stock-table"><thead><tr>{COLUMNS.map(([key, label]) => <th key={key}>
           <button type="button" className="link-button" onClick={() => setSort(([k, d]) => [key, k === key && d === 'desc' ? 'asc' : 'desc'])}>{label}{sort[0] === key ? (sort[1] === 'desc' ? ' ↓' : ' ↑') : ''}</button></th>)}</tr></thead>
           <tbody>{found.slice(0, limit).map(row => <tr key={row.companyId}>{COLUMNS.map(([key]) => <td key={key}>{cell(row, key)}</td>)}</tr>)}</tbody></table></div>
-        {found.length > limit && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 100)}>더 보기 ({found.length - limit}개)</button>}
+        <div className="stock-actions">{found.length > limit && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 100)}>더 보기 ({found.length - limit}개)</button>}
+          <button type="button" className="secondary-action" onClick={() => downloadCsv('AIRA_조건검색.csv', ['회사', '시장', '업종', '시가총액', '매출', '영업이익률(%)', 'ROE(%)', '부채비율(%)', '매출증가율(%)', 'PER', 'PBR', '등락률(%)'],
+            found.map(r => [r.name, r.market, industryName(r.indutyCode), r.marketCap, r.revenue, r.operatingMargin, r.roe, r.debtRatio, r.revenueGrowth, r.per, r.pbr, r.changeRate]))}>⬇ 결과 CSV로 내려받기</button></div>
       </>}
       <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div>
         <p>재무 값은 각 회사의 가장 최근 사업보고서(연결 우선) 기준이고, 시가총액·PER·PBR은 최근 거래일 시가총액으로 계산했습니다. 자료가 없는 회사는 그 조건에서 빠집니다.</p>

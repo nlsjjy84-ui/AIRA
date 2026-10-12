@@ -127,3 +127,10 @@ describe('radar', () => {
     expect(percentileOf([10, null], 10)).toBeNull()
   })
 })
+
+describe('csv', () => {
+  it('quotes cells that need it and adds a BOM for Excel', async () => {
+    const { toCsv } = await import('./stockMath.js')
+    expect(toCsv(['a', 'b'], [[1, 'x,y'], [null, 'say "hi"']])).toBe('﻿a,b\r\n1,"x,y"\r\n,"say ""hi"""')
+  })
+})

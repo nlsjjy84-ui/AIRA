@@ -16,8 +16,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class StockPageController {
     private final StockPageService service;
     private final ScreenerService screener;
+    private final StockHistoryBackfill backfill;
 
-    public StockPageController(StockPageService service, ScreenerService screener) { this.service = service; this.screener = screener; }
+    public StockPageController(StockPageService service, ScreenerService screener, StockHistoryBackfill backfill) {
+        this.service = service; this.screener = screener; this.backfill = backfill;
+    }
+
+    /** 운영 확인용: 자료 채우기 진행 상황(개수·마지막 오류). 개인정보는 없다. */
+    @GetMapping("/backfill-status")
+    public Map<String, Object> backfillStatus() { return backfill.status(); }
 
     @GetMapping("/screener")
     public Map<String, Object> screener() { return screener.table(); }
@@ -55,6 +62,11 @@ public class StockPageController {
     @GetMapping("/{companyId}/quarters")
     public ResponseEntity<Map<String, Object>> quarters(@PathVariable UUID companyId) {
         return with(companyId, service::quarters);
+    }
+
+    @GetMapping("/{companyId}/cash-flow")
+    public ResponseEntity<Map<String, Object>> cashFlow(@PathVariable UUID companyId) {
+        return with(companyId, service::cashFlow);
     }
 
     @GetMapping("/{companyId}/ownership")

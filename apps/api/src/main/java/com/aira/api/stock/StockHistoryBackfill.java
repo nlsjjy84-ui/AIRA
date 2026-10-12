@@ -15,8 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -29,7 +27,8 @@ import org.springframework.stereotype.Component;
  * 서버가 뜬 뒤 별도 스레드에서 돌고, 인증키가 없으면 아무것도 하지 않는다. 한 날짜·한 묶음이 실패해도 다음으로 넘어간다.
  */
 @Component
-public class StockHistoryBackfill {
+@org.springframework.core.annotation.Order(1)
+public class StockHistoryBackfill implements org.springframework.boot.ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(StockHistoryBackfill.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
@@ -45,6 +44,17 @@ public class StockHistoryBackfill {
     private final long pauseMillis;
     private final Clock clock;
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final java.util.Map<String, Object> status = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** 운영 확인용: 지금 어느 단계인지, 몇 개를 받았는지, 마지막 오류가 무엇인지. */
+    public java.util.Map<String, Object> status() {
+        var out = new java.util.TreeMap<String, Object>(status);
+        out.put("running", running.get());
+        out.put("enabled", enabled);
+        return out;
+    }
+
+    private void note(String key, Object value) { if (value != null) status.put(key, value); }
 
     @Autowired
     public StockHistoryBackfill(KrxClient krx, StockPriceStore prices, DartStockClient dart, FinancialHistoryStore financials,
@@ -63,7 +73,10 @@ public class StockHistoryBackfill {
         this.pauseMillis = pauseMillis; this.clock = clock;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
+    /** 다른 시작 작업(전 종목 준비 등)이 오래 걸려도 기다리지 않도록, 표를 만든 바로 다음에 별도 스레드로 시작한다. */
+    @Override
+    public void run(org.springframework.boot.ApplicationArguments args) { onReady(); }
+
     public void onReady() {
         if (!enabled) return;
         Thread worker = new Thread(this::runOnce, "stock-history-backfill");
@@ -78,6 +91,7 @@ public class StockHistoryBackfill {
 
     void runOnce() {
         if (!running.compareAndSet(false, true)) return;
+        note("startedAt", java.time.Instant.now().toString());
         try {
             if (!krxKey.isBlank()) {
                 for (String market : List.of("KOSPI", "KOSDAQ")) backfillPrices(market);
@@ -90,12 +104,15 @@ public class StockHistoryBackfill {
         } catch (RuntimeException e) {
             log.error("Stock history backfill stopped", e);
         } finally {
+            note("finishedAt", java.time.Instant.now().toString());
+            note("phase", "done");
             running.set(false);
         }
     }
 
     int backfillPrices(String market) {
         KrxDataset dataset = "KOSPI".equals(market) ? KrxDataset.STK_DAILY : KrxDataset.KSQ_DAILY;
+        note("phase", "prices " + market);
         LocalDate today = LocalDate.now(clock.withZone(KST));
         LocalDate from = today.minusDays(priceDays);
         Set<LocalDate> done = prices.loadedDays(market, from);
@@ -109,9 +126,13 @@ public class StockHistoryBackfill {
                 if (rows.isEmpty() && !date.isBefore(today.minusDays(1))) continue;
                 prices.saveDay(market, date, KrxDailyRows.convert(market, date, rows));
                 loaded++;
+                note("prices." + market + ".lastDate", date.toString());
+                note("prices." + market + ".loaded", loaded);
             } catch (RuntimeException e) {
                 failures++;
                 log.warn("KRX daily backfill failed for {} {}: {}", market, date, e.getMessage());
+                note("prices." + market + ".lastError", date + " " + e.getClass().getSimpleName() + ": " + e.getMessage());
+                note("prices." + market + ".failures", failures);
                 if (failures >= 15) { log.warn("KRX daily backfill paused after repeated failures"); break; }
             }
             pause();
@@ -124,6 +145,7 @@ public class StockHistoryBackfill {
     int backfillIndex(String market) {
         KrxDataset dataset = "KOSPI".equals(market) ? KrxDataset.KOSPI_INDEX : KrxDataset.KOSDAQ_INDEX;
         String store = "IDX_" + market;
+        note("phase", "index " + market);
         LocalDate today = LocalDate.now(clock.withZone(KST));
         LocalDate from = today.minusDays(priceDays);
         Set<LocalDate> done = prices.loadedDays(store, from);
@@ -136,9 +158,11 @@ public class StockHistoryBackfill {
                 if (rows.isEmpty() && !date.isBefore(today.minusDays(1))) continue;
                 prices.saveDay(store, date, KrxDailyRows.convertIndex(market, store, date, rows));
                 loaded++;
+                note("index." + market + ".loaded", loaded);
             } catch (RuntimeException e) {
                 failures++;
                 log.warn("KRX index backfill failed for {} {}: {}", market, date, e.getMessage());
+                note("index." + market + ".lastError", date + " " + e.getMessage());
                 if (failures >= 15) break;
             }
             pause();
@@ -152,6 +176,7 @@ public class StockHistoryBackfill {
         if (codes.isEmpty()) return 0;
         int latest = LocalDate.now(clock.withZone(KST)).getYear() - 1;
         int saved = 0;
+        note("phase", "financials");
         // 한 번의 사업보고서에 당기·전기·전전기가 함께 있으므로 3년 간격 두 번이면 6개 사업연도가 된다.
         for (int reportYear : List.of(latest, latest - 3, latest - 6, latest - 9)) {
             Set<String> doneChunks = financials.loadedChunks(reportYear);
@@ -162,8 +187,10 @@ public class StockHistoryBackfill {
                     var rows = FinancialHistoryRows.convert(dart.multiAccounts(chunk, reportYear), reportYear);
                     financials.saveChunk(reportYear, chunk.get(0), rows);
                     saved += rows.size();
+                    note("financials.saved", saved);
                 } catch (RuntimeException e) {
                     log.warn("OpenDART financial history failed for {} chunk {}: {}", reportYear, chunk.get(0), e.getMessage());
+                    note("financials.lastError", reportYear + " " + chunk.get(0) + " " + e.getMessage());
                 }
                 pause();
             }
@@ -178,6 +205,7 @@ public class StockHistoryBackfill {
         if (codes.isEmpty()) return 0;
         LocalDate today = LocalDate.now(clock.withZone(KST));
         int saved = 0;
+        note("phase", "quarters");
         for (int year = today.getYear(); year >= today.getYear() - 2; year--) {
             for (String[] report : new String[][]{{"Q1", "11013"}, {"H1", "11012"}, {"Q3", "11014"}}) {
                 // 보고서 제출 기한(분기 말 + 45일) 전이면 묻지 않는다.
@@ -193,6 +221,7 @@ public class StockHistoryBackfill {
                         saved += rows.size();
                     } catch (RuntimeException e) {
                         log.warn("OpenDART quarterly failed for {} {} chunk {}: {}", year, report[0], chunk.get(0), e.getMessage());
+                        note("quarters.lastError", year + report[0] + " " + e.getMessage());
                     }
                     pause();
                 }
@@ -210,14 +239,16 @@ public class StockHistoryBackfill {
         if (profiles == null) return 0;
         java.time.Instant now = clock.instant();
         Set<String> fresh = profiles.freshCorpCodes(now.minus(java.time.Duration.ofDays(30)));
+        note("phase", "profiles");
         int saved = 0, failures = 0;
         for (String corpCode : companies.allCorpCodes()) {
             if (fresh.contains(corpCode)) continue;
             try {
                 var payload = dart.company(corpCode);
-                if (!payload.isEmpty()) { profiles.save(corpCode, payload, clock.instant()); saved++; }
+                if (!payload.isEmpty()) { profiles.save(corpCode, payload, clock.instant()); saved++; if (saved % 50 == 0) note("profiles.saved", saved); }
             } catch (RuntimeException e) {
                 failures++;
+                note("profiles.lastError", e.getMessage());
                 if (failures >= 30) { log.warn("Company profile backfill paused after repeated failures: {}", e.getMessage()); break; }
             }
             pause();

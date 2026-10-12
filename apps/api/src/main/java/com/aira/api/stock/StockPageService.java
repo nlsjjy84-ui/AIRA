@@ -307,6 +307,37 @@ public class StockPageService {
         return out;
     }
 
+    // ---------- 현금흐름 (전체 재무제표에서 현금흐름표만) ----------
+    private final Map<String, Map.Entry<Instant, Map<String, Object>>> cashCache = new ConcurrentHashMap<>();
+
+    public Map<String, Object> cashFlow(StockCompanyLookup.Company company) {
+        var cached = cashCache.get(company.corpCode());
+        if (cached != null && cached.getKey().plus(Duration.ofHours(24)).isAfter(clock.instant())) return cached.getValue();
+        int latest = LocalDate.now(clock.withZone(KST)).getYear() - 1;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 단일회사 전체 재무제표 · 현금흐름표(사업보고서)");
+        try {
+            for (int year : List.of(latest, latest - 1)) {
+                for (String fs : List.of("CFS", "OFS")) {
+                    var rows = dart.fullStatements(company.corpCode(), year, fs);
+                    var flows = CashFlowRows.convert(rows, year);
+                    if (flows.isEmpty()) continue;
+                    out.put("state", "AVAILABLE");
+                    out.put("fsDiv", fs);
+                    out.put("years", flows);
+                    out.put("receiptNo", rows.get(0).get("rcept_no"));
+                    cashCache.put(company.corpCode(), Map.entry(clock.instant(), out));
+                    return out;
+                }
+            }
+            out.put("state", "NO_DATA");
+        } catch (RuntimeException e) {
+            if (cached != null) return cached.getValue();
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
+    }
+
     // ---------- 내부자·대량보유 ----------
     private final Map<String, Map.Entry<Instant, Map<String, Object>>> ownershipCache = new ConcurrentHashMap<>();
 

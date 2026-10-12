@@ -98,6 +98,14 @@ public class DartStockClient {
         return body == null ? List.of() : rows(body);
     }
 
+    /** 단일회사 전체 재무제표(현금흐름표 포함). fsDiv: CFS 연결 / OFS 별도. */
+    public List<Map<String, String>> fullStatements(String corpCode, int businessYear, String fsDiv) {
+        if (!fsDiv.matches("CFS|OFS")) throw new IllegalArgumentException("Unsupported fs_div");
+        JsonNode body = call("fnlttSinglAcntAll.json", "corp_code=" + enc(corpCode) + "&bsns_year=" + businessYear
+                + "&reprt_code=11011&fs_div=" + fsDiv);
+        return body == null ? List.of() : rows(body);
+    }
+
     /** 지분공시: elestock(임원·주요주주 소유보고), majorstock(대량보유 상황보고). */
     public List<Map<String, String>> ownershipReports(String section, String corpCode) {
         if (!section.matches("elestock|majorstock")) throw new IllegalArgumentException("Unsupported ownership section");

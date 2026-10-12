@@ -30,6 +30,12 @@ public class ReadingAssistController {
         return service.route(principal.userId(), request == null ? null : request.question());
     }
 
+    @PostMapping("/screen")
+    public ScreenResponse screen(@AuthenticationPrincipal AiraPrincipal principal,
+            @RequestBody RouteRequest request) {
+        return service.screen(principal.userId(), request == null ? null : request.question());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     void invalid() {}
