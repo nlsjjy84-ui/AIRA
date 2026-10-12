@@ -18,6 +18,10 @@ const routes = {
   [`/api/stocks/${ID}/financials`]: { state: 'AVAILABLE', source: 'OpenDART', years },
   [`/api/stocks/${ID}/filings`]: { state: 'AVAILABLE', source: 'OpenDART', from: '2025-10-01', to: '2026-10-01', items: filings },
   '/api/stocks/market-index/KOSPI': { state: 'AVAILABLE', points: points.map(p => ({ ...p, close: 50 + p.close / 10 })) },
+  [`/api/stocks/${ID}/report-section/audit`]: { state: 'AVAILABLE', year: 2025, source: 'OpenDART 정기보고서 주요정보 · 사업보고서', receiptNo: '20260310002820', dartUrl: 'https://dart.fss.or.kr/a',
+    items: [{ bsns_year: '제57기(당기)', adtor: '삼정회계법인', adt_opinion: '적정', core_adt_matter: '수익 인식', rcept_no: '20260310002820' }] },
+  [`/api/stocks/${ID}/statements`]: { state: 'AVAILABLE', year: 2025, fsDiv: 'CFS', names: { BS: '재무상태표', CIS: '포괄손익계산서' }, receiptNo: '20260310002820',
+    groups: { BS: [{ account: '유동자산', current: 1000, previous: 900, beforePrevious: null }, { account: '재고자산', current: 300, previous: 250, beforePrevious: 200 }], CIS: [{ account: '매출액', current: 5000, previous: 4000, beforePrevious: 3000 }] } },
   [`/api/companies/${ID}/events`]: { events: [{ eventId: 'e1', title: '삼양패키징가 2024 회계연도 연간 재무결과를 공식 공시했습니다.', evidence: [{ externalId: '20250311001085' }] }] },
 }
 
@@ -89,5 +93,42 @@ describe('StockPage', () => {
     render(<StockPage companyId={ID} />)
     expect((await screen.findAllByText('주가를 채우는 중입니다.')).length).toBeGreaterThan(0)
     routes[`/api/stocks/${ID}/prices`] = { state: 'AVAILABLE', source: 'KRX', points }
+  })
+
+  it('explains why each screen matters and shows the audit opinion in plain words', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=inspect.company.audit`)
+    render(<StockPage companyId={ID} />)
+    expect(await screen.findByText(/회계법인이 이 회사 장부를 검사하고/)).toBeTruthy()
+    expect(await screen.findByText(/감사의견은 「적정」이에요/)).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '삼정회계법인' })).toBeTruthy()
+    expect(screen.getByText(/접수번호 20260310002820/)).toBeTruthy()
+  })
+
+  it('shows every line of the statements, falls back to the comprehensive income statement and filters', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=inspect.statements.IS`)
+    render(<StockPage companyId={ID} />)
+    expect(await screen.findByText('포괄손익계산서')).toBeTruthy()
+    expect(screen.getByRole('cell', { name: '매출액' })).toBeTruthy()
+    await userEvent.click(screen.getByRole('button', { name: '재무상태표' }))
+    await userEvent.type(await screen.findByRole('searchbox'), '재고')
+    expect(screen.queryByRole('cell', { name: '유동자산' })).toBeNull()
+    expect(screen.getByRole('cell', { name: '재고자산' })).toBeTruthy()
+  })
+
+  it('walks the reading course and keeps progress on this device when not logged in', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=ask.course`)
+    render(<StockPage companyId={ID} />)
+    const buttons = await screen.findAllByRole('button', { name: /이해했어요 · 노트에 쌓기/ })
+    expect(buttons).toHaveLength(10)
+    await userEvent.click(buttons[0])
+    expect(screen.getByText('1 / 10단계', { exact: false })).toBeTruthy()
+    expect(screen.getByText(/로그인하면 적은 내용이/)).toBeTruthy()
+  })
+
+  it('lists company schedule items from filings', async () => {
+    window.history.replaceState({}, '', `/stock/${ID}?v=relate.calendar.past`)
+    render(<StockPage companyId={ID} />)
+    expect(await screen.findByText('반기보고서 (2026.06)')).toBeTruthy()
+    expect(screen.getAllByText('반기보고서').length).toBeGreaterThan(0)
   })
 })

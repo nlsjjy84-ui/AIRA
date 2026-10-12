@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/me/study")
 public class StudyController {
     static final int MAX_NOTES = 500;
-    static final Set<String> KINDS = Set.of("EXPLAIN", "TERM", "QA", "WHY", "DAY", "MEMO", "QUIZ", "INSPECT", "CHECK", "COMPARE");
+    static final Set<String> KINDS = Set.of("EXPLAIN", "TERM", "QA", "WHY", "DAY", "MEMO", "QUIZ", "INSPECT", "CHECK", "COMPARE", "COURSE");
     private final JdbcTemplate jdbc;
 
     public StudyController(JdbcTemplate jdbc) { this.jdbc = jdbc; }

@@ -4,7 +4,7 @@ import { screenRow } from './ScreenerPage.jsx'
 import { squarify } from './treemap.js'
 import { formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
 
-const TABS = [['map', '시장 지도'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '52주 신고가 근처'], ['low', '52주 신저가 근처']]
+const TABS = [['map', '시장 지도'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '기간 최고가 근처'], ['low', '기간 최저가 근처']]
 
 function tileColor(rate) {
   if (rate === null || rate === undefined || !Number.isFinite(rate)) return 'var(--surface)'
@@ -77,8 +77,8 @@ export default function MarketPage() {
     if (tab === 'up') return [...valid].filter(r => r.changeRate !== null).sort((a, b) => b.changeRate - a.changeRate).slice(0, 50)
     if (tab === 'down') return [...valid].filter(r => r.changeRate !== null).sort((a, b) => a.changeRate - b.changeRate).slice(0, 50)
     if (tab === 'value') return [...valid].filter(r => r.tradingValue !== null).sort((a, b) => b.tradingValue - a.tradingValue).slice(0, 50)
-    if (tab === 'high') return valid.filter(r => r.high52 && r.days52 >= 120 && r.close >= r.high52 * 0.98).sort((a, b) => b.marketCap - a.marketCap)
-    if (tab === 'low') return valid.filter(r => r.low52 && r.days52 >= 120 && r.close <= r.low52 * 1.02).sort((a, b) => b.marketCap - a.marketCap)
+    if (tab === 'high') return valid.filter(r => r.high52 && r.days52 >= 100 && r.close >= r.high52 * 0.98).sort((a, b) => b.marketCap - a.marketCap)
+    if (tab === 'low') return valid.filter(r => r.low52 && r.days52 >= 100 && r.close <= r.low52 * 1.02).sort((a, b) => b.marketCap - a.marketCap)
     return []
   }, [scoped, tab])
   const [sector, setSector] = useState(null)
@@ -121,13 +121,13 @@ export default function MarketPage() {
           <tbody>{(sectors.find(g => g.code === sector)?.items ?? []).sort((a, b) => b.marketCap - a.marketCap).map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td>
             <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatPrice(r.close)}</td><td>{formatWon(r.marketCap)}</td></tr>)}</tbody></table></div></>}
         <p className="stock-hint">업종 등락률은 큰 회사일수록 더 크게 반영한 값(시가총액 가중)입니다. 업종을 누르면 그 업종 회사들이 보입니다.</p></>}
-      {!state.loading && rows.length > 0 && tab !== 'map' && tab !== 'sectors' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>52주 범위</th>}</tr></thead>
+      {!state.loading && rows.length > 0 && tab !== 'map' && tab !== 'sectors' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>기간 범위</th>}</tr></thead>
         <tbody>{list.map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td><td>{r.market === 'KOSPI' ? '코스피' : '코스닥'}</td><td>{formatPrice(r.close)}</td>
           <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatWon(r.tradingValue)}</td><td>{formatWon(r.marketCap)}</td>
           {(tab === 'high' || tab === 'low') && <td>{formatPrice(r.low52)} ~ {formatPrice(r.high52)}</td>}</tr>)}</tbody></table></div>}
       {!state.loading && tab !== 'map' && tab !== 'sectors' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
       <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div><dl>
-        <div><dt>52주 신고가 근처</dt><dd>최근 1년 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 120거래일 이상 자료가 있는 종목만).</dd></div>
+        <div><dt>기간 최고가 근처</dt><dd>AIRA가 보관한 기간(지금 약 6개월, 최대 1년)의 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 100거래일 이상 자료가 있는 종목만).</dd></div>
         <div><dt>거래대금</dt><dd>그날 사고판 금액의 합. 관심이 몰린 종목을 볼 때 씁니다.</dd></div>
         <div><dt>등락률 순위</dt><dd>하루 변화일 뿐 이유를 뜻하지 않습니다. 종목 화면의 「잇다 › 주가 × 공시」에서 같은 날 공시를 함께 보세요.</dd></div></dl></div></details>
       <p className="stock-source">출처 · KRX 일별 매매정보 · OpenDART 기업개황(업종)</p>

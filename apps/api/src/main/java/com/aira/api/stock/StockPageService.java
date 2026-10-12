@@ -307,32 +307,126 @@ public class StockPageService {
         return out;
     }
 
-    // ---------- 현금흐름 (전체 재무제표에서 현금흐름표만) ----------
-    private final Map<String, Map.Entry<Instant, Map<String, Object>>> cashCache = new ConcurrentHashMap<>();
+    // ---------- 사업보고서 주요정보 한 갈래씩 (감사의견·자기주식·증자·보수·출자·회사채 등) ----------
+    /** 화면 이름 → OpenDART 정기보고서 주요정보 API 이름. 화면이 고를 수 있는 것은 이것뿐이다. */
+    static final Map<String, String> SECTIONS = Map.ofEntries(
+            Map.entry("audit", "accnutAdtorNmNdAdtOpinion"), Map.entry("payAll", "hmvAuditAllSttus"),
+            Map.entry("payTop", "indvdlByPay"), Map.entry("execs", "exctvSttus"), Map.entry("affiliates", "otrCprInvstmntSttus"),
+            Map.entry("shares", "stockTotqySttus"), Map.entry("treasury", "tesstkAcqsDspsSttus"), Map.entry("capital", "irdsSttus"),
+            Map.entry("minority", "mrhlSttus"), Map.entry("holderChange", "hyslrChgSttus"), Map.entry("bonds", "cprndNrdmpBlce"));
+    private final Map<String, Map.Entry<Instant, Map<String, Object>>> sectionCache = new ConcurrentHashMap<>();
 
-    public Map<String, Object> cashFlow(StockCompanyLookup.Company company) {
-        var cached = cashCache.get(company.corpCode());
+    public Map<String, Object> reportSection(StockCompanyLookup.Company company, String name) {
+        String section = SECTIONS.get(name);
+        if (section == null) throw new IllegalArgumentException("Unknown section");
+        String cacheKey = company.corpCode() + "|" + name;
+        var cached = sectionCache.get(cacheKey);
         if (cached != null && cached.getKey().plus(Duration.ofHours(24)).isAfter(clock.instant())) return cached.getValue();
         int latest = LocalDate.now(clock.withZone(KST)).getYear() - 1;
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("source", "OpenDART 단일회사 전체 재무제표 · 현금흐름표(사업보고서)");
+        out.put("section", name);
+        out.put("source", "OpenDART 정기보고서 주요정보 · 사업보고서");
+        try {
+            for (int year : List.of(latest, latest - 1)) {
+                List<Map<String, String>> rows = dart.reportSection(section, company.corpCode(), year);
+                if (rows.isEmpty()) continue;
+                out.put("year", year);
+                out.put("items", rows.size() > 300 ? rows.subList(0, 300) : rows);
+                String receipt = firstReceipt(rows);
+                out.put("receiptNo", receipt);
+                out.put("dartUrl", receipt == null ? null : "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receipt);
+                out.put("state", "AVAILABLE");
+                sectionCache.put(cacheKey, Map.entry(clock.instant(), out));
+                return out;
+            }
+            out.put("state", "NO_DATA");
+            sectionCache.put(cacheKey, Map.entry(clock.instant(), out));
+        } catch (RuntimeException e) {
+            if (cached != null) return cached.getValue();
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
+    }
+
+    // ---------- 전체 재무제표 (한 번 받아 현금흐름·원문 보기에 함께 쓴다) ----------
+    record FullStatements(int year, String fsDiv, List<Map<String, String>> rows) {}
+    private final Map<String, Map.Entry<Instant, FullStatements>> fullCache = new ConcurrentHashMap<>();
+
+    FullStatements fullStatements(String corpCode) {
+        var cached = fullCache.get(corpCode);
+        if (cached != null && cached.getKey().plus(Duration.ofHours(24)).isAfter(clock.instant())) return cached.getValue();
+        int latest = LocalDate.now(clock.withZone(KST)).getYear() - 1;
         try {
             for (int year : List.of(latest, latest - 1)) {
                 for (String fs : List.of("CFS", "OFS")) {
-                    var rows = dart.fullStatements(company.corpCode(), year, fs);
-                    var flows = CashFlowRows.convert(rows, year);
-                    if (flows.isEmpty()) continue;
-                    out.put("state", "AVAILABLE");
-                    out.put("fsDiv", fs);
-                    out.put("years", flows);
-                    out.put("receiptNo", rows.get(0).get("rcept_no"));
-                    cashCache.put(company.corpCode(), Map.entry(clock.instant(), out));
-                    return out;
+                    var rows = dart.fullStatements(corpCode, year, fs);
+                    if (rows.isEmpty()) continue;
+                    var found = new FullStatements(year, fs, rows);
+                    fullCache.put(corpCode, Map.entry(clock.instant(), found));
+                    return found;
                 }
             }
-            out.put("state", "NO_DATA");
+            var none = new FullStatements(0, null, List.of());
+            fullCache.put(corpCode, Map.entry(clock.instant(), none));
+            return none;
         } catch (RuntimeException e) {
             if (cached != null) return cached.getValue();
+            throw e;
+        }
+    }
+
+    static final List<String> STATEMENT_ORDER = List.of("BS", "IS", "CIS", "CF", "SCE");
+
+    public Map<String, Object> statements(StockCompanyLookup.Company company) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 단일회사 전체 재무제표 · 사업보고서");
+        try {
+            var full = fullStatements(company.corpCode());
+            if (full.rows().isEmpty()) { out.put("state", "NO_DATA"); return out; }
+            Map<String, List<Map<String, Object>>> groups = new LinkedHashMap<>();
+            Map<String, String> names = new LinkedHashMap<>();
+            for (String div : STATEMENT_ORDER) groups.put(div, new ArrayList<>());
+            for (var row : full.rows()) {
+                String div = row.get("sj_div");
+                if (div == null || !groups.containsKey(div)) continue;
+                names.putIfAbsent(div, row.get("sj_nm"));
+                Map<String, Object> line = new LinkedHashMap<>();
+                line.put("account", row.get("account_nm"));
+                line.put("detail", "-".equals(row.get("account_detail")) ? null : row.get("account_detail"));
+                line.put("current", KrxDailyRows.number(row.get("thstrm_amount")));
+                line.put("previous", KrxDailyRows.number(row.get("frmtrm_amount")));
+                line.put("beforePrevious", KrxDailyRows.number(row.get("bfefrmtrm_amount")));
+                line.put("order", row.get("ord"));
+                groups.get(div).add(line);
+            }
+            groups.values().removeIf(List::isEmpty);
+            out.put("state", "AVAILABLE");
+            out.put("year", full.year());
+            out.put("fsDiv", full.fsDiv());
+            out.put("names", names);
+            out.put("groups", groups);
+            String receipt = full.rows().get(0).get("rcept_no");
+            out.put("receiptNo", receipt);
+            out.put("dartUrl", receipt == null ? null : "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receipt);
+        } catch (RuntimeException e) {
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
+    }
+
+    // ---------- 현금흐름 (전체 재무제표에서 현금흐름표만) ----------
+    public Map<String, Object> cashFlow(StockCompanyLookup.Company company) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 단일회사 전체 재무제표 · 현금흐름표(사업보고서)");
+        try {
+            var full = fullStatements(company.corpCode());
+            var flows = full.rows().isEmpty() ? List.<Map<String, Object>>of() : CashFlowRows.convert(full.rows(), full.year());
+            if (flows.isEmpty()) { out.put("state", "NO_DATA"); return out; }
+            out.put("state", "AVAILABLE");
+            out.put("fsDiv", full.fsDiv());
+            out.put("years", flows);
+            out.put("receiptNo", full.rows().get(0).get("rcept_no"));
+        } catch (RuntimeException e) {
             out.put("state", "UNAVAILABLE");
         }
         return out;
@@ -367,7 +461,10 @@ public class StockPageService {
     public Map<String, Object> news(StockCompanyLookup.Company company) {
         var result = news.latest(company.name());
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("source", "GDELT DOC 2.0 (기사 제목·링크만, 본문은 원문 사이트에서)");
+        out.put("source", CompanyNewsService.NAVER.equals(result.provider())
+                ? "네이버 뉴스 검색(API HUB) · 제목·요약·링크만, 본문은 원문 사이트에서"
+                : "GDELT DOC 2.0 (기사 제목·링크만, 본문은 원문 사이트에서)");
+        out.put("provider", result.provider());
         out.put("state", result.items().isEmpty() && "AVAILABLE".equals(result.state()) ? "NO_DATA" : result.state());
         out.put("items", result.items());
         out.put("searchUrl", "https://search.naver.com/search.naver?where=news&query="

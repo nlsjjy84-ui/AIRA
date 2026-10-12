@@ -69,6 +69,17 @@ public class StockPageController {
         return with(companyId, service::cashFlow);
     }
 
+    @GetMapping("/{companyId}/report-section/{section}")
+    public ResponseEntity<Map<String, Object>> reportSection(@PathVariable UUID companyId, @PathVariable String section) {
+        if (!StockPageService.SECTIONS.containsKey(section)) return ResponseEntity.badRequest().build();
+        return with(companyId, company -> service.reportSection(company, section));
+    }
+
+    @GetMapping("/{companyId}/statements")
+    public ResponseEntity<Map<String, Object>> statements(@PathVariable UUID companyId) {
+        return with(companyId, service::statements);
+    }
+
     @GetMapping("/{companyId}/ownership")
     public ResponseEntity<Map<String, Object>> ownership(@PathVariable UUID companyId) {
         return with(companyId, service::ownership);

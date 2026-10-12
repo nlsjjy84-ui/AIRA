@@ -26,3 +26,5 @@ export const getStudy = companyId => request(`/api/me/study${companyId ? `?compa
 export const saveStudyNote = note => request('/api/me/study/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(note) })
 export const deleteStudyNote = id => request(`/api/me/study/notes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const learnTerm = term => request('/api/me/study/terms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ term }) })
+export const getStockSection = (id, section) => request(`${base(id)}/report-section/${encodeURIComponent(section)}`)
+export const getStockStatements = id => request(`${base(id)}/statements`)

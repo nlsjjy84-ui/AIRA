@@ -77,9 +77,12 @@ public class DartStockClient {
         return body == null ? List.of() : rows(body);
     }
 
+    static final String REPORT_SECTIONS = "alotMatter|hyslrSttus|hyslrChgSttus|empSttus|exctvSttus|hmvAuditIndvdlBySttus|hmvAuditAllSttus|indvdlByPay"
+            + "|tesstkAcqsDspsSttus|irdsSttus|mrhlSttus|stockTotqySttus|otrCprInvstmntSttus|cprndNrdmpBlce|accnutAdtorNmNdAdtOpinion";
+
     /** 정기보고서 주요정보(배당 alotMatter, 최대주주 hyslrSttus, 직원 empSttus 등). 사업보고서(11011) 기준. */
     public List<Map<String, String>> reportSection(String section, String corpCode, int businessYear) {
-        if (!section.matches("alotMatter|hyslrSttus|empSttus|hmvAuditIndvdlBySttus|tesstkAcqsDspsSttus")) {
+        if (!section.matches(REPORT_SECTIONS)) {
             throw new IllegalArgumentException("Unsupported report section");
         }
         JsonNode body = call(section + ".json", "corp_code=" + enc(corpCode) + "&bsns_year=" + businessYear + "&reprt_code=11011");

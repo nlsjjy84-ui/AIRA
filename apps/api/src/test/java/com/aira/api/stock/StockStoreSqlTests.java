@@ -89,4 +89,28 @@ class StockStoreSqlTests {
         assertEquals(1, new StockCompanyLookup(jdbc).companyIdsByCorpCode(List.of("00126380")).size());
         assertEquals(2, new StockCompanyLookup(jdbc).allCorpCodes().size());
     }
+
+    @Test
+    void storageTrimsOldPricesAndEmptiesTheTableWhenMostRowsAreOld() {
+        var store = new StockPriceStore(jdbc);
+        LocalDate today = LocalDate.of(2026, 10, 12);
+        for (int i = 0; i < 10; i++) {
+            LocalDate day = today.minusDays(i * 30L);
+            store.saveDay("KOSPI", day, List.of(new StockPriceStore.Row("005930", day, "KOSPI", new BigDecimal("1000"), null, null, null, null, null, null, null, null)));
+        }
+        var storage = new StockStorage(jdbc, 400);
+        assertEquals(null, storage.databaseBytes(), "size is only known on PostgreSQL");
+        assertTrue(!storage.nearlyFull());
+        // 300일 전 이후만 남기면 오래된 줄은 0개 → 아무것도 안 지움
+        assertEquals(0, storage.trimPrices(today.minusDays(300)));
+        // 240일 전보다 오래된 줄 1개(270일) → 10% 이므로 그 줄만 지운다
+        assertEquals(1, storage.trimPrices(today.minusDays(240)));
+        assertEquals(9, store.series("005930", today.minusDays(400)).size());
+        assertEquals(9, store.loadedDays("KOSPI", today.minusDays(400)).size());
+        // 100일 전보다 오래된 줄이 30% 이상 → 표를 비우고 받은 날짜 기록도 비운다
+        assertEquals(-1, storage.trimPrices(today.minusDays(100)));
+        assertTrue(store.series("005930", today.minusDays(400)).isEmpty());
+        assertTrue(store.loadedDays("KOSPI", today.minusDays(400)).isEmpty());
+        assertEquals(400L, storage.report().get("softLimitMb"));
+    }
 }

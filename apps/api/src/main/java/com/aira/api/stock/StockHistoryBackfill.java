@@ -39,6 +39,10 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
     private final StockCompanyLookup companies;
     private ProfileStore profiles;
     private PriceAlertService alerts;
+    private StockStorage storage;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setStorage(StockStorage storage) { this.storage = storage; }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void setAlerts(PriceAlertService alerts) { this.alerts = alerts; }
@@ -55,10 +59,20 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         var out = new java.util.TreeMap<String, Object>(status);
         out.put("running", running.get());
         out.put("enabled", enabled);
+        out.put("priceDays", priceDays);
+        if (storage != null) out.put("storage", storage.report());
         return out;
     }
 
     private void note(String key, Object value) { if (value != null) status.put(key, value); }
+
+    /** 저장 공간이 기준을 넘었으면 새 자료를 쓰지 않는다. */
+    private boolean storageFull(String phase) {
+        if (storage == null || !storage.nearlyFull()) return false;
+        note("paused", phase + " — database is near its size limit (" + storage.softLimitMb() + "MB)");
+        log.warn("Stock backfill {} paused: database is near its size limit", phase);
+        return true;
+    }
 
     @Autowired
     public StockHistoryBackfill(KrxClient krx, StockPriceStore prices, DartStockClient dart, FinancialHistoryStore financials,
@@ -96,7 +110,16 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
     void runOnce() {
         if (!running.compareAndSet(false, true)) return;
         note("startedAt", java.time.Instant.now().toString());
+        status.remove("paused");
         try {
+            if (storage != null) {
+                try {
+                    long trimmed = storage.trimPrices(LocalDate.now(clock.withZone(KST)).minusDays(priceDays));
+                    if (trimmed != 0) note("prices.trimmed", trimmed < 0 ? "emptied and refilling " + priceDays + " days" : trimmed + " rows");
+                } catch (RuntimeException e) {
+                    note("prices.trimError", e.getMessage());
+                }
+            }
             if (!krxKey.isBlank()) {
                 for (String market : List.of("KOSPI", "KOSDAQ")) backfillPrices(market);
                 for (String market : List.of("KOSPI", "KOSDAQ")) backfillIndex(market);
@@ -127,6 +150,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         for (LocalDate date = today; !date.isBefore(from); date = date.minusDays(1)) {
             if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
             if (done.contains(date)) continue;
+            if (storageFull("prices " + market)) break;
             try {
                 List<Map<String, String>> rows = krx.fetch(dataset, date).rows();
                 // 오늘·어제 자료는 아직 안 올라왔을 수 있으므로 비어 있으면 "받음"으로 표시하지 않는다.
@@ -160,6 +184,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         for (LocalDate date = today; !date.isBefore(from); date = date.minusDays(1)) {
             if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
             if (done.contains(date)) continue;
+            if (storageFull("index " + market)) break;
             try {
                 List<Map<String, String>> rows = krx.fetch(dataset, date).rows();
                 if (rows.isEmpty() && !date.isBefore(today.minusDays(1))) continue;
@@ -190,6 +215,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
             for (int i = 0; i < codes.size(); i += 100) {
                 List<String> chunk = new ArrayList<>(codes.subList(i, Math.min(codes.size(), i + 100)));
                 if (doneChunks.contains(chunk.get(0))) continue;
+                if (storageFull("financials")) return saved;
                 try {
                     var rows = FinancialHistoryRows.convert(dart.multiAccounts(chunk, reportYear), reportYear);
                     financials.saveChunk(reportYear, chunk.get(0), rows);
@@ -222,6 +248,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
                 for (int i = 0; i < codes.size(); i += 100) {
                     List<String> chunk = new ArrayList<>(codes.subList(i, Math.min(codes.size(), i + 100)));
                     if (done.contains(chunk.get(0))) continue;
+                    if (storageFull("quarters")) return saved;
                     try {
                         var rows = FinancialHistoryRows.cumulative(dart.multiAccounts(chunk, year, report[1]), year, report[0]);
                         financials.saveQuarterChunk(year, report[0], chunk.get(0), rows);
@@ -250,6 +277,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         int saved = 0, failures = 0;
         for (String corpCode : companies.allCorpCodes()) {
             if (fresh.contains(corpCode)) continue;
+            if (storageFull("profiles")) break;
             try {
                 var payload = dart.company(corpCode);
                 if (!payload.isEmpty()) { profiles.save(corpCode, payload, clock.instant()); saved++; if (saved % 50 == 0) note("profiles.saved", saved); }

@@ -11,6 +11,7 @@ import StockPage from './StockPage.jsx'
 import ScreenerPage from './ScreenerPage.jsx'
 import MarketPage from './MarketPage.jsx'
 import StudyPage from './StudyPage.jsx'
+import PlansPage from './PlansPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
@@ -554,14 +555,14 @@ export default function App() {
     if (exploring) window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
   }
 
-  async function openSearch(term) {
+  async function openSearch(term, view = '') {
     const query = term.trim()
     if (!query) return
     try {
       const found = await searchEntities(query)
       const companies = (found?.entities ?? []).filter(item => item.entityType === 'COMPANY')
       const exact = companies.find(item => item.canonicalName === query) ?? (companies.length === 1 ? companies[0] : null)
-      if (exact) { window.location.assign(`/stock/${exact.entityId}`); return }
+      if (exact) { window.location.assign(`/stock/${exact.entityId}${view ? `?v=${view}` : ''}`); return }
     } catch { /* 검색이 안 되면 탐색 화면에서 다시 고른다. */ }
     window.location.assign(`/explore?q=${encodeURIComponent(query)}`)
   }
@@ -609,6 +610,9 @@ export default function App() {
       <a className="finance-sidebar-entry" href="/screen" aria-current={routePath === '/screen' ? 'page' : undefined} aria-label="조건 찾기">
         <span aria-hidden="true">{sidebarCollapsed ? '⌕' : '조건 찾기'}</span>
       </a>
+      <a className="finance-sidebar-entry" href="/plans" aria-current={routePath === '/plans' ? 'page' : undefined} aria-label="요금 안내">
+        <span aria-hidden="true">{sidebarCollapsed ? '◇' : '요금 안내'}</span>
+      </a>
       <a className="finance-sidebar-entry" href="/finance" aria-current={finance ? 'page' : undefined} aria-label="내 금융">
         <span aria-hidden="true">{sidebarCollapsed ? '₩' : '내 금융'}</span>
       </a>
@@ -618,7 +622,7 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+      {routePath === '/plans' ? <PlansPage /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
@@ -632,7 +636,8 @@ export default function App() {
             <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
           {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>
             <a key={item.id} href={`/stock/${item.id}`}>{item.name}</a>)}</div>}
-          <div className="intro-actions"><a className="primary-action" href="/market">오늘의 시장 지도</a><a className="secondary-action" href="/screen">조건으로 종목 찾기</a><a className="secondary-action" href="/explore">단계별 탐색 시작</a></div></section>
+          <div className="intro-actions"><a className="primary-action" href="/market">오늘의 시장 지도</a><a className="secondary-action" href="/screen">조건으로 종목 찾기</a><a className="secondary-action" href="/explore">단계별 탐색 시작</a>
+            <button type="button" className="secondary-action" onClick={() => openSearch('삼성전자', 'ask.course')}>처음이라면: 회사 읽기 코스</button></div></section>
         <DemoCard user={session.loading ? null : session.user} onDemo={startDemo} demoState={demoState} onLogout={performLogout} />
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />

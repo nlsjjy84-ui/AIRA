@@ -505,3 +505,12 @@ export function buildQuiz(name, rows = [], stats = null) {
   }
   return out
 }
+
+/** 저장된 주가 기간에 맞는 이름. 1년 가까이 있으면 「1년」「52주」, 아니면 「N개월」(보관 기간을 줄였을 때 거짓 이름이 안 나오게). */
+export function spanName(stats) {
+  if (!stats?.first?.date || !stats?.last?.date) return { change: '1년', range: '52주' }
+  const days = (new Date(`${stats.last.date}T00:00:00`) - new Date(`${stats.first.date}T00:00:00`)) / 86400000
+  if (days >= 330) return { change: '1년', range: '52주' }
+  const months = Math.max(1, Math.round(days / 30.4))
+  return { change: `${months}개월`, range: `${months}개월` }
+}

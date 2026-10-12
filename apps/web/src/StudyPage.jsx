@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { deleteStudyNote, getStudy } from './api/stockApi.js'
 import { GLOSSARY } from './stockMath.js'
 
-const KIND_LABEL = { WHY: '왜 그럴까', EXPLAIN: '쉬운 설명', TERM: '용어', QA: 'AI에게 물은 것', DAY: '하루 정리', QUIZ: '퀴즈', CHECK: '체크리스트', COMPARE: '비교', INSPECT: '쉬운 풀이', MEMO: '메모' }
+const KIND_LABEL = { COURSE: '회사 읽기 코스', WHY: '왜 그럴까', EXPLAIN: '쉬운 설명', TERM: '용어', QA: 'AI에게 물은 것', DAY: '하루 정리', QUIZ: '퀴즈', CHECK: '체크리스트', COMPARE: '비교', INSPECT: '쉬운 풀이', MEMO: '메모' }
 
 /** 내 공부: 저장한 설명과 이해한 용어가 쌓이는 곳. "정보를 본 것"이 아니라 "알게 된 것"을 모은다. */
 export default function StudyPage({ user, onLogin }) {
