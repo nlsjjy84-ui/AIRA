@@ -442,7 +442,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
           aria-label={`${item.canonicalName} ${typeLabel}${identifier ? ` · ${identifier}` : ''} 선택`} onClick={() => pickResult(item)}>
           <span className="result-identity"><strong>{item.canonicalName}</strong><small>{typeLabel}</small></span>
           {identifierLabel && <span className="result-key">{identifierLabel}</span>}<span className="result-action" aria-hidden="true">선택 →</span>
-        </button></li>
+        </button>{item.entityType === 'COMPANY' && <a className="result-stock-link" href={`/stock/${item.entityId}`}>종목 화면에서 깊게 보기 →</a>}</li>
       })}</ul>
     </section>}
 

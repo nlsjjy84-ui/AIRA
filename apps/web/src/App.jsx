@@ -6,7 +6,11 @@ import CanonicalExplorer from './CanonicalExplorer.jsx'
 import PersonalFinance from './PersonalFinance.jsx'
 import MarketIndexBoard from './MarketIndexBoard.jsx'
 import EconomicIndicatorBoard from './EconomicIndicatorBoard.jsx'
-import RecentEventBoard from './RecentEventBoard.jsx'
+import MarketFilingBoard from './MarketFilingBoard.jsx'
+import StockPage from './StockPage.jsx'
+import InterestFilings from './InterestFilings.jsx'
+import { searchEntities } from './api/canonicalApi.js'
+import { readRecentStocks } from './stockMath.js'
 import MarketNewsBoard from './MarketNewsBoard.jsx'
 import { getLatestMarketIndices } from './api/marketIndexApi.js'
 import { getLatestRealGdp } from './api/economicIndicatorApi.js'
@@ -60,7 +64,7 @@ function DemoCard({ user, onDemo, demoState, onLogout }) {
     <p className="eyebrow">DEMO · 읽기 전용</p>
     <h2 id="demo-card-title">데모 계정으로 둘러보는 중</h2>
     <ol className="demo-steps">
-      <li><a href="#my-interests"><strong>내 관심회사</strong><span>미리 저장된 회사 3곳</span></a></li>
+      <li><a href="#my-interests"><strong>내 관심회사 → 종목 화면</strong><span>회사 3곳 · 누르면 주가·실적·공시를 깊게</span></a></li>
       <li><a href="#my-briefing"><strong>내 브리핑</strong><span>새 변화를 AI가 읽기 쉽게 정리</span></a></li>
       <li><a href="/explore"><strong>질문·주장 확인</strong><span>공시 원문 인용과 숫자 대조</span></a></li>
     </ol>
@@ -79,8 +83,8 @@ function DemoCard({ user, onDemo, demoState, onLogout }) {
     <p className="eyebrow">처음 오셨나요?</p>
     <h2 id="demo-card-title">가입 없이 30초 둘러보기</h2>
     <ol className="demo-steps">
-      <li><span className="demo-num" aria-hidden="true">1</span><div><strong>관심회사</strong><span>회사 3곳이 미리 저장된 화면</span></div></li>
-      <li><span className="demo-num" aria-hidden="true">2</span><div><strong>브리핑·알림</strong><span>공시 변화를 AI가 읽기 쉽게 정리</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">1</span><div><strong>종목 화면</strong><span>주가·실적·재무·공시·배당을 묻다·보다·잇다·가늠하다로</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">2</span><div><strong>관심회사·브리핑</strong><span>회사 3곳과 최근 공시를 한곳에</span></div></li>
       <li><span className="demo-num" aria-hidden="true">3</span><div><strong>주장 확인</strong><span>기사 속 숫자를 공식 값과 대조</span></div></li>
     </ol>
     <button type="button" className="primary-action demo-action" onClick={onDemo} disabled={demoState.loading}>
@@ -301,8 +305,10 @@ export default function App() {
   const [routePath, setRoutePath] = useState(() => typeof window !== 'undefined' ? window.location.pathname : '/')
   const exploring = routePath === '/explore'
   const finance = routePath === '/finance'
+  const stockId = /^\/stock\/([0-9a-fA-F-]{36})$/.exec(routePath)?.[1] ?? null
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [recentStocks] = useState(readRecentStocks)
   const [demoState, setDemoState] = useState({ loading: false, error: null })
   const isDemo = session.user?.nickname === DEMO_NICKNAME
   const shouldOfferAlertSettings = interestsState.data.length > 0 && (alertsState.emptyReason === 'NO_ALERT_ENABLED_INTERESTS' || (!alertsState.emptyReason && !interestsState.data.some(item => item.alertEnabled)))
@@ -543,9 +549,21 @@ export default function App() {
     if (exploring) window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: step }))
   }
 
+  async function openSearch(term) {
+    const query = term.trim()
+    if (!query) return
+    try {
+      const found = await searchEntities(query)
+      const companies = (found?.entities ?? []).filter(item => item.entityType === 'COMPANY')
+      const exact = companies.find(item => item.canonicalName === query) ?? (companies.length === 1 ? companies[0] : null)
+      if (exact) { window.location.assign(`/stock/${exact.entityId}`); return }
+    } catch { /* 검색이 안 되면 탐색 화면에서 다시 고른다. */ }
+    window.location.assign(`/explore?q=${encodeURIComponent(query)}`)
+  }
+
   return <>
     <header className={`site-header ${menuOpen ? 'menu-open' : ''}`}><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={48} /></a>
-      <form role="search" onSubmit={event => { event.preventDefault(); window.location.assign(`/explore?q=${encodeURIComponent(search.trim())}`) }}>
+      <form role="search" onSubmit={event => { event.preventDefault(); openSearch(search) }}>
         <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>
       <div className="header-actions">
@@ -566,15 +584,15 @@ export default function App() {
       <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? '›' : '‹'}</button>
       <nav aria-label="AIRA 흐름">
-        {[['MAIN', '메인', 'M'], ['Ask', '질문', 'Q'], ['Inspect', '살피기', 'I'],
-          ['Relate', '잇기', 'R'], ['Assess', '판단', 'A']].map(([step, korean, code]) => exploring
+        {[['MAIN', '메인', 'M'], ['Ask', '묻다', 'A'], ['Inspect', '보다', 'I'],
+          ['Relate', '잇다', 'R'], ['Assess', '가늠하다', 'A']].map(([step, korean, code]) => exploring
           ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
               aria-current={workflowContext.step === step ? 'step' : undefined} disabled={workflowStepDisabled(step)}
-              onClick={() => chooseWorkflowStep(step)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
+              onClick={() => chooseWorkflowStep(step)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
           : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step}
               href={step === 'MAIN' ? (routePath === '/' ? '#main' : '/') : '/explore'} aria-label={`${step} ${korean}`}>
-              <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step}</span>
+              <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
       <a className="finance-sidebar-entry" href="/finance" aria-current={finance ? 'page' : undefined} aria-label="내 금융">
@@ -586,21 +604,24 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
+      {stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
         user: session.user, items: interestsState.data, loading: interestAction.loading, error: interestAction.error, retry: interestAction.retry,
         onLogin: () => setAuthMode('login'), onSave: entityId => changeInterest(false, entityId),
         onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),
       }} /> : <>
       <div className="home-orientation">
-        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">검색에서 정확한 기업·종목을 고른 뒤 Ask에서 관점을 정하고, Inspect·Relate·Assess를 필요한 순서로 확인합니다.</p><a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
+        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">회사 이름을 검색하면 한 종목 안에서 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 깊게 펼쳐 봅니다. 추천 대신 근거를 보여 드립니다.</p>
+          <div className="quick-stocks" aria-label="바로 보기">{['삼성전자', 'SK하이닉스', 'NAVER', '현대자동차', '카카오', 'LG에너지솔루션'].map(name =>
+            <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
+          {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>
+            <a key={item.id} href={`/stock/${item.id}`}>{item.name}</a>)}</div>}
+          <a className="primary-action" href="/explore">단계별 탐색 시작</a></section>
         <DemoCard user={session.loading ? null : session.user} onDemo={startDemo} demoState={demoState} onLogout={performLogout} />
       </div>
       <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
-      <EconomicIndicatorBoard state={realGdpState} retry={loadRealGdp} onEvidence={openOfficialEvidence} />
-      <div className="home-signal-grid">
-        <RecentEventBoard state={recentEventState} retry={loadRecentEvents} onOpen={openAssessmentInExplorer} />
-        <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />
-      </div>
+      {(realGdpState.loading || (realGdpState.data?.observations?.length ?? 0) > 0) && <EconomicIndicatorBoard state={realGdpState} retry={loadRealGdp} onEvidence={openOfficialEvidence} />}
+      <MarketFilingBoard />
+      {!marketNewsState.error && (marketNewsState.loading || (marketNewsState.data?.items?.length ?? 0) > 0) && <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />}
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
 
       {session.user && <section id="my-interests" className="content-section interests-section" aria-labelledby="interests-title">
@@ -608,7 +629,7 @@ export default function App() {
         {interestsState.loading && <Status busy>관심회사를 불러오는 중입니다.</Status>}
         {interestsState.error && <ErrorState error={interestsState.error} subject="관심회사" retry={loadInterests} />}
         {!interestsState.loading && !interestsState.error && interestsState.data.length === 0 && <div className="personalization-empty"><Status>아직 저장한 관심회사가 없습니다. 회사를 탐색하고 관심회사로 저장해 보세요.</Status><a className="secondary-action" href="/explore">회사 탐색하기</a></div>}
-        <div className="interest-list">{interestsState.data.map(item => <a key={item.entityId} href={`/explore?q=${encodeURIComponent(item.canonicalName)}`}><strong>{item.canonicalName}</strong><span>탐색 →</span></a>)}</div>
+        <div className="interest-list">{interestsState.data.map(item => <a key={item.entityId} href={item.entityType === 'SECURITY' ? `/explore?q=${encodeURIComponent(item.canonicalName)}` : `/stock/${item.entityId}`}><strong>{item.canonicalName}</strong><span>종목 화면 →</span></a>)}</div>
       </section>}
 
       {session.user && <section id="my-briefing" className="content-section briefing-section" aria-labelledby="briefing-title">
@@ -617,6 +638,7 @@ export default function App() {
         {briefingState.error && <ErrorState error={briefingState.error} subject="브리핑" retry={loadBriefing} />}
         {!briefingState.loading && !briefingState.error && briefingState.data?.items?.length === 0 &&
           <div className="personalization-empty"><Status>{briefingState.data.emptyReason === 'NO_INTERESTS' ? '관심회사를 저장하면 새로 정리된 변화를 브리핑에서 모아볼 수 있습니다.' : '이 브리핑 기간에 새로 정리된 변화가 없습니다.'}</Status>{briefingState.data.emptyReason !== 'NO_INTERESTS' && <a className="secondary-action" href="/explore">관심회사 살펴보기</a>}</div>}
+        {!briefingState.loading && briefingState.data?.items?.length === 0 && interestsState.data.length > 0 && <InterestFilings interests={interestsState.data} />}
         {briefingState.data?.emptyReason !== 'NO_INTERESTS' && briefingState.data?.periodStart && briefingState.data?.periodEnd && <p className="insight-time">정리 기간 {formatDateTime(briefingState.data.periodStart)} — {formatDateTime(briefingState.data.periodEnd)}</p>}
         {briefingState.data?.emptyReason !== 'NO_INTERESTS' && briefingState.data?.generatedAt && <p className="insight-time">브리핑 생성 {formatDateTime(briefingState.data.generatedAt)}</p>}
         {(briefingState.data?.items?.length ?? 0) > 0 && <AiAssist kind="BRIEFING" loggedIn={Boolean(session.user)}
