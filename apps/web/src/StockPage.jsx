@@ -12,7 +12,7 @@ import { requestAssist, requestQuote } from './api/assistApi.js'
 import { StockPriceAlerts } from './PriceAlerts.jsx'
 import SaveToStudy from './SaveToStudy.jsx'
 import { getStudy, learnTerm, getStockSection, getStockStatements, saveStudyNote } from './api/stockApi.js'
-import { guideFor, SECTION_META, sectionColumns, visibleRows, COURSE, coursePrefix, courseDone, buildCalendar } from './stockGuide.js'
+import { guideFor, SECTION_META, sectionColumns, visibleRows, orderStatement, COURSE, coursePrefix, courseDone, buildCalendar } from './stockGuide.js'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
@@ -47,7 +47,7 @@ export const STOCK_TREE = [
       [['BS', '재무상태표'], ['IS', '손익계산서'], ['CF', '현금흐름표'], ['SCE', '자본변동표']]],
     ['ratios', '비율', '재무 값으로 계산한 비율입니다. 같은 회사의 해마다 변화를 보는 데 씁니다.',
       [['수익성', '수익성'], ['안정성', '안정성'], ['활동성', '활동성'], ['성장성', '성장성'], ['시장 평가', '시장 평가(PER·PBR)']]],
-    ['owners', '주주·배당·직원', '사업보고서에 적힌 최대주주 지분, 배당, 직원 현황입니다.', [['dividend', '배당'], ['treasury', '자기주식'], ['holders', '최대주주·지분'], ['holderChange', '최대주주 변동'], ['capital', '증자·감자'], ['minority', '소액주주'], ['insiders', '임원·주요주주 거래'], ['major', '5% 대량보유'], ['employees', '직원']]],
+    ['owners', '주주·배당·직원', '누가 주인인지, 주주에게 무엇을 돌려주는지(배당·자기주식), 주식 수가 어떻게 바뀌었는지, 직원은 어떤지 사업보고서로 봅니다.', [['dividend', '배당'], ['treasury', '자기주식'], ['holders', '최대주주·지분'], ['holderChange', '최대주주 변동'], ['capital', '증자·감자'], ['minority', '소액주주'], ['insiders', '임원·주요주주 거래'], ['major', '5% 대량보유'], ['employees', '직원']]],
     ['filings', '공시', '회사가 금융감독원 전자공시(DART)에 낸 최근 1년 공시입니다.', FILING_CATEGORIES.map(([k, l]) => [k, l])],
     ['news', '뉴스', '회사 이름이 들어간 최근 2주 기사 링크입니다. 기사 내용은 공식 근거가 아닙니다.', [['list', '기사 목록'], ['links', '더 찾아보기']]],
   ]],
@@ -1555,7 +1555,7 @@ function StatementsView({ ctx, view }) {
   const d = state.data
   if (d?.state === 'NO_DATA') return <Empty>최근 2년 사업보고서의 재무제표가 없습니다(금융업·신규 상장 등).</Empty>
   const key = view === 'IS' && !d.groups.IS ? 'CIS' : view
-  const lines = [...(d.groups[key] ?? [])].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+  const lines = orderStatement(key, d.groups[key])
   const shown = query.trim() ? lines.filter(l => `${l.account}${l.detail ?? ''}`.includes(query.trim())) : lines
   const money = v => v === null || v === undefined ? '—' : formatWon(v)
   return <>

@@ -184,7 +184,8 @@ export function buildCalendar(filings, todayIso, fiscalMonth = 12) {
     }
   }
   const seen = new Set()
-  for (const f of past) {
+  // 오래된 것부터 보며 같은 종류는 가장 가까운 날 하나만 남긴다.
+  for (const f of [...past].reverse()) {
     const d = new Date(`${f.date}T00:00:00`)
     const next = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate())
     const days = (next - today) / 86400000
@@ -201,3 +202,16 @@ export const PLANS = [
   { key: 'free', name: '무료', price: '0원', lines: ['모든 종목 화면 · 그래프 · 표 · 재무제표 원문', '공시 원문 문장 찾기 · 사실 확인', 'AI 쉬운 설명 · 「왜 그럴까」 하루 5번', '회사 읽기 코스 · 용어 사전 · 퀴즈', '공부 노트 30개 · 가격 알림 3개'] },
   { key: 'plus', name: 'AIRA 플러스', price: '연 99,000원 (월 8,250원꼴)', lines: ['AI 설명 · 「왜 그럴까」 · AI 조건 찾기 무제한', '공부 노트 · 가격 알림 무제한', '회사 공부 리포트(내가 쌓은 노트 + 공식 숫자를 한 문서로)', '재무 · 조건 검색 결과 내려받기', '관심 회사 새 공시 아침 요약'] },
 ]
+
+// ---------- 재무제표 읽는 순서 ----------
+// DART의 ord는 회사마다 제멋대로라(매출액이 23번째인 경우도 있다) 손익계산서는 읽는 순서를 정해 둔다.
+const INCOME_ORDER = [/^매출액$|^수익\(매출액\)$|^영업수익$|^매출$/, /매출원가|영업비용/, /매출총이익/, /판매비와\s*관리비/, /^영업이익|영업손실/,
+  /기타수익/, /기타비용/, /지분법/, /금융수익/, /금융비용|금융원가/, /법인세비용차감전/, /법인세/, /당기순이익|당기순손실/,
+  /지배기업|지배주주/, /비지배/, /기본주당/, /희석주당/]
+
+export function orderStatement(kind, lines) {
+  const byOrder = [...(lines ?? [])].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+  if (kind !== 'IS' && kind !== 'CIS') return byOrder
+  const rank = line => { const i = INCOME_ORDER.findIndex(re => re.test(String(line.account ?? '').trim())); return i < 0 ? INCOME_ORDER.length : i }
+  return byOrder.map((line, i) => ({ line, i })).sort((a, b) => rank(a.line) - rank(b.line) || a.i - b.i).map(x => x.line)
+}

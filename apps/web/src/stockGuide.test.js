@@ -60,3 +60,20 @@ describe('report section rows', () => {
     expect(visibleRows('capital', [{ isu_dcrs_de: '-', isu_dcrs_stle: '-' }])).toHaveLength(0)
   })
 })
+
+describe('statement order and nearest schedule', () => {
+  it('reads the income statement top-down even when DART order is scrambled', async () => {
+    const { orderStatement } = await import('./stockGuide.js')
+    const lines = [['영업이익', 6], ['매출원가', 10], ['당기순이익', 18], ['매출액', 23], ['판매비와관리비', 9], ['매출총이익', 16], ['기타항목', 30]]
+      .map(([account, order]) => ({ account, order: String(order) }))
+    expect(orderStatement('IS', lines).map(l => l.account)).toEqual(['매출액', '매출원가', '매출총이익', '판매비와관리비', '영업이익', '당기순이익', '기타항목'])
+    expect(orderStatement('BS', lines)[0].account).toBe('영업이익')
+  })
+
+  it('takes the nearest last-year date for each kind', () => {
+    const filings = [{ receiptNo: 'a', date: '2025-10-14', title: '연결재무제표기준영업(잠정)실적(공정공시)' },
+      { receiptNo: 'b', date: '2026-01-29', title: '연결재무제표기준영업(잠정)실적(공정공시)' }]
+    const { upcoming } = buildCalendar(filings, '2026-10-12')
+    expect(upcoming.filter(u => u.kind === 'LAST_YEAR').map(u => u.date)).toEqual(['2026-10-14'])
+  })
+})
