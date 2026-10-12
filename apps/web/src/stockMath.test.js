@@ -134,3 +134,18 @@ describe('csv', () => {
     expect(toCsv(['a', 'b'], [[1, 'x,y'], [null, 'say "hi"']])).toBe('﻿a,b\r\n1,"x,y"\r\n,"say ""hi"""')
   })
 })
+
+describe('quiz', () => {
+  it('builds questions with answers from the real values and explains why', async () => {
+    const { buildQuiz } = await import('./stockMath.js')
+    const quiz = buildQuiz('가회사', years, { maxDrawdown: -25 })
+    const debt = quiz.find(q => q.term === '부채비율')
+    expect(debt.question).toContain('50%')
+    expect(debt.choices[debt.answer]).toBe('높다')
+    expect(debt.why).toContain('52.9%')
+    expect(quiz.find(q => q.term === '영업이익률').choices[quiz.find(q => q.term === '영업이익률').answer]).toBe('올랐다')
+    expect(quiz.find(q => q.term === 'PER').answer).toBe(0)
+    expect(quiz.find(q => q.term === '최고점 대비 최대 하락').answer).toBe(0)
+    expect(buildQuiz('x', [], null)).toEqual([])
+  })
+})

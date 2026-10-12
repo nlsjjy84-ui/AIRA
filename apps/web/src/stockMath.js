@@ -468,3 +468,40 @@ export function downloadCsv(filename, header, rows) {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   } catch { /* 내려받기를 지원하지 않는 환경에서는 아무것도 하지 않는다. */ }
 }
+
+/**
+ * 이해 확인 퀴즈: 이 회사의 실제 값으로 문제를 만든다(규칙 기반, AI 아님).
+ * 정답 뒤에는 "왜 그런지"를 계산과 함께 설명해 지식으로 남게 한다.
+ */
+export function buildQuiz(name, rows = [], stats = null) {
+  const out = []
+  const y = rows[rows.length - 1]
+  const prev = rows[rows.length - 2]
+  if (y && y.ratios.debtRatio !== null) {
+    const line = y.ratios.debtRatio >= 100 ? 100 : 50
+    out.push({ term: '부채비율', question: `${name}의 ${y.year}년 말 부채비율은 ${line}%보다 높을까요?`, choices: ['높다', '낮다'],
+      answer: y.ratios.debtRatio > line ? 0 : 1,
+      why: `부채비율은 부채총계 ÷ 자본총계 × 100이에요. ${formatWon(y.values.TOTAL_LIABILITIES)} ÷ ${formatWon(y.values.TOTAL_EQUITY)} = ${formatPercent(y.ratios.debtRatio, { sign: false })}. 자본 100원당 빚이 약 ${Math.round(y.ratios.debtRatio)}원 있다는 뜻이에요.` })
+  }
+  if (y && prev && y.ratios.operatingMargin !== null && prev.ratios.operatingMargin !== null && y.ratios.operatingMargin !== prev.ratios.operatingMargin) {
+    out.push({ term: '영업이익률', question: `${name}의 영업이익률은 ${prev.year}년보다 ${y.year}년에 올랐을까요?`, choices: ['올랐다', '내렸다'],
+      answer: y.ratios.operatingMargin > prev.ratios.operatingMargin ? 0 : 1,
+      why: `영업이익률은 영업이익 ÷ 매출이에요. ${prev.year}년 ${formatPercent(prev.ratios.operatingMargin, { sign: false })} → ${y.year}년 ${formatPercent(y.ratios.operatingMargin, { sign: false })}. 1,000원어치를 팔았을 때 본업으로 남는 돈이 약 ${Math.round(prev.ratios.operatingMargin * 10)}원에서 ${Math.round(y.ratios.operatingMargin * 10)}원이 된 셈이에요.` })
+  }
+  if (y && y.values.NET_INCOME !== undefined && y.values.NET_INCOME !== null) {
+    out.push({ term: 'PER', question: `${name}처럼 ${y.year}년에 ${y.values.NET_INCOME >= 0 ? '흑자' : '적자'}인 회사는 PER을 계산할 수 있을까요?`, choices: ['계산할 수 있다', '계산하지 않는다'],
+      answer: y.values.NET_INCOME > 0 ? 0 : 1,
+      why: 'PER은 시가총액 ÷ 당기순이익이에요. 순이익이 0 이하(적자)면 나누는 값이 0이나 음수가 되어 뜻이 없어지기 때문에 계산하지 않아요.' })
+  }
+  if (stats) {
+    out.push({ term: '최고점 대비 최대 하락', question: `최근 1년 동안 ${name} 주가가 가장 높았던 때보다 가장 많이 떨어졌던 폭은 20%보다 컸을까요?`, choices: ['컸다', '작았다'],
+      answer: Math.abs(stats.maxDrawdown) > 20 ? 0 : 1,
+      why: `최고점 대비 최대 하락은 기간 중 가장 높았던 종가에서 가장 많이 떨어졌던 폭이에요. 이 회사는 ${formatPercent(stats.maxDrawdown)}였어요. 흔들림이 얼마나 컸는지 가늠할 때 봐요.` })
+  }
+  if (y && y.ratios.currentRatio !== null) {
+    out.push({ term: '유동비율', question: `${name}은 1년 안에 갚을 빚(유동부채)보다 1년 안에 현금이 되는 자산(유동자산)이 더 많을까요?`, choices: ['더 많다', '더 적다'],
+      answer: y.ratios.currentRatio >= 100 ? 0 : 1,
+      why: `유동비율 = 유동자산 ÷ 유동부채 × 100 = ${formatPercent(y.ratios.currentRatio, { sign: false })}. 100%보다 크면 1년 안의 빚을 1년 안의 자산으로 감당할 수 있다는 뜻이에요.` })
+  }
+  return out
+}

@@ -10,10 +10,12 @@ import FilingQuote from './FilingQuote.jsx'
 import AiAssist from './AiAssist.jsx'
 import { requestAssist, requestQuote } from './api/assistApi.js'
 import { StockPriceAlerts } from './PriceAlerts.jsx'
+import SaveToStudy from './SaveToStudy.jsx'
+import { getStudy, learnTerm } from './api/stockApi.js'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
-  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf, ratioText, downloadCsv,
+  GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf, ratioText, downloadCsv, buildQuiz,
 } from './stockMath.js'
 
 const COLORS = { a: 'var(--series-a)', b: 'var(--series-b)', c: 'var(--series-c)', d: 'var(--series-d)', n: 'var(--series-neutral)', up: 'var(--up)', down: 'var(--down)' }
@@ -59,6 +61,7 @@ export const STOCK_TREE = [
     ['yoy', '작년 대비 변화표', '항목마다 작년 값과 올해 값을 나란히 놓았습니다. 누르면 그 항목으로 더 들어갑니다.'],
     ['industry', '업종 중간값 대비', '이 회사의 비율을 같은 업종 회사들의 중간값과 나란히 놓았습니다.'],
     ['check', '확인 체크리스트', '많이 확인하는 기본 질문에 자료로 예·아니오를 답합니다. 좋다·나쁘다를 정하지 않습니다.'],
+    ['quiz', '이해 확인 퀴즈', '이 회사의 실제 숫자로 낸 짧은 문제예요. 답을 고르면 왜 그런지 계산과 함께 알려 드리고, 맞힌 용어는 「내 공부」에 쌓여요.'],
     ['unknown', '아직 모르는 것', '이 화면만으로는 알 수 없는 것과 자료의 한계입니다.'],
   ]],
 ]
@@ -189,7 +192,7 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
 
     <Guide go={go} />
     {loggedIn && <div className="stock-tools"><NotePanel companyId={companyId} /><StockPriceAlerts companyId={companyId} lastClose={last?.close} /></div>}
-    {last && latestYear && <AiAssist kind="INSPECT" subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
+    {last && latestYear && <AiAssist kind="INSPECT" save={{ companyId, companyName: name }} subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
       { label: '종가', value: formatPrice(last.close), period: last.date }, { label: '시가총액', value: formatWon(last.marketCap), period: last.date },
       ...(yearStats ? [{ label: '1년 주가 변화', value: formatPercent(yearStats.change), period: `${yearStats.first.date} — ${yearStats.last.date}` }] : []),
       { label: '매출', value: formatWon(latestYear.values.REVENUE), period: `${latestYear.year} 사업연도` },
@@ -261,7 +264,7 @@ function StockView({ ctx }) {
     case 'ask/claim': return <><ClaimCheck loggedIn={ctx.loggedIn} /><Learn terms={[['일치', '공식 값과 같습니다.'], ['거의 일치', '반올림 차이 정도입니다.'], ['다름', '공식 값과 다릅니다.'], ['확인 불가', '의견·전망·원인처럼 숫자로 확인할 수 없는 말입니다.']]}>
       예: "{ctx.name} 작년 영업이익은 전년보다 30% 늘었다"처럼 숫자가 들어간 문장을 넣어 보세요.</Learn></>
     case 'ask/quote': return <AskQuote ctx={ctx} />
-    case 'ask/glossary': return <Glossary />
+    case 'ask/glossary': return <Glossary ctx={ctx} />
     case 'inspect/summary': return <SummaryView ctx={ctx} />
     case 'inspect/company': return <CompanyView ctx={ctx} view={third[0]} />
     case 'inspect/price': return deeper[0] ? <DayDetail ctx={ctx} date={deeper[0]} /> : <PriceView ctx={ctx} view={third[0]} />
@@ -282,6 +285,7 @@ function StockView({ ctx }) {
     case 'assess/summary': return <AssessSummary ctx={ctx} />
     case 'assess/yoy': return deeper[0] ? (RATIOS.some(r => r.key === deeper[0]) ? <RatioDetail ctx={ctx} ratioKey={deeper[0]} /> : <AccountDetail ctx={ctx} account={deeper[0]} />) : <AssessYoy ctx={ctx} />
     case 'assess/check': return <AssessCheck ctx={ctx} />
+    case 'assess/quiz': return <QuizView ctx={ctx} />
     case 'assess/unknown': return <AssessUnknown ctx={ctx} />
     default: return null
   }
@@ -383,10 +387,23 @@ function PriceBody({ ctx, view }) {
         <div><dt>오른 날 / 내린 날</dt><dd>{stats.up}일 / {stats.down}일</dd></div>
         <div><dt>최고점 대비 최대 하락</dt><dd>{formatPercent(stats.maxDrawdown)}</dd></div>
       </dl>
-      <AiAssist kind="INSPECT" subject={`${ctx.name} · 주가 ${stats.first.date} — ${stats.last.date}`} loggedIn={ctx.loggedIn}
+      <AiAssist kind="INSPECT" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${ctx.name} · 주가 ${stats.first.date} — ${stats.last.date}`} loggedIn={ctx.loggedIn}
         facts={[{ label: '시작 종가', value: formatPrice(stats.first.close), period: stats.first.date }, { label: '마지막 종가', value: formatPrice(stats.last.close), period: stats.last.date },
           { label: '기간 변화율', value: formatPercent(stats.change), period: `${stats.first.date} — ${stats.last.date}` }, { label: '최고 종가', value: formatPrice(stats.high.close), period: stats.high.date },
           { label: '최저 종가', value: formatPrice(stats.low.close), period: stats.low.date }]} />
+      {(() => { const days = [...shown].filter(x => x.changeRate !== null).sort((a, b) => Math.abs(Number(b.changeRate)) - Math.abs(Number(a.changeRate))).slice(0, 3)
+        const mkt = priceStats(ctx.indexPoints.filter(x => x.date >= stats.first.date))
+        const annual = [...ctx.years].reverse().find(y => y.receiptNo)
+        return <section className="why-box"><h3 className="stock-h3">🤔 이 기간 주가, 왜 이렇게 움직였을까? ({formatPercent(stats.change)})</h3>
+          <ExplainStory subject={`${ctx.name} 주가 ${stats.first.date} — ${stats.last.date}`} loggedIn={ctx.loggedIn} save={{ companyId: ctx.companyId, companyName: ctx.name }}
+            receipt={annual?.receiptNo} question="주가 변동 요인 시장 환경 실적"
+            facts={[{ label: '기간 주가 변화율', value: formatPercent(stats.change), period: `${stats.first.date} — ${stats.last.date}` },
+              ...(mkt ? [{ label: `같은 기간 ${ctx.market === 'KOSDAQ' ? '코스닥' : '코스피'} 변화율`, value: formatPercent(mkt.change), period: '같은 기간' }] : []),
+              { label: '최고점 대비 최대 하락', value: formatPercent(stats.maxDrawdown), period: '같은 기간' },
+              ...days.flatMap(d => [{ label: '크게 움직인 날', value: `${d.date} ${formatPercent(d.changeRate)}`, period: d.date },
+                ...ctx.filings.filter(f => f.date === d.date).slice(0, 2).map(f => ({ label: '그날 공시', value: f.title, period: f.date }))]),
+              ...(ctx.years.length >= 2 ? [{ label: `${ctx.years[ctx.years.length - 1].year} 영업이익 증가율`, value: ctx.years[ctx.years.length - 1].ratios.operatingTurn ?? formatPercent(ctx.years[ctx.years.length - 1].ratios.operatingGrowth), period: '사업연도' }] : [])]} />
+          <p className="muted why-note">주가는 실적·시장 분위기·금리·수급 등 여러 이유가 겹쳐 움직여요. 시장 전체와 견주고, 크게 움직인 날의 공시를 함께 보면 이해에 도움이 돼요.</p></section> })()}
       <Learn terms={[['이동평균선', '최근 n일 종가의 평균을 이은 선입니다. 짧은 선(5일)은 최근 흐름, 긴 선(60일)은 큰 흐름을 보여 줍니다.'], ['종가', '그날 마지막에 거래된 가격입니다.'], ['최고점 대비 최대 하락', '기간 중 가장 높았던 가격에서 가장 많이 떨어졌던 폭입니다. 흔들림의 크기를 볼 때 씁니다.'],
         ['오른 날 / 내린 날', '전날보다 종가가 오른 날과 내린 날의 수입니다.']]}>그래프 위에 마우스를 올리거나 손가락으로 누르면 그날 값이 보입니다. 더 자세한 하루는 「일별 시세」에서 날짜를 누르세요.</Learn>
     </>}
@@ -447,8 +464,8 @@ function DailyTable({ ctx }) {
         <td>{formatPrice(p.open)}</td><td>{formatPrice(p.high)}</td><td>{formatPrice(p.low)}</td><td>{formatCount(p.volume, '')}</td>
         <td>{filingDays.has(p.date) ? '●' : ''}</td></tr>)}</tbody></table></div>
     <div className="stock-actions">{limit < rows.length && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 60)}>더 보기 ({rows.length - limit}일 남음)</button>}
-      <button type="button" className="secondary-action" onClick={() => downloadCsv(`${ctx.name}_일별시세.csv`, ['날짜', '시가', '고가', '저가', '종가', '등락률(%)', '거래량', '거래대금', '시가총액'],
-        rows.map(p => [p.date, p.open, p.high, p.low, p.close, p.changeRate, p.volume, p.value, p.marketCap]))}>⬇ CSV로 내려받기 ({rows.length}일)</button></div>
+</div>
+    <p className="stock-hint">거래소 시세는 이용약관상 파일로 다시 내보낼 수 없어 화면에서만 보여 드려요. 재무·조건 검색 결과는 내려받을 수 있어요.</p>
     <Learn terms={[['시가', '그날 처음 거래된 가격'], ['고가 / 저가', '그날 가장 높았던 / 낮았던 가격'], ['등락률', '전날 종가 대비 오늘 종가의 변화'], ['● 공시', '그날 접수된 공시가 있다는 표시']]}>
       날짜를 누르면 그날 하루를 더 자세히 봅니다.</Learn>
   </>
@@ -470,14 +487,14 @@ function DayDetail({ ctx, date }) {
       ['거래량', formatCount(p.volume)], ['거래대금', formatWon(p.value)], ['시가총액', formatWon(p.marketCap)], ['상장주식수', formatCount(p.listedShares)],
       [`같은 날 ${ctx.market} 지수`, idx ? `${Number(idx.close).toLocaleString('ko-KR')} (${formatPercent(idx.changeRate)})` : '자료 없음']]
       .map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-    <AiAssist kind="DAY" subject={`${ctx.name} ${date}`} loggedIn={ctx.loggedIn} facts={[
+    <AiAssist kind="DAY" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${ctx.name} ${date}`} loggedIn={ctx.loggedIn} facts={[
       { label: '종가', value: formatPrice(p.close), period: date }, { label: '등락률', value: formatPercent(p.changeRate), period: date },
       { label: '거래량', value: formatCount(p.volume), period: date },
       ...(idx ? [{ label: `${ctx.market} 지수 등락률`, value: formatPercent(idx.changeRate), period: date }] : []),
       ...dayFilings.slice(0, 8).map(f => ({ label: '같은 날 공시', value: f.title, period: f.date }))]} />
     {(() => { const main = dayFilings.find(f => f.category !== 'OWNERSHIP') ?? dayFilings[0]
       return <section className="why-box"><h3 className="stock-h3">🤔 이날 왜 {Number(p.changeRate) > 0 ? '올랐을까' : Number(p.changeRate) < 0 ? '내렸을까' : '이랬을까'}? ({formatPercent(p.changeRate)})</h3>
-        <ExplainStory subject={`${ctx.name} ${date} 주가 ${formatPercent(p.changeRate)}`} loggedIn={ctx.loggedIn} receipt={main?.receiptNo} question="주요 내용과 결정 이유, 목적"
+        <ExplainStory subject={`${ctx.name} ${date} 주가 ${formatPercent(p.changeRate)}`} loggedIn={ctx.loggedIn} save={{ companyId: ctx.companyId, companyName: ctx.name }} receipt={main?.receiptNo} question="주요 내용과 결정 이유, 목적"
           facts={[{ label: '종가', value: formatPrice(p.close), period: date }, { label: '등락률', value: formatPercent(p.changeRate), period: date },
             { label: '거래량', value: formatCount(p.volume), period: date },
             ...(idx ? [{ label: `${ctx.market === 'KOSDAQ' ? '코스닥' : '코스피'} 등락률`, value: formatPercent(idx.changeRate), period: date }] : []),
@@ -531,7 +548,7 @@ function EarningsView({ ctx, view }) {
             return <tr key={y.year} className="clickable" onClick={() => ctx.go(['inspect', 'earnings', view, String(y.year)])}><td><button type="button" className="link-button">{y.year}</button></td>
               <td className={y.values[view] < 0 ? 'down' : ''}>{formatWon(y.values[view])}</td><td>{turn ?? formatPercent(g)}</td>
               <td><a href={y.dartUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>원문 ↗</a></td></tr> })}</tbody></table></div>
-        <AiAssist kind="INSPECT" subject={`${ctx.name} · ${ACCOUNT_LABEL[view]} 연도별`} loggedIn={ctx.loggedIn}
+        <AiAssist kind="INSPECT" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${ctx.name} · ${ACCOUNT_LABEL[view]} 연도별`} loggedIn={ctx.loggedIn}
           facts={ctx.years.filter(y => y.values[view] !== undefined).map(y => ({ label: `${ACCOUNT_LABEL[view]}`, value: formatWon(y.values[view]), period: `${y.year} 사업연도` }))} />
         <WhyBox ctx={ctx} account={view} />
       </>}
@@ -600,10 +617,10 @@ function RatioDetail({ ctx, ratioKey }) {
     revenueGrowth: ['REVENUE'], operatingGrowth: ['OPERATING_INCOME'], netGrowth: ['NET_INCOME'] }[r.key]
   return <FinGate ctx={ctx}>
     <div className="stock-formula"><strong>{r.label}</strong><span>= {r.formula}</span><p>{r.meaning}</p>
-      <AiAssist kind="TERM" subject={r.label} loggedIn={ctx.loggedIn} facts={[{ label: '계산식', value: r.formula, period: '' },
+      <AiAssist kind="TERM" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={r.label} loggedIn={ctx.loggedIn} facts={[{ label: '계산식', value: r.formula, period: '' },
         ...ctx.years.slice(-3).flatMap(y => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(y.values[k]), period: `${y.year}` })),
           { label: r.label, value: ratioText(r, y.ratios[r.key], r.group === '성장성'), period: `${y.year}` }])].slice(0, 20)} />
-      {ctx.years.length >= 2 && <AiAssist kind="WHY" subject={`${r.label} (${ctx.years[ctx.years.length - 2].year} → ${ctx.years[ctx.years.length - 1].year})`} loggedIn={ctx.loggedIn}
+      {ctx.years.length >= 2 && <AiAssist kind="WHY" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${r.label} (${ctx.years[ctx.years.length - 2].year} → ${ctx.years[ctx.years.length - 1].year})`} loggedIn={ctx.loggedIn}
         facts={ctx.years.slice(-2).flatMap(y => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(y.values[k]), period: `${y.year}` })),
           { label: r.label, value: ratioText(r, y.ratios[r.key], r.group === '성장성'), period: `${y.year}` }])} />}
       <p className="muted">일반적으로 {r.better === 'high' ? '높을수록' : '낮을수록'} 여유 있게 읽지만, 업종마다 기준이 달라 같은 회사의 해마다 변화를 함께 보는 것이 좋습니다.</p></div>
@@ -789,7 +806,7 @@ function AssessCheck({ ctx }) {
   const items = checklist(ctx.years, ctx.yearStats, ctx.marketStats, ctx.filings)
   return <><ul className="stock-checks">{items.map(item => <li key={item.label}><span className={`check-badge ${item.value === true ? 'yes' : item.value === false ? 'no' : 'na'}`}>{item.value === true ? '예' : item.value === false ? '아니오' : '자료 없음'}</span>
     <strong>{item.label}</strong><small>{item.basis}</small></li>)}</ul>
-    <AiAssist kind="CHECK" subject={ctx.name} loggedIn={ctx.loggedIn} facts={items.slice(0, 10).map(item => ({ label: item.label,
+    <AiAssist kind="CHECK" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={ctx.name} loggedIn={ctx.loggedIn} facts={items.slice(0, 10).map(item => ({ label: item.label,
       value: `${item.value === true ? '예' : item.value === false ? '아니오' : '자료 없음'} (${item.basis})`, period: '' }))} />
     <Learn>체크리스트는 공부와 점검을 돕는 질문 모음입니다. "예"가 많다고 좋은 회사라는 뜻이 아니고, 업종에 따라 기준이 다릅니다.</Learn></>
 }
@@ -808,15 +825,21 @@ function AssessUnknown({ ctx }) {
 }
 
 // ---------------- 추가: 용어 사전 · 시장 평가 · 종목 비교 ----------------
-function Glossary() {
+function Glossary({ ctx }) {
   const [q, setQ] = useState('')
+  const [learned, setLearned] = useState(new Set())
+  useEffect(() => { if (ctx.loggedIn) getStudy().then(d => setLearned(new Set((d.terms ?? []).map(t => t.term)))).catch(() => {}) }, [ctx.loggedIn])
+  async function learn(term) { try { await learnTerm(term); setLearned(prev => new Set([...prev, term])) } catch { /* 데모·비로그인은 저장 안 함 */ } }
   const list = GLOSSARY.filter(item => !q.trim() || `${item.term} ${item.text} ${item.group}`.toLowerCase().includes(q.trim().toLowerCase()))
   const groups = [...new Set(list.map(item => item.group))]
   return <div className="stock-find">
     <label htmlFor="glossary-q">용어 찾기</label>
     <input id="glossary-q" value={q} onChange={event => setQ(event.target.value)} placeholder="예: PER, 부채비율, 시가총액" />
     {groups.map(group => <section key={group}><h3 className="stock-h3">{group}</h3>
-      <dl className="stock-glossary">{list.filter(item => item.group === group).map(item => <div key={item.term}><dt>{item.term}</dt><dd>{item.text}</dd></div>)}</dl></section>)}
+      <dl className="stock-glossary">{list.filter(item => item.group === group).map(item => <div key={item.term}><dt>{item.term}
+        {ctx.loggedIn && (learned.has(item.term) ? <span className="learned-badge">✔ 이해함</span>
+          : <button type="button" className="link-button learn-button" onClick={() => learn(item.term)}>이해했어요</button>)}</dt><dd>{item.text}</dd></div>)}</dl></section>)}
+    {ctx.loggedIn && <p className="stock-hint">이해한 용어 {learned.size}개 / 전체 {GLOSSARY.length}개 · <a href="/study">내 공부에서 모아 보기</a></p>}
     {!list.length && <p className="stock-hint">찾는 용어가 없습니다.</p>}
   </div>
 }
@@ -894,7 +917,7 @@ function PeerCompare({ ctx, peerId }) {
       <div className="table-scroll"><table className="stock-table"><thead><tr><th>항목</th><th>{a.name}</th><th>{b.name}</th></tr></thead>
         <tbody>{rows.map(([label, pick]) => <tr key={label}><th scope="row">{label}</th><td>{pick(a)}</td><td>{pick(b)}</td></tr>)}
           <tr><th scope="row">PER · PBR</th><td>{va ? `${va.per ?? '—'}배 · ${va.pbr ?? '—'}배` : '—'}</td><td>{vb ? `${vb.per ?? '—'}배 · ${vb.pbr ?? '—'}배` : '—'}</td></tr></tbody></table></div>
-      <AiAssist kind="COMPARE" subject={`${a.name} vs ${b.name}`} loggedIn={ctx.loggedIn} facts={rows.flatMap(([label, pick]) => [
+      <AiAssist kind="COMPARE" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${a.name} vs ${b.name}`} loggedIn={ctx.loggedIn} facts={rows.flatMap(([label, pick]) => [
         { label: `A ${a.name} ${label}`, value: String(pick(a)), period: '' }, { label: `B ${b.name} ${label}`, value: String(pick(b)), period: '' }]).slice(0, 20)} />
       <div className="stock-actions"><a className="secondary-action" href={`/stock/${peerId}`}>{b.name} 종목 화면으로 →</a></div>
       <Learn>주가 그래프는 두 회사 모두 시작일을 100으로 맞췄습니다. 비율은 각 회사의 최근 사업연도 기준이라 연도가 다를 수 있으니 표의 「최근 사업연도」를 함께 보세요.</Learn>
@@ -932,6 +955,11 @@ function OwnersView({ ctx, view }) {
       {rows.length ? <div className="table-scroll"><table className="stock-table"><thead><tr><th>구분</th><th>주식 종류</th><th>{year}</th><th>{year - 1}</th><th>{year - 2}</th></tr></thead>
         <tbody>{rows.map((r, i) => <tr key={i}><td>{r.se}</td><td>{r.stock_knd || '—'}</td><td>{r.thstrm || '—'}</td><td>{r.frmtrm || '—'}</td><td>{r.lwfr || '—'}</td></tr>)}</tbody></table></div>
         : <Empty>배당 자료가 없습니다(배당을 하지 않았거나 보고서에 없음).</Empty>}
+      {dps && <section className="why-box"><h3 className="stock-h3">🤔 배당, 왜 이만큼 줄까?</h3>
+        <ExplainStory subject={`${ctx.name} 배당 (${year - 2} → ${year})`} loggedIn={ctx.loggedIn} save={{ companyId: ctx.companyId, companyName: ctx.name }}
+          receipt={d.receiptNo} question="배당 정책 주주환원 배당금 결정 기준"
+          facts={rows.filter(r => /주당 현금배당금|현금배당성향|현금배당수익률|당기순이익/.test(r.se ?? '')).slice(0, 6)
+            .flatMap(r => [{ label: `${r.se} ${r.stock_knd && r.stock_knd !== '-' ? r.stock_knd : ''}`.trim(), value: `${year}: ${r.thstrm} / ${year - 1}: ${r.frmtrm} / ${year - 2}: ${r.lwfr}`, period: '사업보고서' }])} /></section>}
       <Learn terms={[['주당 현금배당금', '주식 1주에 현금으로 나눠 준 돈입니다.'], ['현금배당수익률', '주당 배당금 ÷ 주가 × 100. 주가 대비 배당이 몇 %인지입니다.'],
         ['현금배당성향', '배당금 총액 ÷ 당기순이익 × 100. 번 돈 중 얼마를 주주에게 나눠 줬는지입니다.']]}>숫자는 사업보고서에 회사가 적은 그대로이며 단위(백만원·원·%)는 「구분」에 적혀 있습니다.</Learn>
       {footer}</>
@@ -1006,6 +1034,12 @@ function IndustryView({ ctx, view }) {
     <div className="table-scroll"><table className="stock-table"><thead><tr><th>지표</th><th>이 회사</th><th>업종 중간값</th><th>비교</th></tr></thead>
       <tbody>{rows.map(({ metric, pos }) => <tr key={metric.key}><th scope="row">{metric.label}</th><td>{metricText(metric.kind, pos.value)}</td><td>{metricText(metric.kind, pos.median)}</td>
         <td>{pos.value === null || pos.median === null ? '—' : pos.value > pos.median ? '중간값보다 높음' : pos.value < pos.median ? '중간값보다 낮음' : '같음'}</td></tr>)}</tbody></table></div>
+    {(() => { const annual = [...ctx.years].reverse().find(y => y.receiptNo)
+      return <section className="why-box"><h3 className="stock-h3">🤔 이 회사는 왜 업종과 다를까?</h3>
+        <ExplainStory subject={`${ctx.name}과 같은 업종(${industryName(d.matchedCode)}) 비교`} loggedIn={ctx.loggedIn} save={{ companyId: ctx.companyId, companyName: ctx.name }}
+          receipt={annual?.receiptNo} question="경쟁력 시장점유율 주요 제품 사업 구조"
+          facts={rows.flatMap(({ metric, pos }) => [{ label: `이 회사 ${metric.label}`, value: metricText(metric.kind, pos.value), period: '최근' }, { label: `업종 중간값 ${metric.label}`, value: metricText(metric.kind, pos.median), period: `${pos.count}곳` }])
+            .filter(f => f.value !== '—').slice(0, 14)} /></section> })()}
     <Learn>높다·낮다는 사실만 적었습니다. PER·PBR은 높고 낮음이 좋고 나쁨을 뜻하지 않아 해석을 붙이지 않았습니다. 부채비율은 낮을수록 빚이 적다는 뜻입니다.</Learn>
     {source}</>
 }
@@ -1159,6 +1193,12 @@ function CashFlowView({ ctx }) {
       .map(([k, color]) => ({ key: k, label: CASH_LABEL[k], color, values: years.map(y => v(y, k)) }))} format={formatWon} />
     <div className="table-scroll"><table className="stock-table"><thead><tr><th>항목</th>{years.map(y => <th key={y.year}>{y.year}</th>)}</tr></thead>
       <tbody>{Object.keys(CASH_LABEL).map(k => <tr key={k}><th scope="row">{CASH_LABEL[k]}</th>{years.map(y => <td key={y.year} className={v(y, k) < 0 ? 'down' : ''}>{formatWon(v(y, k))}</td>)}</tr>)}</tbody></table></div>
+    {years.length >= 2 && (() => { const a = years[years.length - 2], b = years[years.length - 1]
+      return <section className="why-box"><h3 className="stock-h3">🤔 현금흐름, 왜 이렇게 바뀌었을까? ({a.year} → {b.year})</h3>
+        <ExplainStory subject={`${ctx.name} 현금흐름 (${a.year} → ${b.year})`} loggedIn={ctx.loggedIn} save={{ companyId: ctx.companyId, companyName: ctx.name }}
+          receipt={state.data?.receiptNo} question="영업활동 현금흐름 투자활동 시설투자 변동 원인"
+          facts={Object.keys(CASH_LABEL).flatMap(k => [{ label: `${a.year} ${CASH_LABEL[k]}`, value: formatWon(v(a, k)), period: `${a.year}` }, { label: `${b.year} ${CASH_LABEL[k]}`, value: formatWon(v(b, k)), period: `${b.year}` }])
+            .filter(f => f.value !== '—').slice(0, 14)} /></section> })()}
     <Learn terms={[['영업활동 현금흐름', '본업으로 실제 들어오고 나간 현금입니다. 이익이 나도 이 값이 마이너스면 돈이 실제로는 안 들어온 것입니다.'],
       ['투자활동 현금흐름', '설비·다른 회사 등에 투자하며 나간(−) 또는 팔아서 들어온(+) 현금입니다.'], ['재무활동 현금흐름', '빌리거나 갚은 돈, 배당 등 주주·채권자와 오간 현금입니다.'],
       ['잉여현금흐름', '영업으로 번 현금에서 설비 투자를 뺀 값입니다. 회사가 자유롭게 쓸 수 있는 현금의 크기를 가늠할 때 씁니다.']]}>
@@ -1249,6 +1289,7 @@ function AskAi({ ctx }) {
     <div className="stock-range">{examples.map(example => <button key={example} type="button" onClick={() => ask(example)}>{example}</button>)}</div>
     {state.error && <p className="stock-hint">{state.error.status === 401 ? '로그인이 필요합니다.' : 'AI 답을 지금 받을 수 없습니다.'}</p>}
     {state.answer && <div className="ai-answer"><p className="eyebrow">{state.answer.method === 'AI' ? 'AI 답 · 근거 아님' : '공식 값 정리(규칙)'}</p><p>{state.answer.text}</p>
+      {state.answer.method === 'AI' && <SaveToStudy note={{ companyId: ctx.companyId, companyName: ctx.name, kind: 'QA', title: q, body: state.answer.text, source: 'AIRA 공식 값' }} />}
       {(state.answer.limitations ?? []).map(note => <small key={note} className="muted">{note}</small>)}</div>}
     <details className="stock-learn"><summary>AI가 참고한 자료 {facts.length}개</summary><div><dl>{facts.map((f, i) => <div key={i}><dt>{f.label}</dt><dd>{f.value} · {f.period}</dd></div>)}</dl></div></details>
     <Source>AI 답은 위 공식 값 안에서만 만들고, 숫자가 하나라도 자료에 없으면 버리고 규칙 정리로 대신합니다.</Source>
@@ -1346,13 +1387,14 @@ function WhyBox({ ctx, account, ratio }) {
   ]
   return <section className="why-box" aria-label={`${label} 왜 그럴까`}>
     <h3 className="stock-h3">🤔 {label}, 왜 {up ? '늘었을까' : now < before ? '줄었을까' : '이럴까'}? ({prev.year} → {y.year})</h3>
-    <ExplainStory subject={`${ctx.name} ${label} (${prev.year} → ${y.year})`} facts={storyFacts} receipt={y.receiptNo} question={question} loggedIn={ctx.loggedIn} />
+    <ExplainStory subject={`${ctx.name} ${label} (${prev.year} → ${y.year})`} facts={storyFacts} receipt={y.receiptNo} question={question} loggedIn={ctx.loggedIn}
+      save={{ companyId: ctx.companyId, companyName: ctx.name }} />
     <details className="stock-learn"><summary>근거를 하나씩 보기</summary>
     <div className="why-steps">
       <div><strong>① 숫자로 보면</strong>
         <ul className="stock-bullets">{parts.map(k => { const a = prev.values[k], b = y.values[k]
           return <li key={k}>{ACCOUNT_LABEL[k]}: {formatWon(a)} → {formatWon(b)} ({a ? formatPercent((b - a) / Math.abs(a) * 100) : '—'})</li> })}</ul>
-        <AiAssist kind="WHY" subject={`${label} (${prev.year} → ${y.year})`} loggedIn={ctx.loggedIn}
+        <AiAssist kind="WHY" save={{ companyId: ctx.companyId, companyName: ctx.name }} subject={`${label} (${prev.year} → ${y.year})`} loggedIn={ctx.loggedIn}
           facts={ctx.years.slice(-2).flatMap(row => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(row.values[k]), period: `${row.year}` })),
             ...(ratio ? [{ label, value: ratioText(ratio, row.ratios[ratio.key], ratio.group === '성장성'), period: `${row.year}` }] : [])])} /></div>
       <div><CompanyReason receipt={y.receiptNo} question={question} loggedIn={ctx.loggedIn} title={`② 회사가 ${y.year} 사업보고서에서 밝힌 이유`} /></div>
@@ -1368,7 +1410,7 @@ function WhyBox({ ctx, account, ratio }) {
  * 이해시키는 설명: 숫자(무엇이 바뀌었나) + 회사가 공시에 직접 쓴 이유(원문 인용) → AI가 이어지는 이야기로 풀어 준다.
  * AI는 받은 자료 안의 숫자·문장만 쓰며(서버가 검사), 원인은 회사 설명에서만 가져오고 예측·추천은 하지 않는다.
  */
-export function ExplainStory({ subject, facts, receipt, question, loggedIn }) {
+export function ExplainStory({ subject, facts, receipt, question, loggedIn, save = null }) {
   const [state, setState] = useState({ status: 'idle', story: null, quotes: [] })
   useEffect(() => { setState({ status: 'idle', story: null, quotes: [] }) }, [subject, receipt, question])
   if (!loggedIn) return <div className="explain-story locked"><strong>🤖 이해하기 쉽게 설명 듣기</strong><p className="stock-hint">로그인(또는 데모)하면 숫자와 회사 공시를 엮어 쉬운 말로 설명해 드립니다.</p></div>
@@ -1390,9 +1432,34 @@ export function ExplainStory({ subject, facts, receipt, question, loggedIn }) {
       {state.status !== 'done' && <button type="button" className="primary-action" onClick={run} disabled={state.status === 'loading'}>{state.status === 'loading' ? '숫자와 공시를 읽는 중…' : '설명 듣기'}</button>}</div>
     {state.status === 'error' && <p className="stock-hint">설명을 지금 만들 수 없습니다. 아래 근거를 직접 확인해 주세요.</p>}
     {st && <><p className="explain-text">{st.text}</p>
+      {save && st.method === 'AI' && <SaveToStudy note={{ ...save, kind: 'WHY', title: subject, body: st.text,
+        source: [receipt ? `공시 ${receipt}` : null, ...state.quotes.map(q => `원문 문단 ${q.passageNo}`)].filter(Boolean).join(' · ') }} />}
       <small className="muted">{st.method === 'AI' ? 'AI 설명 · 근거가 아니며 아래 숫자와 회사 원문 안에서만 만들었습니다.' : 'AI 설명이 확인 규칙을 통과하지 못해 자료만 정리했습니다.'}</small>
       {state.quotes.length > 0 && <details className="stock-learn"><summary>회사 원문 {state.quotes.length}문단 보기</summary><div>{state.quotes.map(q =>
         <blockquote className="filing-quote-quote" key={q.passageNo}><span>원문 문단 {q.passageNo} · 글자 그대로</span><p>{q.text}</p></blockquote>)}
         {receipt && <a className="ai-assist-link" href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${receipt}`} target="_blank" rel="noopener noreferrer">DART 원문 전체 ↗</a>}</div></details>}</>}
   </div>
+}
+
+// ---------------- 가늠하다 · 이해 확인 퀴즈 ----------------
+function QuizView({ ctx }) {
+  const quiz = buildQuiz(ctx.name, ctx.years, ctx.yearStats)
+  const [picked, setPicked] = useState({})
+  if (!quiz.length) return <Empty>문제를 낼 자료를 아직 모으는 중입니다.</Empty>
+  const score = quiz.filter((q, i) => picked[i] === q.answer).length
+  async function pick(i, choice) {
+    if (picked[i] !== undefined) return
+    setPicked(p => ({ ...p, [i]: choice }))
+    if (choice === quiz[i].answer && ctx.loggedIn) { try { await learnTerm(quiz[i].term) } catch { /* 데모는 저장 안 함 */ } }
+  }
+  return <>
+    <ol className="quiz-list">{quiz.map((q, i) => <li key={q.term}><p className="quiz-q">{q.question}</p>
+      <div className="stock-range">{q.choices.map((c, k) => <button key={c} type="button" aria-pressed={picked[i] === k}
+        className={picked[i] === undefined ? '' : k === q.answer ? 'quiz-right' : picked[i] === k ? 'quiz-wrong' : ''} onClick={() => pick(i, k)}>{c}</button>)}</div>
+      {picked[i] !== undefined && <div className="quiz-why"><strong>{picked[i] === q.answer ? '⭕ 맞았어요!' : '❌ 아쉬워요.'} 정답: {q.choices[q.answer]}</strong><p>{q.why}</p>
+        {ctx.loggedIn && <SaveToStudy note={{ companyId: ctx.companyId, companyName: ctx.name, kind: 'QUIZ', title: q.question, body: `정답: ${q.choices[q.answer]}. ${q.why}`, source: 'AIRA 퀴즈 · 공식 값' }} />}</div>}
+    </li>)}</ol>
+    {Object.keys(picked).length === quiz.length && <p className="stock-intro"><strong>{quiz.length}문제 중 {score}개 맞혔어요.</strong> {ctx.loggedIn ? '맞힌 용어는 「내 공부」에 쌓였어요.' : '로그인하면 맞힌 용어가 「내 공부」에 쌓여요.'}</p>}
+    <Learn>퀴즈는 공부를 돕는 문제이며, 정답이 좋고 나쁨을 뜻하지 않습니다.</Learn>
+  </>
 }

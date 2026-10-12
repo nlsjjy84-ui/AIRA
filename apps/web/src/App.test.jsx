@@ -227,7 +227,7 @@ describe('authenticated interest and return experience', () => {
     expect(await screen.findByRole('heading', { name: '개인정보와 이용자 보호 원칙' })).toBeInTheDocument()
     expect(screen.getByText(/계정 운영과 명시된 기능에 필요한 최소한의 사용자 데이터만 수집/)).toBeInTheDocument()
     expect(screen.getByText(/Wi-Fi·Bluetooth 물리 식별정보/)).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '공식 데이터와 근거를 함께 확인하세요.' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '왜 그런지 이해하고, 내 지식으로 쌓으세요.' })).not.toBeInTheDocument()
     expect(screen.getByRole('contentinfo')).toHaveTextContent('개인정보와 이용자 보호 원칙')
   })
 
@@ -569,7 +569,7 @@ describe('authenticated interest and return experience', () => {
     expect(screen.getByRole('link', { name: '내 금융' })).toHaveAttribute('aria-current', 'page')
     expect(within(flow).queryByRole('link', { name: '내 금융' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '설정', exact: true })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '공식 데이터와 근거를 함께 확인하세요.' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '왜 그런지 이해하고, 내 지식으로 쌓으세요.' })).not.toBeInTheDocument()
   })
 
   it('requires a separate protection check before rendering personal finance data', async () => {

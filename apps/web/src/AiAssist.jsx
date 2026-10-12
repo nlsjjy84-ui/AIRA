@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { requestAssist } from './api/assistApi.js'
+import SaveToStudy from './SaveToStudy.jsx'
 
 const COPY = {
   INSPECT: { button: '쉬운 말로 풀어보기', title: 'AI 쉬운 풀이', lead: '화면에 나온 값과 기간만 쉬운 말로 풀어 줍니다.' },
@@ -15,7 +16,7 @@ const COPY = {
 }
 
 /** Optional reading help. It never replaces the shown values or the official evidence. */
-export default function AiAssist({ kind, subject = '', facts, loggedIn }) {
+export default function AiAssist({ kind, subject = '', facts, loggedIn, save = null }) {
   const [state, setState] = useState({ status: 'idle', result: null, english: null })
   const signature = JSON.stringify([kind, subject, facts])
   useEffect(() => { setState({ status: 'idle', result: null, english: null }) }, [signature])
@@ -63,6 +64,8 @@ export default function AiAssist({ kind, subject = '', facts, loggedIn }) {
       <span className={`ai-assist-badge ${result.method === 'AI' ? 'is-ai' : 'is-rule'}`}>
         {result.method === 'AI' ? 'AI 참고 · 근거 아님' : '규칙 기반 정리'}</span>
       <p className="ai-assist-text">{result.text}</p>
+      {save && result.method === 'AI' && <SaveToStudy note={{ ...save, kind: ['TERM', 'DAY', 'CHECK', 'COMPARE', 'INSPECT', 'WHY', 'QA'].includes(kind) ? kind : 'EXPLAIN',
+        title: save.title ?? subject, body: result.text, source: (facts ?? []).map(f => `${f.label} ${f.value}${f.period ? ` (${f.period})` : ''}`).join(' / ').slice(0, 480) }} />}
       {(result.limitations ?? []).length > 0 && <ul className="ai-assist-limits">{result.limitations.map(item => <li key={item}>{item}</li>)}</ul>}
       {result.method === 'AI' && !state.english && <button type="button" className="ai-assist-link" onClick={translate}>English</button>}
       {state.english?.status === 'loading' && <p className="ai-assist-note">번역하는 중…</p>}

@@ -110,8 +110,8 @@ export default function ScreenerPage({ loggedIn = false, onLogin }) {
           <button type="button" className="link-button" onClick={() => setSort(([k, d]) => [key, k === key && d === 'desc' ? 'asc' : 'desc'])}>{label}{sort[0] === key ? (sort[1] === 'desc' ? ' ↓' : ' ↑') : ''}</button></th>)}</tr></thead>
           <tbody>{found.slice(0, limit).map(row => <tr key={row.companyId}>{COLUMNS.map(([key]) => <td key={key}>{cell(row, key)}</td>)}</tr>)}</tbody></table></div>
         <div className="stock-actions">{found.length > limit && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 100)}>더 보기 ({found.length - limit}개)</button>}
-          <button type="button" className="secondary-action" onClick={() => downloadCsv('AIRA_조건검색.csv', ['회사', '시장', '업종', '시가총액', '매출', '영업이익률(%)', 'ROE(%)', '부채비율(%)', '매출증가율(%)', 'PER', 'PBR', '등락률(%)'],
-            found.map(r => [r.name, r.market, industryName(r.indutyCode), r.marketCap, r.revenue, r.operatingMargin, r.roe, r.debtRatio, r.revenueGrowth, r.per, r.pbr, r.changeRate]))}>⬇ 결과 CSV로 내려받기</button></div>
+          <button type="button" className="secondary-action" onClick={() => downloadCsv('AIRA_조건검색.csv', ['회사', '시장', '업종', '매출', '영업이익률(%)', 'ROE(%)', '부채비율(%)', '매출증가율(%)'],
+            found.map(r => [r.name, r.market, industryName(r.indutyCode), r.revenue, r.operatingMargin, r.roe, r.debtRatio, r.revenueGrowth]))}>⬇ 결과 CSV로 내려받기</button></div>
       </>}
       <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div>
         <p>재무 값은 각 회사의 가장 최근 사업보고서(연결 우선) 기준이고, 시가총액·PER·PBR은 최근 거래일 시가총액으로 계산했습니다. 자료가 없는 회사는 그 조건에서 빠집니다.</p>

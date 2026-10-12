@@ -10,6 +10,7 @@ import MarketFilingBoard from './MarketFilingBoard.jsx'
 import StockPage from './StockPage.jsx'
 import ScreenerPage from './ScreenerPage.jsx'
 import MarketPage from './MarketPage.jsx'
+import StudyPage from './StudyPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
@@ -89,7 +90,7 @@ function DemoCard({ user, onDemo, demoState, onLogout }) {
     <ol className="demo-steps">
       <li><span className="demo-num" aria-hidden="true">1</span><div><strong>종목 화면</strong><span>주가·실적·재무·공시·배당을 묻다·보다·잇다·가늠하다로</span></div></li>
       <li><span className="demo-num" aria-hidden="true">2</span><div><strong>관심회사·브리핑</strong><span>회사 3곳과 최근 공시를 한곳에</span></div></li>
-      <li><span className="demo-num" aria-hidden="true">3</span><div><strong>주장 확인</strong><span>기사 속 숫자를 공식 값과 대조</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">3</span><div><strong>왜 그럴까 · 내 공부</strong><span>숫자의 이유를 회사 공시로 풀고, 알게 된 것을 저장</span></div></li>
     </ol>
     <button type="button" className="primary-action demo-action" onClick={onDemo} disabled={demoState.loading}>
       {demoState.loading ? '데모 계정으로 들어가는 중…' : '데모로 둘러보기'}</button>
@@ -599,6 +600,9 @@ export default function App() {
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
+      <a className="finance-sidebar-entry" href="/study" aria-current={routePath === '/study' ? 'page' : undefined} aria-label="내 공부">
+        <span aria-hidden="true">{sidebarCollapsed ? '📚' : '내 공부'}</span>
+      </a>
       <a className="finance-sidebar-entry" href="/market" aria-current={routePath === '/market' ? 'page' : undefined} aria-label="시장 지도">
         <span aria-hidden="true">{sidebarCollapsed ? '▦' : '시장 지도'}</span>
       </a>
@@ -614,7 +618,7 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+      {routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
@@ -623,7 +627,7 @@ export default function App() {
         onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),
       }} /> : <>
       <div className="home-orientation">
-        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">PUBLIC COMPANY FINANCIALS</p><h1 id="page-title">공식 데이터와 근거를<br />함께 확인하세요.</h1><p className="intro-copy">회사 이름을 검색하면 한 종목 안에서 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 깊게 펼쳐 봅니다. 추천 대신 근거를 보여 드립니다.</p>
+        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">UNDERSTAND · 보는 데서 끝나지 않는 투자 공부</p><h1 id="page-title">왜 그런지 이해하고,<br />내 지식으로 쌓으세요.</h1><p className="intro-copy">회사 이름을 검색하면 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 깊게 펼치고, 숫자가 왜 그런지 회사의 공식 설명으로 풀어 드립니다. 종목 추천과 광고 없이, 알게 된 것은 「내 공부」에 쌓입니다.</p>
           <div className="quick-stocks" aria-label="바로 보기">{['삼성전자', 'SK하이닉스', 'NAVER', '현대자동차', '카카오', 'LG에너지솔루션'].map(name =>
             <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
           {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>

@@ -22,3 +22,7 @@ export const getPriceAlerts = () => request('/api/me/price-alerts')
 export const createPriceAlert = (companyId, direction, target) => request('/api/me/price-alerts', {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, direction, target }) })
 export const deletePriceAlert = id => request(`/api/me/price-alerts/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const getStudy = companyId => request(`/api/me/study${companyId ? `?companyId=${encodeURIComponent(companyId)}` : ''}`)
+export const saveStudyNote = note => request('/api/me/study/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(note) })
+export const deleteStudyNote = id => request(`/api/me/study/notes/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const learnTerm = term => request('/api/me/study/terms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ term }) })

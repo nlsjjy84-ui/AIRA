@@ -2413,7 +2413,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-price-now small { color: var(--muted); }
 .stock-page .up { color: var(--up); }
 .stock-page .down { color: var(--down); }
-.stock-keyfacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .5rem; margin: 0; }
+.stock-keyfacts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr)); gap: .5rem; margin: 0; }
 .stock-keyfacts div { padding: .65rem .8rem; border-radius: .75rem; background: var(--accent-faint); min-width: 0; }
 .stock-keyfacts dt { font-size: .78rem; color: var(--muted); }
 .stock-keyfacts dd { margin: .15rem 0 0; font-weight: 750; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -2465,7 +2465,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-learn dt, .stock-glossary dt { font-weight: 750; }
 .stock-learn dd, .stock-glossary dd { margin: 0; color: var(--muted); }
 
-.stock-stats, .stock-table-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; margin: 0; }
+.stock-stats, .stock-table-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr)); gap: .5rem; margin: 0; }
 .stock-stats div, .stock-table-dl div { padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .7rem; min-width: 0; }
 .stock-stats dt, .stock-table-dl dt { font-size: .8rem; color: var(--muted); }
 .stock-stats dd, .stock-table-dl dd { margin: .15rem 0 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -2501,7 +2501,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-pick { display: grid; gap: .35rem; }
 .stock-actions, .stock-day-nav { display: flex; flex-wrap: wrap; gap: .5rem; }
 .stock-day-nav { justify-content: space-between; }
-.stock-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.stock-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 1rem; }
 .stock-bullets { margin: .4rem 0 0; padding-left: 1.1rem; display: grid; gap: .35rem; }
 .stock-checks li { display: grid; grid-template-columns: auto 1fr; gap: .1rem .7rem; padding: .65rem .8rem; border: 1px solid var(--line); border-radius: .7rem; }
 .stock-checks small { grid-column: 2; color: var(--muted); }
@@ -2551,7 +2551,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-page .bad { color: var(--series-c); font-weight: 750; }
 .chart-tip-hint { color: var(--accent-strong); font-weight: 700; }
 .workflow-sidebar .workflow-label { white-space: nowrap; }
-.stock-keyfacts { grid-template-columns: repeat(auto-fit, minmax(8.25rem, 1fr)); }
+.stock-keyfacts { grid-template-columns: repeat(auto-fit, minmax(min(8.25rem, 100%), 1fr)); }
 @media (max-width: 760px) { .stock-stats, .stock-table-dl { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .stock-ranks { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
 .stock-ranks li { display: grid; gap: .4rem; padding: .7rem .9rem; border: 1px solid var(--line); border-radius: .7rem; }
@@ -2560,7 +2560,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-rangebar.peer div { background: var(--line); }
 .stock-rangebar.peer b { position: absolute; top: 50%; width: .2rem; height: 1.1rem; background: var(--muted); transform: translate(-50%, -50%); border-radius: 2px; }
 .stock-table tr.self-row td { background: var(--accent-faint); }
-.screen-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .6rem; }
+.screen-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr)); gap: .6rem; }
 .screen-filters label { display: grid; gap: .3rem; font-size: .85rem; font-weight: 700; color: var(--muted); min-width: 0; }
 .screen-filters select, .screen-input input { width: 100%; box-sizing: border-box; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--paper); color: var(--ink); font: inherit; }
 .screen-input { display: flex; align-items: center; gap: .35rem; }
@@ -2598,7 +2598,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .stock-note textarea { width: 100%; box-sizing: border-box; padding: .6rem .7rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--paper); color: var(--ink); font: inherit; resize: vertical; }
 .stock-note .stock-actions { align-items: center; padding: .5rem 0; }
 .ai-answer { display: grid; gap: .35rem; padding: .9rem 1rem; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent-faint); } .ai-answer p { margin: 0; }
-.home-market-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .75rem; }
+.home-market-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: .75rem; }
 .home-market-card { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); display: grid; gap: .4rem; }
 .home-market-card h3 { margin: 0; font-size: 1rem; }
 .home-market-card ol { margin: 0; padding-left: 1.2rem; display: grid; gap: .3rem; }
@@ -2607,7 +2607,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .home-market-card .up, .home-market .up { color: var(--up); } .home-market-card .down, .home-market .down { color: var(--down); }
 .home-market-card span { font-variant-numeric: tabular-nums; }
 .link-more { justify-self: end; font-size: .85rem; color: var(--accent-strong); font-weight: 700; }
-.stock-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: .6rem; align-items: start; }
+.stock-tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr)); gap: .6rem; align-items: start; }
 .price-alert-form { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .4rem 0; }
 .price-alert-form input { width: 9rem; padding: .5rem .6rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--paper); color: var(--ink); font: inherit; }
 .price-alert-form select { padding: .5rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--paper); color: var(--ink); font: inherit; }
@@ -2615,7 +2615,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .price-alert-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; padding: .45rem .6rem; border-radius: .5rem; background: var(--accent-faint); }
 .price-alert-list li.rung { border: 1px solid var(--accent); }
 .price-alert-list a { color: var(--ink); }
-.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: .75rem; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: .75rem; }
 .summary-card { display: grid; gap: .45rem; align-content: start; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
 .summary-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
 .summary-card h3 { margin: 0; font-size: 1rem; }
@@ -2625,7 +2625,7 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .summary-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
 .summary-list li { display: flex; justify-content: space-between; gap: .5rem; } .summary-list small { color: var(--muted); white-space: nowrap; }
 .why-box { display: grid; gap: .6rem; padding: 1rem; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--series-c) 55%, var(--line)); background: color-mix(in srgb, var(--series-c) 7%, var(--surface)); }
-.why-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .8rem; }
+.why-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: .8rem; }
 .why-steps > div { display: grid; gap: .4rem; align-content: start; min-width: 0; }
 .why-reason { display: grid; gap: .45rem; }
 .why-reason-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; }
@@ -2633,3 +2633,24 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .explain-story { display: grid; gap: .5rem; padding: .9rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--accent); }
 .explain-story.locked { border-style: dashed; }
 .explain-text { margin: 0; font-size: 1.02rem; line-height: 1.75; white-space: pre-line; }
+.study-save { justify-self: start; display: inline-flex; padding: .45rem .8rem; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent-strong); font: inherit; font-weight: 750; cursor: pointer; text-decoration: none; }
+.study-save.saved { background: var(--accent-soft); }
+.learned-badge { margin-left: .5rem; font-size: .78rem; color: var(--accent-strong); font-weight: 800; }
+.learn-button { margin-left: .5rem; font-size: .8rem; }
+.quiz-list { margin: 0; padding-left: 1.3rem; display: grid; gap: 1rem; }
+.quiz-q { margin: 0 0 .4rem; font-weight: 750; }
+.quiz-right { background: var(--accent-soft) !important; border-color: var(--accent) !important; }
+.quiz-wrong { background: color-mix(in srgb, var(--series-c) 22%, transparent) !important; }
+.quiz-why { display: grid; gap: .3rem; margin-top: .5rem; padding: .7rem .9rem; border-radius: .7rem; background: var(--accent-faint); }
+.quiz-why p { margin: 0; }
+.progress { height: .6rem; border-radius: 999px; background: var(--line); overflow: hidden; margin: .4rem 0; }
+.progress i { display: block; height: 100%; background: var(--accent); }
+.term-chip { padding: .3rem .65rem; border-radius: 999px; background: var(--accent-soft); color: var(--accent-strong); font-weight: 700; font-size: .85rem; }
+.study-notes { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .6rem; }
+.study-notes li { display: grid; gap: .3rem; padding: .8rem .9rem; border: 1px solid var(--line); border-radius: .8rem; }
+.study-notes p { margin: 0; white-space: pre-line; }
+.study-note-head { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.study-notes .link-button { justify-self: end; }
+.summary-card > *, .why-steps > div > *, .stock-body > * { min-width: 0; }
+.link-button, .stock-filings strong, .summary-list button { overflow-wrap: anywhere; word-break: keep-all; }
+.summary-list li > button { min-width: 0; text-align: left; }
