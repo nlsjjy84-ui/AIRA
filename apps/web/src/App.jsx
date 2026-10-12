@@ -11,6 +11,7 @@ import StockPage from './StockPage.jsx'
 import ScreenerPage from './ScreenerPage.jsx'
 import MarketPage from './MarketPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
+import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
 import { searchEntities } from './api/canonicalApi.js'
 import { readRecentStocks } from './stockMath.js'
@@ -680,6 +681,7 @@ export default function App() {
 
       {session.user && <section id="my-alerts" className="content-section alert-section" aria-labelledby="alerts-title">
         <div className="section-heading"><span>IN APP</span><h2 id="alerts-title">관심회사 알림</h2></div>
+        <HomePriceAlerts />
         {alertsState.loading && <Status busy>새로 확인된 내용을 살펴보는 중입니다.</Status>}
         {alertsState.error && <ErrorState error={alertsState.error} subject="알림" retry={loadAlerts} />}
         {!alertsState.loading && !alertsState.error && alertsState.data.length === 0 && <div className="personalization-empty"><Status>{interestsState.data.length === 0 ? '관심회사를 저장하고 회사별 앱 알림을 켜면 새 알림이 이곳에 표시됩니다.' : alertEmptyMessage(interestsState.data, alertsState.data, alertsState.emptyReason)}</Status>{shouldOfferAlertSettings && <a className="secondary-action" href="/explore">회사와 알림 설정 보기</a>}</div>}

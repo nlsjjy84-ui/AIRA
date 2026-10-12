@@ -121,15 +121,25 @@ final class FilingText {
     }
 
     /** Indexes of the best matching passages, best first. Empty when nothing matches well enough. */
+    static final List<String> CAUSE_WORDS = List.of("원인", "이유", "왜", "때문");
+    static final List<String> CAUSE_MARKERS = List.of("때문", "영향", "기인", "인해", "인한", "따라", "효과", "덕분", "확대", "축소", "개선", "악화", "상승", "하락");
+
     static List<Integer> rank(List<String> passages, String question, int top) {
-        List<String> tokens = questionTokens(question);
+        List<String> tokens = new ArrayList<>(questionTokens(question));
+        boolean causal = CAUSE_WORDS.stream().anyMatch(word -> question != null && question.contains(word));
+        // 원인을 묻는 질문: "원인·이유" 같은 낱말은 원문에 잘 안 쓰이므로 빼고, 대신 원인을 말하는 표현이 있는 문단에 점수를 더 준다.
+        if (causal) tokens.removeIf(token -> CAUSE_WORDS.stream().anyMatch(token::startsWith) || token.matches("\\d{4}년?|대비"));
         if (tokens.isEmpty()) return List.of();
-        int need = tokens.size() >= 3 ? 2 : 1;
+        int need = causal ? 1 : tokens.size() >= 3 ? 2 : 1;
         List<int[]> scored = new ArrayList<>();
         for (int i = 0; i < passages.size(); i++) {
             String lower = passages.get(i).toLowerCase();
             int score = 0;
             for (String token : tokens) if (lower.contains(token)) score++;
+            if (causal && score > 0) {
+                long markers = CAUSE_MARKERS.stream().filter(lower::contains).count();
+                score = score * 2 + (int) Math.min(3, markers);
+            }
             if (score >= need) scored.add(new int[] {i, score});
         }
         scored.sort(Comparator.<int[]>comparingInt(item -> -item[1]).thenComparingInt(item -> item[0]));

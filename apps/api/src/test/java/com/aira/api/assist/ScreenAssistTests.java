@@ -71,4 +71,17 @@ class ScreenAssistTests {
                 .assist(UUID.randomUUID(), new AssistRequest("QA", "내년 매출은?", facts));
         assertEquals("RULE", invented.method());
     }
+
+    @Test
+    void whyExplanationsUseOnlyTheComponents() {
+        var json = JsonMapper.builder().build();
+        var facts = List.of(new AssistRequest.Fact("영업이익", "32.7조 원", "2024"), new AssistRequest.Fact("매출", "300.87조 원", "2024"),
+                new AssistRequest.Fact("영업이익", "43.6조 원", "2025"), new AssistRequest.Fact("매출", "333.61조 원", "2025"));
+        var ok = new ReadingAssistService(model("영업이익이 32.7조 원에서 43.6조 원으로 늘어난 폭이 매출(300.87조 원→333.61조 원)보다 커서 비율이 올랐습니다."), clock, json)
+                .assist(UUID.randomUUID(), new AssistRequest("WHY", "영업이익률 (2024 → 2025)", facts));
+        assertEquals("AI", ok.method());
+        var guess = new ReadingAssistService(model("반도체 업황이 좋아져 영업이익이 50조 원에 가까워졌습니다."), clock, json)
+                .assist(UUID.randomUUID(), new AssistRequest("WHY", "영업이익률 (2024 → 2025)", facts));
+        assertEquals("RULE", guess.method());
+    }
 }

@@ -44,6 +44,8 @@ describe('StockPage', () => {
     expect(await screen.findByText('134원')).toBeInTheDocument()
     const stages = screen.getByRole('navigation', { name: 'AIRA 단계' })
     expect(within(stages).getAllByRole('button').map(b => b.textContent)).toEqual(['Ask묻다', 'Inspect보다', 'Relate잇다', 'Assess가늠하다'])
+    expect(screen.getByRole('heading', { name: '주가 1년' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '주가' }))
     await user.click(screen.getByRole('button', { name: '일별 시세' }))
     await user.click(await screen.findByRole('button', { name: '2026-09-10' }))
     expect(window.location.search).toContain('inspect.price.daily.2026-09-10')
@@ -80,8 +82,12 @@ describe('StockPage', () => {
 
   it('explains when prices are still being filled', async () => {
     routes[`/api/stocks/${ID}/prices`] = { state: 'NO_DATA', points: [] }
+    window.history.replaceState({}, '', `/stock/${ID}?v=inspect.price.trend`)
     render(<StockPage companyId={ID} />)
     expect(await screen.findByText(/1년치 주가를 거래소에서 받아 채우는 중/)).toBeInTheDocument()
+    window.history.replaceState({}, '', `/stock/${ID}`)
+    render(<StockPage companyId={ID} />)
+    expect((await screen.findAllByText('주가를 채우는 중입니다.')).length).toBeGreaterThan(0)
     routes[`/api/stocks/${ID}/prices`] = { state: 'AVAILABLE', source: 'KRX', points }
   })
 })

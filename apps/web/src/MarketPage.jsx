@@ -4,7 +4,7 @@ import { screenRow } from './ScreenerPage.jsx'
 import { squarify } from './treemap.js'
 import { formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
 
-const TABS = [['map', '시장 지도'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '52주 신고가 근처'], ['low', '52주 신저가 근처']]
+const TABS = [['map', '시장 지도'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '52주 신고가 근처'], ['low', '52주 신저가 근처']]
 
 function tileColor(rate) {
   if (rate === null || rate === undefined || !Number.isFinite(rate)) return 'var(--surface)'
@@ -81,6 +81,20 @@ export default function MarketPage() {
     if (tab === 'low') return valid.filter(r => r.low52 && r.days52 >= 120 && r.close <= r.low52 * 1.02).sort((a, b) => b.marketCap - a.marketCap)
     return []
   }, [scoped, tab])
+  const [sector, setSector] = useState(null)
+  const sectors = useMemo(() => {
+    const groups = new Map()
+    for (const r of scoped) {
+      if (r.changeRate === null || !(r.marketCap > 0)) continue
+      const code = String(r.indutyCode ?? '').slice(0, 2) || '??'
+      if (!groups.has(code)) groups.set(code, { code, items: [], cap: 0, weighted: 0, up: 0, down: 0 })
+      const g = groups.get(code)
+      g.items.push(r); g.cap += r.marketCap; g.weighted += r.marketCap * r.changeRate
+      if (r.changeRate > 0) g.up += 1
+      if (r.changeRate < 0) g.down += 1
+    }
+    return [...groups.values()].map(g => ({ ...g, change: Math.round(g.weighted / g.cap * 100) / 100 })).sort((a, b) => b.change - a.change)
+  }, [scoped])
   const up = scoped.filter(r => r.changeRate > 0).length
   const down = scoped.filter(r => r.changeRate < 0).length
   return <section className="stock-page market-page" aria-labelledby="market-title">
@@ -98,11 +112,20 @@ export default function MarketPage() {
         <div className="chart-legend"><span><i style={{ background: tileColor(-5) }} />−5% 이하</span><span><i style={{ background: tileColor(-1) }} />−1%</span><span><i style={{ background: tileColor(0) }} />0%</span>
           <span><i style={{ background: tileColor(1) }} />+1%</span><span><i style={{ background: tileColor(5) }} />+5% 이상</span></div>
         <p className="stock-hint">네모 크기는 시가총액, 색은 하루 등락률입니다. 업종별로 묶었고, 업종이 많으면 큰 업종 24개까지 보입니다. 네모를 누르면 종목 화면으로 갑니다.</p></>}
-      {!state.loading && rows.length > 0 && tab !== 'map' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>52주 범위</th>}</tr></thead>
+      {!state.loading && rows.length > 0 && tab === 'sectors' && <>
+        <div className="table-scroll"><table className="stock-table"><thead><tr><th>업종</th><th>시가총액 가중 등락률</th><th>오른 / 내린 종목</th><th>회사 수</th><th>업종 시가총액</th></tr></thead>
+          <tbody>{sectors.map(g => <tr key={g.code} className="clickable" onClick={() => setSector(sector === g.code ? null : g.code)}>
+            <td><button type="button" className="link-button">{industryName(g.code)}</button></td><td className={g.change > 0 ? 'up' : g.change < 0 ? 'down' : ''}>{formatPercent(g.change)}</td>
+            <td><span className="up">{g.up}</span> / <span className="down">{g.down}</span></td><td>{g.items.length}</td><td>{formatWon(g.cap)}</td></tr>)}</tbody></table></div>
+        {sector && <><h3 className="stock-h3">{industryName(sector)} 회사들</h3><div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>등락률</th><th>종가</th><th>시가총액</th></tr></thead>
+          <tbody>{(sectors.find(g => g.code === sector)?.items ?? []).sort((a, b) => b.marketCap - a.marketCap).map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td>
+            <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatPrice(r.close)}</td><td>{formatWon(r.marketCap)}</td></tr>)}</tbody></table></div></>}
+        <p className="stock-hint">업종 등락률은 큰 회사일수록 더 크게 반영한 값(시가총액 가중)입니다. 업종을 누르면 그 업종 회사들이 보입니다.</p></>}
+      {!state.loading && rows.length > 0 && tab !== 'map' && tab !== 'sectors' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>52주 범위</th>}</tr></thead>
         <tbody>{list.map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td><td>{r.market === 'KOSPI' ? '코스피' : '코스닥'}</td><td>{formatPrice(r.close)}</td>
           <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatWon(r.tradingValue)}</td><td>{formatWon(r.marketCap)}</td>
           {(tab === 'high' || tab === 'low') && <td>{formatPrice(r.low52)} ~ {formatPrice(r.high52)}</td>}</tr>)}</tbody></table></div>}
-      {!state.loading && tab !== 'map' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
+      {!state.loading && tab !== 'map' && tab !== 'sectors' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
       <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div><dl>
         <div><dt>52주 신고가 근처</dt><dd>최근 1년 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 120거래일 이상 자료가 있는 종목만).</dd></div>
         <div><dt>거래대금</dt><dd>그날 사고판 금액의 합. 관심이 몰린 종목을 볼 때 씁니다.</dd></div>

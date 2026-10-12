@@ -8,7 +8,8 @@ import { LineChart, BarChart, CandleChart } from './StockCharts.jsx'
 import ClaimCheck from './ClaimCheck.jsx'
 import FilingQuote from './FilingQuote.jsx'
 import AiAssist from './AiAssist.jsx'
-import { requestAssist } from './api/assistApi.js'
+import { requestAssist, requestQuote } from './api/assistApi.js'
+import { StockPriceAlerts } from './PriceAlerts.jsx'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
@@ -30,6 +31,7 @@ export const STOCK_TREE = [
     ['glossary', '용어 사전', '화면에 나오는 용어를 한곳에 모았습니다. 공부하듯 찾아볼 수 있습니다.'],
   ]],
   ['inspect', 'Inspect', '보다', '모아 둔 공식 자료를 분류별로 펼쳐 봅니다. 그래프·표·용어 풀이가 함께 있습니다.', [
+    ['summary', '한눈에', '주가·실적·재무·시장 평가·최근 공시를 한 화면에 모았습니다. 칸을 누르면 그 자료로 깊게 들어갑니다.'],
     ['company', '회사 개요', '어떤 회사인지 기본 정보와 상장 정보를 봅니다.', [['basic', '기본 정보'], ['listing', '상장 정보']]],
     ['price', '주가', '한국거래소(KRX)의 하루 단위 공식 시세입니다. 실시간 시세가 아닙니다.',
       [['trend', '가격 흐름'], ['candle', '봉 차트'], ['daily', '일별 시세'], ['volume', '거래량·거래대금'], ['cap', '시가총액'], ['range', '52주 최고·최저']]],
@@ -62,9 +64,9 @@ export const STOCK_TREE = [
 ]
 
 export function readPath() {
-  if (typeof window === 'undefined') return ['inspect', 'price', 'trend']
+  if (typeof window === 'undefined') return ['inspect', 'summary']
   const raw = new URLSearchParams(window.location.search).get('v')
-  return raw ? raw.split('.').filter(Boolean).slice(0, 8) : ['inspect', 'price', 'trend']
+  return raw ? raw.split('.').filter(Boolean).slice(0, 8) : ['inspect', 'summary']
 }
 
 export function nodeFor(path) {
@@ -186,7 +188,7 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
     </header>
 
     <Guide go={go} />
-    {loggedIn && <NotePanel companyId={companyId} />}
+    {loggedIn && <div className="stock-tools"><NotePanel companyId={companyId} /><StockPriceAlerts companyId={companyId} lastClose={last?.close} /></div>}
     {last && latestYear && <AiAssist kind="INSPECT" subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
       { label: '종가', value: formatPrice(last.close), period: last.date }, { label: '시가총액', value: formatWon(last.marketCap), period: last.date },
       ...(yearStats ? [{ label: '1년 주가 변화', value: formatPercent(yearStats.change), period: `${yearStats.first.date} — ${yearStats.last.date}` }] : []),
@@ -260,6 +262,7 @@ function StockView({ ctx }) {
       예: "{ctx.name} 작년 영업이익은 전년보다 30% 늘었다"처럼 숫자가 들어간 문장을 넣어 보세요.</Learn></>
     case 'ask/quote': return <AskQuote ctx={ctx} />
     case 'ask/glossary': return <Glossary />
+    case 'inspect/summary': return <SummaryView ctx={ctx} />
     case 'inspect/company': return <CompanyView ctx={ctx} view={third[0]} />
     case 'inspect/price': return deeper[0] ? <DayDetail ctx={ctx} date={deeper[0]} /> : <PriceView ctx={ctx} view={third[0]} />
     case 'inspect/earnings': return third[0] === 'quarters' ? <QuarterView ctx={ctx} /> : deeper[0] ? <YearDetail ctx={ctx} year={Number(deeper[0])} /> : <EarningsView ctx={ctx} view={third[0]} />
@@ -472,6 +475,22 @@ function DayDetail({ ctx, date }) {
       { label: '거래량', value: formatCount(p.volume), period: date },
       ...(idx ? [{ label: `${ctx.market} 지수 등락률`, value: formatPercent(idx.changeRate), period: date }] : []),
       ...dayFilings.slice(0, 8).map(f => ({ label: '같은 날 공시', value: f.title, period: f.date }))]} />
+    {(() => { const main = dayFilings.find(f => f.category !== 'OWNERSHIP') ?? dayFilings[0]
+      return <section className="why-box"><h3 className="stock-h3">🤔 이날 왜 {Number(p.changeRate) > 0 ? '올랐을까' : Number(p.changeRate) < 0 ? '내렸을까' : '이랬을까'}? ({formatPercent(p.changeRate)})</h3>
+        <ExplainStory subject={`${ctx.name} ${date} 주가 ${formatPercent(p.changeRate)}`} loggedIn={ctx.loggedIn} receipt={main?.receiptNo} question="주요 내용과 결정 이유, 목적"
+          facts={[{ label: '종가', value: formatPrice(p.close), period: date }, { label: '등락률', value: formatPercent(p.changeRate), period: date },
+            { label: '거래량', value: formatCount(p.volume), period: date },
+            ...(idx ? [{ label: `${ctx.market === 'KOSDAQ' ? '코스닥' : '코스피'} 등락률`, value: formatPercent(idx.changeRate), period: date }] : []),
+            ...dayFilings.slice(0, 6).map(f => ({ label: '같은 날 공시 제목', value: f.title, period: f.date }))]} />
+        <details className="stock-learn"><summary>근거를 하나씩 보기</summary>
+        <div className="why-steps">
+          <div><strong>① 시장 전체는?</strong><p className="stock-hint">{idx ? `같은 날 ${ctx.market === 'KOSDAQ' ? '코스닥' : '코스피'} ${formatPercent(idx.changeRate)}. ${Math.sign(Number(idx.changeRate)) === Math.sign(Number(p.changeRate)) ? '시장 전체와 같은 방향이었습니다.' : '시장 전체와 반대 방향이었습니다.'}` : '같은 날 지수 자료가 아직 없습니다.'}</p></div>
+          <div>{main ? <CompanyReason receipt={main.receiptNo} question="주요 내용과 결정 이유, 목적" loggedIn={ctx.loggedIn} title={`② 같은 날 회사 공시: ${main.title}`} />
+            : <><strong>② 회사 공시</strong><p className="stock-hint">이날 회사가 낸 공시는 없습니다.</p></>}</div>
+          <div><strong>③ 그 무렵 기사</strong><p className="stock-hint">언론의 해석은 「뉴스」에서 볼 수 있습니다(공식 근거는 아님).</p>
+            <button type="button" className="secondary-action" onClick={() => ctx.go(['inspect', 'news', 'list'])}>최근 기사 보기 →</button></div>
+        </div></details>
+        <p className="muted why-note">주가는 여러 이유가 겹쳐 움직여서 하나의 원인으로 단정할 수 없습니다. 같은 날 함께 일어난 사실과 회사가 직접 밝힌 내용을 모아 보여 드립니다.</p></section> })()}
     <h3 className="stock-h3">이날 접수된 공시 {dayFilings.length}건</h3>
     {dayFilings.length ? <FilingRows ctx={ctx} items={dayFilings} base={['inspect', 'filings', 'ALL']} /> : <p className="muted">이날 접수된 공시가 없습니다.</p>}
     <Source>KRX 일별 매매정보 {date.replaceAll('-', '')} · OpenDART 공시검색</Source>
@@ -514,6 +533,7 @@ function EarningsView({ ctx, view }) {
               <td><a href={y.dartUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>원문 ↗</a></td></tr> })}</tbody></table></div>
         <AiAssist kind="INSPECT" subject={`${ctx.name} · ${ACCOUNT_LABEL[view]} 연도별`} loggedIn={ctx.loggedIn}
           facts={ctx.years.filter(y => y.values[view] !== undefined).map(y => ({ label: `${ACCOUNT_LABEL[view]}`, value: formatWon(y.values[view]), period: `${y.year} 사업연도` }))} />
+        <WhyBox ctx={ctx} account={view} />
       </>}
     {finLearn}
     <Source>{ctx.finState.data?.source}</Source>
@@ -583,6 +603,9 @@ function RatioDetail({ ctx, ratioKey }) {
       <AiAssist kind="TERM" subject={r.label} loggedIn={ctx.loggedIn} facts={[{ label: '계산식', value: r.formula, period: '' },
         ...ctx.years.slice(-3).flatMap(y => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(y.values[k]), period: `${y.year}` })),
           { label: r.label, value: ratioText(r, y.ratios[r.key], r.group === '성장성'), period: `${y.year}` }])].slice(0, 20)} />
+      {ctx.years.length >= 2 && <AiAssist kind="WHY" subject={`${r.label} (${ctx.years[ctx.years.length - 2].year} → ${ctx.years[ctx.years.length - 1].year})`} loggedIn={ctx.loggedIn}
+        facts={ctx.years.slice(-2).flatMap(y => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(y.values[k]), period: `${y.year}` })),
+          { label: r.label, value: ratioText(r, y.ratios[r.key], r.group === '성장성'), period: `${y.year}` }])} />}
       <p className="muted">일반적으로 {r.better === 'high' ? '높을수록' : '낮을수록'} 여유 있게 읽지만, 업종마다 기준이 달라 같은 회사의 해마다 변화를 함께 보는 것이 좋습니다.</p></div>
     <LineChart ariaLabel={r.label} dates={ctx.years.map(y => `${y.year}-12-31`)} series={[{ key: r.key, label: r.label, color: COLORS.a, values: ctx.years.map(y => y.ratios[r.key]) }]}
       format={v => r.unit === '회' ? `${Number(v).toFixed(2)}회` : `${Number(v).toFixed(1)}%`} baseline={r.group === '성장성' ? 0 : null} />
@@ -590,6 +613,7 @@ function RatioDetail({ ctx, ratioKey }) {
       <tbody>{[...ctx.years].reverse().map(y => <tr key={y.year} className="clickable" onClick={() => ctx.go(['inspect', 'earnings', 'all', String(y.year)])}>
         <td><button type="button" className="link-button">{y.year}</button></td>{parts.map(k => <td key={k}>{formatWon(y.values[k])}</td>)}
         <td>{ratioText(r, y.ratios[r.key], r.group === '성장성')}</td></tr>)}</tbody></table></div>
+    <WhyBox ctx={ctx} ratio={r} />
     <Source>OpenDART 주요계정으로 AIRA가 계산 · 소수 첫째 자리 반올림</Source>
   </FinGate>
 }
@@ -1200,13 +1224,19 @@ function AskAi({ ctx }) {
   const [q, setQ] = useState('')
   const [state, setState] = useState({ loading: false, answer: null, error: null })
   const facts = companyFacts(ctx)
-  const examples = ['매출은 늘고 있어?', '빚은 많은 편이야?', '최근 1년 주가는 어땠어?', 'PER이 뭐고 이 회사는 얼마야?']
+  const examples = ['매출은 늘고 있어?', '영업이익이 왜 늘었어?', '빚은 많은 편이야?', '최근 1년 주가는 어땠어?', 'PER이 뭐고 이 회사는 얼마야?']
   async function ask(question) {
     const text = (question ?? q).trim()
     if (!text) return
     setQ(text)
     setState({ loading: true, answer: null, error: null })
-    try { setState({ loading: false, answer: await requestAssist({ kind: 'QA', subject: text.slice(0, 200), facts }), error: null }) }
+    let extra = []
+    const annual = [...ctx.years].reverse().find(y => y.receiptNo)
+    if (/왜|이유|원인|때문/.test(text) && annual) {
+      try { extra = ((await requestQuote(annual.receiptNo, text.slice(0, 120))).quotes ?? []).slice(0, 3)
+        .map(q => ({ label: '회사 설명(사업보고서 원문)', value: q.text.slice(0, 700), period: `${annual.year} 사업보고서 문단 ${q.passageNo}` })) } catch { extra = [] }
+    }
+    try { setState({ loading: false, answer: await requestAssist({ kind: 'QA', subject: text.slice(0, 200), facts: [...facts.slice(0, 24 - extra.length), ...extra] }), error: null }) }
     catch (error) { setState({ loading: false, answer: null, error }) }
   }
   if (!ctx.loggedIn) return <Empty>로그인(또는 첫 화면의 「데모로 둘러보기」)하면 AI에게 물어볼 수 있습니다. 질문은 저장하지 않습니다.</Empty>
@@ -1222,5 +1252,147 @@ function AskAi({ ctx }) {
       {(state.answer.limitations ?? []).map(note => <small key={note} className="muted">{note}</small>)}</div>}
     <details className="stock-learn"><summary>AI가 참고한 자료 {facts.length}개</summary><div><dl>{facts.map((f, i) => <div key={i}><dt>{f.label}</dt><dd>{f.value} · {f.period}</dd></div>)}</dl></div></details>
     <Source>AI 답은 위 공식 값 안에서만 만들고, 숫자가 하나라도 자료에 없으면 버리고 규칙 정리로 대신합니다.</Source>
+  </div>
+}
+
+// ---------------- 보다 · 한눈에 ----------------
+function SummaryCard({ title, to, ctx, children }) {
+  return <section className="summary-card"><div className="summary-card-head"><h3>{title}</h3>
+    <button type="button" className="link-button" onClick={() => ctx.go(to)}>자세히 →</button></div>{children}</section>
+}
+
+function SummaryView({ ctx }) {
+  const year = lastDays(ctx.points, 365)
+  const y = ctx.years[ctx.years.length - 1]
+  const v = valuation(ctx.points[ctx.points.length - 1], y)
+  const recent = ctx.years.slice(-5)
+  return <div className="summary-grid">
+    <SummaryCard title="주가 1년" to={['inspect', 'price', 'trend']} ctx={ctx}>
+      {year.length > 1 ? <><LineChart ariaLabel="1년 종가" height={150} dates={year.map(p => p.date)} series={[{ key: 'c', label: '종가', color: COLORS.a, values: year.map(p => Number(p.close)) }]}
+        format={x => Number(x).toLocaleString('ko-KR')} />
+        <p className="summary-line">1년 {formatPercent(ctx.yearStats?.change)} · 최고 {formatPrice(ctx.yearStats?.high.close)} · 최저 {formatPrice(ctx.yearStats?.low.close)}</p></>
+        : <p className="muted">주가를 채우는 중입니다.</p>}
+    </SummaryCard>
+    <SummaryCard title="실적 (사업연도)" to={['inspect', 'earnings', 'all']} ctx={ctx}>
+      {recent.length ? <><BarChart ariaLabel="매출과 영업이익" height={150} categories={recent.map(r => String(r.year))}
+        series={[{ key: 'r', label: '매출', color: COLORS.a, values: recent.map(r => r.values.REVENUE ?? null) }, { key: 'o', label: '영업이익', color: COLORS.b, values: recent.map(r => r.values.OPERATING_INCOME ?? null) }]} format={formatWon} />
+        <p className="summary-line">{y.year} 매출 {formatWon(y.values.REVENUE)} ({y.ratios.revenueGrowth === null ? '—' : formatPercent(y.ratios.revenueGrowth)}) · 영업이익률 {formatPercent(y.ratios.operatingMargin, { sign: false })}</p></>
+        : <p className="muted">재무 값을 채우는 중입니다.</p>}
+    </SummaryCard>
+    <SummaryCard title="재무 건전성" to={['inspect', 'ratios', '안정성']} ctx={ctx}>
+      {y ? <dl className="summary-dl"><div><dt>부채비율</dt><dd>{formatPercent(y.ratios.debtRatio, { sign: false })}</dd></div><div><dt>유동비율</dt><dd>{formatPercent(y.ratios.currentRatio, { sign: false })}</dd></div>
+        <div><dt>자기자본비율</dt><dd>{formatPercent(y.ratios.equityRatio, { sign: false })}</dd></div><div><dt>ROE</dt><dd>{formatPercent(y.ratios.roe, { sign: false })}</dd></div></dl> : <p className="muted">재무 값을 채우는 중입니다.</p>}
+    </SummaryCard>
+    <SummaryCard title="시장 평가" to={['inspect', 'ratios', '시장 평가']} ctx={ctx}>
+      {v ? <dl className="summary-dl"><div><dt>PER</dt><dd>{v.per === null ? '적자' : `${v.per}배`}</dd></div><div><dt>PBR</dt><dd>{v.pbr === null ? '—' : `${v.pbr}배`}</dd></div>
+        <div><dt>EPS</dt><dd>{v.eps === null ? '—' : formatPrice(v.eps)}</dd></div><div><dt>BPS</dt><dd>{v.bps === null ? '—' : formatPrice(v.bps)}</dd></div></dl> : <p className="muted">시가총액과 재무 값이 모두 있어야 계산합니다.</p>}
+    </SummaryCard>
+    <SummaryCard title="최근 공시" to={['inspect', 'filings', 'ALL']} ctx={ctx}>
+      {ctx.filings.length ? <ul className="summary-list">{ctx.filings.slice(0, 5).map(f => <li key={f.receiptNo}><button type="button" className="link-button" onClick={() => ctx.go(['inspect', 'filings', 'ALL', f.receiptNo])}>{f.title}</button><small>{f.date}</small></li>)}</ul>
+        : <p className="muted">공시를 불러오는 중이거나 없습니다.</p>}
+    </SummaryCard>
+    <SummaryCard title="시장과 비교 (1년)" to={['relate', 'market', 'compare']} ctx={ctx}>
+      {ctx.yearStats && ctx.marketStats ? <dl className="summary-dl"><div><dt>{ctx.name}</dt><dd>{formatPercent(ctx.yearStats.change)}</dd></div>
+        <div><dt>{ctx.market === 'KOSDAQ' ? '코스닥' : '코스피'}</dt><dd>{formatPercent(ctx.marketStats.change)}</dd></div></dl> : <p className="muted">지수를 채우는 중입니다.</p>}
+    </SummaryCard>
+  </div>
+}
+
+// ---------------- "왜 그럴까?" : 숫자로 보면 + 회사가 밝힌 이유 + 같은 업종·시장 ----------------
+/** 회사가 공시(사업보고서 등)에 직접 적은 설명을 글자 그대로 찾아 준다. 해석의 출처는 회사이며 AIRA의 판단이 아니다. */
+export function CompanyReason({ receipt, question, loggedIn, title = '회사가 공시에서 밝힌 이유' }) {
+  const [state, setState] = useState({ status: 'idle', result: null })
+  useEffect(() => { setState({ status: 'idle', result: null }) }, [receipt, question])
+  if (!receipt) return null
+  if (!loggedIn) return <p className="stock-hint">로그인하면 회사가 공시에서 직접 밝힌 이유를 원문 그대로 찾아 드립니다.</p>
+  async function run() {
+    setState({ status: 'loading', result: null })
+    try { setState({ status: 'done', result: await requestQuote(receipt, question) }) } catch { setState({ status: 'error', result: null }) }
+  }
+  const r = state.result
+  return <div className="why-reason">
+    <div className="why-reason-head"><strong>📄 {title}</strong>
+      {state.status !== 'done' && <button type="button" className="secondary-action" onClick={run} disabled={state.status === 'loading'}>{state.status === 'loading' ? '원문에서 찾는 중…' : '원문에서 찾기'}</button>}</div>
+    {state.status === 'error' && <p className="stock-hint">원문을 지금 읽을 수 없습니다. <a href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${receipt}`} target="_blank" rel="noopener noreferrer">DART에서 직접 보기 ↗</a></p>}
+    {r && <>{(r.quotes ?? []).length === 0 && <p className="stock-hint">질문과 맞는 문장을 찾지 못했습니다. 원문을 직접 확인해 주세요.</p>}
+      {(r.quotes ?? []).slice(0, 4).map(q => <blockquote className="filing-quote-quote" key={q.passageNo}><span>원문 문단 {q.passageNo} · 글자 그대로</span><p>{q.text}</p></blockquote>)}
+      {r.explanation && <div className="filing-quote-note"><span className="ai-assist-badge is-ai">AI 쉬운 풀이 · 인용 안의 내용만</span><p className="ai-assist-text">{r.explanation}</p></div>}
+      <a className="ai-assist-link" href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${receipt}`} target="_blank" rel="noopener noreferrer">DART 원문 전체 보기 ↗</a></>}
+  </div>
+}
+
+/** 지표 하나의 "왜?" 상자. account: 금액 항목 키, ratio: 비율 정의(선택). */
+function WhyBox({ ctx, account, ratio }) {
+  const y = ctx.years[ctx.years.length - 1]
+  const prev = ctx.years[ctx.years.length - 2]
+  if (!y || !prev) return null
+  const label = ratio ? ratio.label : ACCOUNT_LABEL[account]
+  const now = ratio ? y.ratios[ratio.key] : y.values[account]
+  const before = ratio ? prev.ratios[ratio.key] : prev.values[account]
+  if (now === null || now === undefined || before === null || before === undefined) return null
+  const up = now > before
+  const word = up ? '증가' : now < before ? '감소' : '변동'
+  const parts = ratio ? ({ operatingMargin: ['OPERATING_INCOME', 'REVENUE'], netMargin: ['NET_INCOME', 'REVENUE'], roe: ['NET_INCOME', 'TOTAL_EQUITY'], roa: ['NET_INCOME', 'TOTAL_ASSETS'],
+    debtRatio: ['TOTAL_LIABILITIES', 'TOTAL_EQUITY'], currentRatio: ['CURRENT_ASSETS', 'CURRENT_LIABILITIES'], equityRatio: ['TOTAL_EQUITY', 'TOTAL_ASSETS'],
+    assetTurnover: ['REVENUE', 'TOTAL_ASSETS'], equityTurnover: ['REVENUE', 'TOTAL_EQUITY'], revenueGrowth: ['REVENUE'], operatingGrowth: ['OPERATING_INCOME'], netGrowth: ['NET_INCOME'] }[ratio.key] ?? []) : [account]
+  const question = `${prev.year}년 대비 ${y.year}년 ${parts.map(k => ACCOUNT_LABEL[k]).join('·')} ${word} 원인`
+  const change = (a, b) => (a ? Math.round((b - a) / Math.abs(a) * 1000) / 10 : null)
+  const storyFacts = [
+    ...parts.flatMap(k => [{ label: `${prev.year} ${ACCOUNT_LABEL[k]}`, value: formatWon(prev.values[k]), period: `${prev.year} 사업연도` },
+      { label: `${y.year} ${ACCOUNT_LABEL[k]}`, value: formatWon(y.values[k]), period: `${y.year} 사업연도` },
+      { label: `${ACCOUNT_LABEL[k]} 변화율`, value: formatPercent(change(prev.values[k], y.values[k])), period: `${prev.year}→${y.year}` }]),
+    ...(ratio ? [{ label: `${prev.year} ${label}`, value: ratioText(ratio, before, ratio.group === '성장성'), period: `${prev.year}` },
+      { label: `${y.year} ${label}`, value: ratioText(ratio, now, ratio.group === '성장성'), period: `${y.year}` }] : []),
+  ]
+  return <section className="why-box" aria-label={`${label} 왜 그럴까`}>
+    <h3 className="stock-h3">🤔 {label}, 왜 {up ? '늘었을까' : now < before ? '줄었을까' : '이럴까'}? ({prev.year} → {y.year})</h3>
+    <ExplainStory subject={`${ctx.name} ${label} (${prev.year} → ${y.year})`} facts={storyFacts} receipt={y.receiptNo} question={question} loggedIn={ctx.loggedIn} />
+    <details className="stock-learn"><summary>근거를 하나씩 보기</summary>
+    <div className="why-steps">
+      <div><strong>① 숫자로 보면</strong>
+        <ul className="stock-bullets">{parts.map(k => { const a = prev.values[k], b = y.values[k]
+          return <li key={k}>{ACCOUNT_LABEL[k]}: {formatWon(a)} → {formatWon(b)} ({a ? formatPercent((b - a) / Math.abs(a) * 100) : '—'})</li> })}</ul>
+        <AiAssist kind="WHY" subject={`${label} (${prev.year} → ${y.year})`} loggedIn={ctx.loggedIn}
+          facts={ctx.years.slice(-2).flatMap(row => [...parts.map(k => ({ label: ACCOUNT_LABEL[k], value: formatWon(row.values[k]), period: `${row.year}` })),
+            ...(ratio ? [{ label, value: ratioText(ratio, row.ratios[ratio.key], ratio.group === '성장성'), period: `${row.year}` }] : [])])} /></div>
+      <div><CompanyReason receipt={y.receiptNo} question={question} loggedIn={ctx.loggedIn} title={`② 회사가 ${y.year} 사업보고서에서 밝힌 이유`} /></div>
+      <div><strong>③ 같은 업종도 그랬을까?</strong>
+        <p className="stock-hint">회사만의 일인지 업종 전체의 흐름인지 보려면 같은 업종 회사들과 견줘 보세요.</p>
+        <button type="button" className="secondary-action" onClick={() => ctx.go(['relate', 'industry', 'table'])}>업종 안에서 비교하기 →</button></div>
+    </div></details>
+    <p className="muted why-note">②는 회사가 공시에 직접 적은 설명을 글자 그대로 옮긴 것이고, AIRA는 원인을 새로 지어내지 않습니다.</p>
+  </section>
+}
+
+/**
+ * 이해시키는 설명: 숫자(무엇이 바뀌었나) + 회사가 공시에 직접 쓴 이유(원문 인용) → AI가 이어지는 이야기로 풀어 준다.
+ * AI는 받은 자료 안의 숫자·문장만 쓰며(서버가 검사), 원인은 회사 설명에서만 가져오고 예측·추천은 하지 않는다.
+ */
+export function ExplainStory({ subject, facts, receipt, question, loggedIn }) {
+  const [state, setState] = useState({ status: 'idle', story: null, quotes: [] })
+  useEffect(() => { setState({ status: 'idle', story: null, quotes: [] }) }, [subject, receipt, question])
+  if (!loggedIn) return <div className="explain-story locked"><strong>🤖 이해하기 쉽게 설명 듣기</strong><p className="stock-hint">로그인(또는 데모)하면 숫자와 회사 공시를 엮어 쉬운 말로 설명해 드립니다.</p></div>
+  async function run() {
+    setState({ status: 'loading', story: null, quotes: [] })
+    let quotes = []
+    if (receipt && question) {
+      try { quotes = ((await requestQuote(receipt, question)).quotes ?? []).slice(0, 3) } catch { quotes = [] }
+    }
+    const all = [...facts.slice(0, 24 - quotes.length), ...quotes.map(q => ({ label: '회사 설명(공시 원문)', value: q.text.slice(0, 700), period: `원문 문단 ${q.passageNo}` }))]
+    try {
+      const story = await requestAssist({ kind: 'EXPLAIN', subject, facts: all })
+      setState({ status: 'done', story, quotes })
+    } catch { setState({ status: 'error', story: null, quotes }) }
+  }
+  const st = state.story
+  return <div className="explain-story">
+    <div className="why-reason-head"><strong>🤖 이해하기 쉽게 설명 듣기</strong>
+      {state.status !== 'done' && <button type="button" className="primary-action" onClick={run} disabled={state.status === 'loading'}>{state.status === 'loading' ? '숫자와 공시를 읽는 중…' : '설명 듣기'}</button>}</div>
+    {state.status === 'error' && <p className="stock-hint">설명을 지금 만들 수 없습니다. 아래 근거를 직접 확인해 주세요.</p>}
+    {st && <><p className="explain-text">{st.text}</p>
+      <small className="muted">{st.method === 'AI' ? 'AI 설명 · 근거가 아니며 아래 숫자와 회사 원문 안에서만 만들었습니다.' : 'AI 설명이 확인 규칙을 통과하지 못해 자료만 정리했습니다.'}</small>
+      {state.quotes.length > 0 && <details className="stock-learn"><summary>회사 원문 {state.quotes.length}문단 보기</summary><div>{state.quotes.map(q =>
+        <blockquote className="filing-quote-quote" key={q.passageNo}><span>원문 문단 {q.passageNo} · 글자 그대로</span><p>{q.text}</p></blockquote>)}
+        {receipt && <a className="ai-assist-link" href={`https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${receipt}`} target="_blank" rel="noopener noreferrer">DART 원문 전체 ↗</a>}</div></details>}</>}
   </div>
 }

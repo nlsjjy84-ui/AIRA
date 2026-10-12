@@ -18,3 +18,7 @@ export const getStockCashFlow = id => request(`${base(id)}/cash-flow`)
 export const getStockNote = id => request(`/api/me/stock-notes/${encodeURIComponent(id)}`)
 export const putStockNote = (id, body) => request(`/api/me/stock-notes/${encodeURIComponent(id)}`, {
   method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body }) })
+export const getPriceAlerts = () => request('/api/me/price-alerts')
+export const createPriceAlert = (companyId, direction, target) => request('/api/me/price-alerts', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId, direction, target }) })
+export const deletePriceAlert = id => request(`/api/me/price-alerts/${encodeURIComponent(id)}`, { method: 'DELETE' })

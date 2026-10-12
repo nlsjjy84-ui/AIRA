@@ -38,6 +38,10 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
     private final FinancialHistoryStore financials;
     private final StockCompanyLookup companies;
     private ProfileStore profiles;
+    private PriceAlertService alerts;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setAlerts(PriceAlertService alerts) { this.alerts = alerts; }
     private final boolean enabled;
     private final String krxKey;
     private final int priceDays;
@@ -96,6 +100,9 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
             if (!krxKey.isBlank()) {
                 for (String market : List.of("KOSPI", "KOSDAQ")) backfillPrices(market);
                 for (String market : List.of("KOSPI", "KOSDAQ")) backfillIndex(market);
+                if (alerts != null) {
+                    try { note("alerts.triggered", alerts.evaluate()); } catch (RuntimeException e) { note("alerts.lastError", e.getMessage()); }
+                }
             } else {
                 log.warn("Stock price backfill skipped: AIRA_KRX_AUTH_KEY is not configured");
             }

@@ -29,8 +29,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReadingAssistService {
     private static final Logger log = LoggerFactory.getLogger(ReadingAssistService.class);
-    static final Set<String> KINDS = Set.of("INSPECT", "BRIEFING", "ASK", "COMPARE", "ALERT", "EVIDENCE", "TRANSLATE", "TERM", "DAY", "CHECK", "QA");
-    static final int MAX_FACTS = 20;
+    static final Set<String> KINDS = Set.of("INSPECT", "BRIEFING", "ASK", "COMPARE", "ALERT", "EVIDENCE", "TRANSLATE", "TERM", "DAY", "CHECK", "QA", "WHY", "EXPLAIN");
+    static final int MAX_FACTS = 24;
     static final int MAX_FIELD = 800;
     static final int MAX_CALLS_PER_HOUR = 30;
     static final List<String> FORBIDDEN = List.of("추천", "매수", "매도", "사세요", "파세요", "호재", "악재",
@@ -234,6 +234,8 @@ public class ReadingAssistService {
             case "TERM" -> out.append(clean.subject()).append(" — 이 회사 값: ");
             case "DAY" -> out.append(clean.subject()).append(" 하루 기록: ");
             case "CHECK" -> out.append("확인 항목: ");
+            case "WHY" -> out.append(clean.subject()).append(" — 계산에 쓰인 값: ");
+            case "EXPLAIN" -> out.append(clean.subject()).append(" — 설명에 쓸 자료: ");
             case "QA" -> out.append("질문에 바로 답하지 못해 관련 공식 값을 모았습니다: ");
             default -> out.append(clean.subject()).append("은(는) 아래 관점으로 확인할 수 있습니다: ");
         }
@@ -249,15 +251,17 @@ public class ReadingAssistService {
 
     static String prompt(Clean clean) {
         String task = switch (clean.kind()) {
-            case "INSPECT" -> "아래 공식 재무 값을 처음 보는 사람이 이해하도록 쉬운 한국어 2~4문장으로 풀어 쓰세요. 각 값이 무엇을 뜻하는지와 어떤 기간의 값인지만 설명하세요.";
+            case "INSPECT" -> "아래 공식 값을 쉬운 한국어 3~5문장으로 풀어 쓰세요. 처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. 각 값이 무엇을 뜻하는지, 값들끼리 어떻게 이어지는지, 어떤 기간의 값인지 설명하세요.";
             case "BRIEFING" -> "아래 새로 정리된 변화 항목을 한국어 3문장 이내로 요약하세요. 반드시 '같은 기간에 함께 나타난 변화이며 원인을 뜻하지 않는다'는 취지의 문장을 한 번 포함하세요.";
             case "COMPARE" -> "아래 두 기간(A, B)의 같은 항목 값을 비교해 쉬운 한국어 2~4문장으로 설명하세요. 어느 쪽 값이 더 큰지와 어떤 기간인지만 말하고, 변화의 원인이나 의미 있는 변화인지는 판단하지 마세요.";
             case "ALERT" -> "아래 알림이 어떤 내용인지 한국어 2문장 이내로 쉽게 설명하세요. 새 분석과 아직 확인할 점을 구분해 쓰고, 알림 항목에 없는 사실은 쓰지 마세요.";
             case "EVIDENCE" -> "아래 공식 근거 정보(출처, 자료 이름, 식별자)가 무엇인지 한국어 2~3문장으로 쉽게 설명하세요. 원문 내용은 읽지 않았으므로 원문에 무엇이 적혀 있는지는 쓰지 말고, 이 자료가 어떤 종류의 근거인지와 어디서 확인할 수 있는지만 설명하세요.";
-            case "TERM" -> "subject에 적힌 용어를 처음 배우는 사람에게 쉬운 한국어 2~4문장으로 설명하세요. 데이터에 있는 이 회사 값을 예로 들어 계산 방법을 보여 주되, 그 값이 좋은지 나쁜지는 판단하지 마세요.";
-            case "DAY" -> "아래는 하루 동안의 공식 시세와 같은 날 접수된 공시 제목입니다. 그날 있었던 일을 사실만 쉬운 한국어 2~4문장으로 정리하세요. 반드시 '같은 날 함께 나타난 일이며 주가 움직임의 원인을 뜻하지 않는다'는 취지의 문장을 한 번 포함하세요.";
+            case "TERM" -> "처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. subject에 적힌 용어를 쉬운 한국어 3~5문장으로 설명하세요. 왜 이 숫자를 보는지(무엇을 알 수 있는지)를 먼저 말하고, 데이터에 있는 이 회사 값을 예로 들어 계산 방법을 보여 주되, 그 값이 좋은지 나쁜지는 판단하지 마세요.";
+            case "DAY" -> "아래는 하루 동안의 공식 시세와 같은 날 접수된 공시 제목입니다. 처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. 그날 있었던 일을 쉬운 한국어 3~5문장으로 정리하세요. 시장 전체와 같은 방향이었는지, 회사가 무엇을 알렸는지를 이어서 설명하세요. 반드시 '같은 날 함께 나타난 일이며 주가 움직임의 원인을 뜻하지 않는다'는 취지의 문장을 한 번 포함하세요.";
             case "CHECK" -> "아래 확인 항목과 답(예/아니오/자료 없음)을 처음 보는 사람이 이해하도록 쉬운 한국어 2~4문장으로 정리하세요. 각 항목이 무엇을 확인하는지만 설명하고, 회사가 좋다·나쁘다거나 투자해도 된다는 판단은 하지 마세요.";
-            case "QA" -> "subject는 사용자의 질문입니다. 아래 데이터(이 회사의 공식 값)만으로 쉬운 한국어 2~5문장으로 답하세요. 데이터로 답할 수 없는 부분은 '이 화면의 자료로는 알 수 없다'고 쓰고, 어느 자료(주가·실적·재무·공시)를 더 보면 되는지만 안내하세요. 사라·팔라, 오를지·내릴지, 좋은 회사인지 같은 판단과 예측은 하지 마세요.";
+            case "QA" -> "subject는 사용자의 질문입니다. 처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. 아래 데이터(이 회사의 공식 값과 회사가 공시에 적은 문장)만으로 쉬운 한국어 3~6문장으로 답하세요. 먼저 질문에 대한 답을 한 문장으로 말하고, 그 다음 근거 숫자와 그 의미를 풀어 주세요. 데이터로 답할 수 없는 부분은 '이 화면의 자료로는 알 수 없다'고 쓰고, 어느 자료(주가·실적·재무·공시)를 더 보면 되는지만 안내하세요. 사라·팔라, 오를지·내릴지, 좋은 회사인지 같은 판단과 예측은 하지 마세요.";
+            case "WHY" -> "처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. subject의 지표가 두 해 사이에 왜 바뀌었는지를 쉬운 한국어 3~5문장으로 설명하세요. 지표를 이루는 항목(분자·분모)이 각각 얼마나 바뀌었는지 데이터의 숫자로 보여 주고, 어느 쪽 변화가 지표를 움직였는지만 말하세요. 회사 밖의 원인(시장 상황, 경영 판단 등)이나 앞으로의 전망은 쓰지 마세요.";
+            case "EXPLAIN" -> "처음 배우는 사람이 ‘아, 그래서 그렇구나’ 하고 이해하도록, 사실을 나열하지 말고 이어지는 이야기로 설명하세요. 숫자가 무엇을 뜻하는지 생활 속 쉬운 비유(예: 1,000원어치를 팔면 남는 돈)를 한 번 들어도 좋습니다. subject의 변화를 쉬운 한국어 4~7문장으로 설명하세요. 순서: (1) 무엇이 얼마나 바뀌었는지, (2) 왜 그런지 — 반드시 데이터에 있는 '회사 설명' 항목(회사가 공시에 직접 쓴 문장)에서만 이유를 가져오고 '회사는 ~라고 밝혔다'처럼 출처를 밝히세요. 회사 설명이 없으면 '회사가 밝힌 이유는 찾지 못했다'고 쓰세요, (3) 그 변화가 무슨 뜻인지 쉬운 비유로, (4) 이어서 무엇을 확인해 보면 좋은지(다음 분기 실적, 같은 업종 비교 등). 앞으로 어떻게 될지 예측하지 마세요.";
             case "TRANSLATE" -> "아래 data의 item 값(value)들을 자연스러운 영어로 번역하세요. 의미를 더하거나 빼지 말고 숫자와 날짜는 그대로 유지하세요. 번역문만 쓰세요.";
             default -> "아래 대상에 대해 선택할 수 있는 관점이 각각 무엇을 보여주는지 한국어 2~3문장으로 설명하세요. 어느 관점을 고르라고 권하지 마세요.";
         };
@@ -277,11 +281,13 @@ public class ReadingAssistService {
     /** Returns null when the text is acceptable, otherwise a short rejection reason. */
     static String guard(String answer, Clean clean) {
         if (answer == null || answer.isBlank()) return "EMPTY";
-        if (answer.length() > 800) return "TOO_LONG";
+        if (answer.length() > 1400) return "TOO_LONG";
         String lower = answer.toLowerCase();
         for (String word : FORBIDDEN) if (lower.contains(word)) return "FORBIDDEN_WORD";
         Set<String> allowed = new HashSet<>();
         allowed.add(String.valueOf(clean.facts().size()));
+        // 쉬운 비유에 쓰는 기준 금액(100원·1,000원·10,000원)은 새 사실이 아니므로 허용한다.
+        allowed.addAll(Set.of("10", "100", "1000", "10000"));
         collectNumbers(clean.subject(), allowed);
         for (AssistRequest.Fact fact : clean.facts()) {
             collectNumbers(fact.label(), allowed);
