@@ -12,7 +12,7 @@ function tileColor(rate) {
   return `color-mix(in srgb, ${rate >= 0 ? 'var(--up)' : 'var(--down)'} ${rate === 0 ? 0 : strength}%, var(--surface))`
 }
 
-function MarketMap({ rows, market }) {
+export function MarketMap({ rows, market, compact = false }) {
   const ref = useRef(null)
   const [width, setWidth] = useState(960)
   const [hover, setHover] = useState(null)
@@ -23,7 +23,7 @@ function MarketMap({ rows, market }) {
     observer.observe(node)
     return () => observer.disconnect()
   }, [])
-  const height = Math.max(420, Math.round(width * 0.62))
+  const height = compact ? Math.max(260, Math.round(width * 0.5)) : Math.max(420, Math.round(width * 0.62))
   const groups = useMemo(() => {
     const byIndustry = new Map()
     for (const row of rows) {
@@ -34,16 +34,17 @@ function MarketMap({ rows, market }) {
     }
     const list = [...byIndustry.entries()].map(([code, items]) => ({ code, items: items.sort((a, b) => b.marketCap - a.marketCap), value: items.reduce((s, r) => s + r.marketCap, 0) }))
       .sort((a, b) => b.value - a.value)
-    const top = list.slice(0, 24)
+    const top = list.slice(0, compact ? 12 : 24)
     const rectangles = squarify(top, 0, 0, width, height)
     return rectangles.map(group => {
       const inner = { x: group.x + 2, y: group.y + 18, w: Math.max(0, group.w - 4), h: Math.max(0, group.h - 20) }
-      const shown = group.items.slice(0, 30)
-      const rest = group.items.slice(30)
+      const keep = compact ? 10 : 30
+      const shown = group.items.slice(0, keep)
+      const rest = group.items.slice(keep)
       const tiles = [...shown.map(r => ({ ...r, value: r.marketCap })), ...(rest.length ? [{ name: `그 밖의 ${rest.length}곳`, value: rest.reduce((s, r) => s + r.marketCap, 0), rest: true }] : [])]
       return { ...group, tiles: squarify(tiles, inner.x, inner.y, inner.w, inner.h) }
     })
-  }, [rows, market, width, height])
+  }, [rows, market, width, height, compact])
   return <div className="market-map" ref={ref}>
     <svg width={width} height={height} role="img" aria-label="업종별 시장 지도: 네모 크기는 시가총액, 색은 등락률">
       {groups.map(group => <g key={group.code}>

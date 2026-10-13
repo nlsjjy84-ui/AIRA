@@ -102,7 +102,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         worker.start();
     }
 
-    @Scheduled(cron = "${aira.stock.backfill.cron:0 50 18 * * *}", zone = "Asia/Seoul")
+    @Scheduled(cron = "${aira.stock.backfill.cron:0 40 8,18 * * *}", zone = "Asia/Seoul")
     public void daily() {
         if (enabled) runOnce();
     }

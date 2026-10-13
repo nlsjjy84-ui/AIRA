@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getClaimStats } from './api/classApi.js'
 import { requestClaimCheck } from './api/assistApi.js'
 
 const VERDICT = {
@@ -13,11 +14,23 @@ const VERDICT = {
  * "Is this statement true?" The AI only splits the pasted text into statements. The verdict on each one comes
  * from comparing the stated amount with the stored official value, and the source is shown next to it.
  */
-export default function ClaimCheck({ loggedIn }) {
+export const HERO_EXAMPLES = [
+  '삼성전자 작년 영업이익은 전년보다 33% 늘었다고 한다.',
+  '삼성전자 작년 매출이 400조 원을 넘었다던데?'
+]
+
+export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
   const [text, setText] = useState('')
   const [state, setState] = useState({ status: 'idle', response: null })
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    if (!hero) return undefined
+    let alive = true
+    getClaimStats(30).then(data => alive && setStats(data)).catch(() => {})
+    return () => { alive = false }
+  }, [hero])
 
-  if (!loggedIn) {
+  if (!loggedIn && !hero) {
     return <section className="claim-check claim-check-locked" aria-label="이 말, 사실이야?">
       <p className="eyebrow">이 말, 사실이야? · 선택 기능</p>
       <p className="ai-assist-lead">로그인하면 기사·리포트·커뮤니티 글을 붙여 넣고, 숫자로 확인할 수 있는 말이 공식 공시 값과 맞는지 볼 수 있습니다.</p>
@@ -29,6 +42,10 @@ export default function ClaimCheck({ loggedIn }) {
     const value = text.trim()
     if (value.length < 4) return
     setState({ status: 'loading', response: null })
+    if (!loggedIn) {
+      const entered = onNeedLogin ? await onNeedLogin() : false
+      if (!entered) { setState({ status: 'login-error', response: null }); return }
+    }
     try {
       setState({ status: 'done', response: await requestClaimCheck(value) })
     } catch {
@@ -37,19 +54,28 @@ export default function ClaimCheck({ loggedIn }) {
   }
 
   const response = state.response
-  return <section className="claim-check" aria-label="이 말, 사실이야?">
-    <p className="eyebrow">이 말, 사실이야? · 선택 기능</p>
-    <h2>들은 말, 공식 숫자와 맞는지 확인해 보세요.</h2>
-    <p className="ai-assist-lead">기사나 글의 문장을 붙여 넣으면 AI가 확인할 말만 나누고, 맞는지는 AIRA에 저장된 공식 값과 직접 비교해 보여 드립니다.</p>
+  return <section className={hero ? 'claim-check claim-check-hero' : 'claim-check'} aria-label="이 말, 사실이야?">
+    <p className="eyebrow">{hero ? '이 말, 사실이야?' : '이 말, 사실이야? · 선택 기능'}</p>
+    <h2>{hero ? '들은 숫자, 공시와 맞을까요?' : '들은 말, 공식 숫자와 맞는지 확인해 보세요.'}</h2>
+    {hero && stats && stats.total >= 10 && <p className="claim-stats" aria-label="최근 30일 사실 확인 통계">
+      최근 30일 확인한 말 <b>{stats.total.toLocaleString('ko-KR')}</b>건 · 공식 값과 다름 <b className="down">{stats.mismatches.toLocaleString('ko-KR')}</b>건
+      {stats.byItem?.[0] && <small> · 가장 많이 확인한 숫자: {stats.byItem[0].item}</small>}</p>}
+    {!hero && <p className="ai-assist-lead">기사나 글의 문장을 붙여 넣으면 AI가 확인할 말만 나누고, 맞는지는 AIRA에 저장된 공식 값과 직접 비교해 보여 드립니다.</p>}
     <form onSubmit={submit} className="claim-check-form">
       <label htmlFor="claim-check-input">확인하고 싶은 말</label>
-      <textarea id="claim-check-input" value={text} maxLength={600} rows={3} onChange={event => setText(event.target.value)}
-        placeholder="예: 삼성전자는 작년 영업이익이 43.6조 원이라고 한다." />
+      <textarea id="claim-check-input" value={text} maxLength={600} rows={hero ? 2 : 3} onChange={event => setText(event.target.value)}
+        placeholder={hero ? '유튜브·기사·단톡방에서 들은 말을 붙여 넣어 보세요.' : '예: 삼성전자는 작년 영업이익이 43.6조 원이라고 한다.'} />
+      {hero && <div className="claim-check-examples" aria-label="예시 문장">
+        <span>예시로 해 보기</span>
+        {HERO_EXAMPLES.map(example => <button key={example} type="button" onClick={() => setText(example)}>{example}</button>)}
+      </div>}
       <div className="claim-check-actions">
         <button type="submit" disabled={state.status === 'loading' || text.trim().length < 4}>{state.status === 'loading' ? '확인하는 중…' : '사실 확인'}</button>
         <span className="claim-check-count">{text.length}/600</span>
       </div>
     </form>
+    {hero && !loggedIn && state.status === 'idle' && <p className="ai-assist-note">가입하지 않아도 됩니다. 누르면 읽기 전용 데모 계정으로 바로 확인합니다.</p>}
+    {state.status === 'login-error' && <p className="ai-assist-note" role="status">지금은 데모 계정에 들어갈 수 없습니다. 잠시 뒤 다시 시도해 주세요.</p>}
     {state.status === 'error' && <p className="ai-assist-note" role="status">사실 확인을 지금 사용할 수 없습니다. 잠시 뒤 다시 시도해 주세요.</p>}
     {response && response.results.length === 0 && <p className="ai-assist-note" role="status">{(response.limitations ?? []).slice(-1)[0] ?? '확인할 만한 말을 찾지 못했습니다.'}</p>}
     {response && response.results.length > 0 && <ul className="claim-check-list">

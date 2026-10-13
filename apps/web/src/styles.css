@@ -2716,3 +2716,152 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
   body.printing-report .study-report .muted, body.printing-report .report-facts dt { color: #555; }
   body.printing-report .table-scroll { overflow: visible; }
 }
+
+/* Home hero: "is this true?" is the first thing a visitor can do. */
+.claim-check.claim-check-hero { margin: 1.1rem 0 .4rem; padding: 1rem 1.1rem 1.05rem; border-style: solid; border-width: 1.5px; border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 1.1rem; }
+.claim-check-hero .claim-check-form textarea { font-size: 1rem; background: var(--surface); border-color: var(--line); }
+.claim-check-hero .claim-check-actions button { background: var(--accent); color: var(--on-accent); border-color: var(--accent); padding: .6rem 1.4rem; }
+.claim-check-examples { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; font-size: .85rem; }
+.claim-check-examples span { color: var(--muted); margin-right: .2rem; }
+.claim-check-examples button { padding: .3rem .75rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; max-width: 100%; }
+.claim-check-examples button:hover { border-color: var(--accent); }
+.intro-more { margin: .9rem 0 .6rem; color: var(--muted); font-size: .95rem; line-height: 1.55; max-width: 36rem; }
+
+/* ===== Home v3: numbers and pictures first ===== */
+.home-dash { display: grid; gap: 1rem; padding: 1.25rem 0 1.5rem; border-bottom: 1px solid var(--line); min-width: 0; }
+.home-dash-head h1 { margin: .2rem 0 0; font-size: clamp(1.5rem, 2.6vw, 2.1rem); line-height: 1.25; text-wrap: balance; }
+.home-dash-head .eyebrow { margin: 0; }
+.kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.kpi-tile { display: grid; gap: .25rem; align-content: start; min-width: 0; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.kpi-label { color: var(--muted); font-size: .8rem; font-weight: 700; }
+.kpi-value { font-size: clamp(1.35rem, 2.2vw, 1.85rem); font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-value.muted { color: var(--muted); }
+.kpi-value small { color: var(--muted); font-weight: 600; }
+.kpi-value .up, .kpi-change.up { color: var(--up); }
+.kpi-value .down, .kpi-change.down { color: var(--down); }
+.kpi-change { font-size: .88rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.kpi-sub { color: var(--muted); font-size: .75rem; }
+.kpi-link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.kpi-bar { display: flex; height: .45rem; overflow: hidden; border-radius: 99px; background: var(--line); }
+.kpi-bar i { display: block; min-width: 2px; }
+.kpi-bar i.up { background: var(--up); }
+.kpi-bar i.flat { background: var(--series-neutral); }
+.kpi-bar i.down { background: var(--down); }
+.home-dash-main { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.home-dash-map { min-width: 0; padding: .85rem 1rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.home-dash-map-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .8rem; margin-bottom: .6rem; }
+.home-dash-map-head h2 { margin: 0; font-size: 1.05rem; }
+.home-dash-map-head span { color: var(--muted); font-size: .78rem; }
+.home-dash-map-head a { margin-left: auto; color: var(--accent); font-size: .85rem; font-weight: 700; }
+.home-dash-map-empty { display: grid; place-items: center; min-height: 16rem; color: var(--muted); }
+.home-dash-aside { display: grid; gap: 1rem; min-width: 0; }
+.home-dash-aside .demo-card { margin: 0; }
+.home-dash-aside .claim-check.claim-check-hero { margin: 0; }
+.claim-check-hero h2 { font-size: 1.05rem; }
+.claim-check-hero .eyebrow { margin: 0; }
+.home-explore { padding: 1.1rem 0 1.4rem; border-bottom: 1px solid var(--line); }
+.home-explore .intro-more { margin-top: 0; }
+.home-foot-links { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; align-items: center; margin: 2rem 0 1rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+.home-foot-links a { color: var(--muted); }
+.home-foot-links span { margin-left: auto; }
+@media (max-width: 64rem) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-dash-main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 30rem) {
+  .kpi-row { gap: .5rem; }
+  .kpi-tile { padding: .7rem .75rem; }
+  .home-foot-links span { margin-left: 0; }
+}
+
+/* ===== Sidebar v3: one visual language for steps, tools and account ===== */
+.sidebar-group-label { margin: 1rem 0 .15rem; padding: .6rem .9rem 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .7rem; font-weight: 800; letter-spacing: .12em; }
+.side-icon { display: inline-flex; justify-content: center; width: 1.1rem; margin-right: .6rem; color: var(--muted); font-style: normal; }
+@media (min-width: 760px) {
+  .workflow-sidebar .finance-sidebar-entry,
+  .workflow-sidebar .settings-action {
+    min-height: 2.6rem; margin: 0; padding: .45rem .7rem .45rem .9rem; border: 1px solid transparent; border-radius: .7rem;
+    background: transparent; color: var(--ink); font-size: .9rem; font-weight: 700; text-align: left; justify-content: flex-start; align-self: stretch;
+  }
+  .workflow-sidebar .finance-sidebar-entry { margin-top: 0; }
+  .workflow-sidebar .settings-action { margin-top: 0; }
+  .workflow-sidebar .finance-sidebar-entry:hover, .workflow-sidebar .settings-action:hover,
+  .workflow-sidebar .finance-sidebar-entry[aria-current="page"] { border-color: var(--line); background: var(--accent-faint); }
+  .workflow-sidebar .finance-sidebar-entry[aria-current="page"] .side-icon { color: var(--accent); }
+  .workflow-sidebar.collapsed .sidebar-group-label { padding: .4rem 0 0; font-size: 0; }
+  .workflow-sidebar.collapsed .side-icon { margin-right: 0; }
+  .workflow-sidebar.collapsed .finance-sidebar-entry, .workflow-sidebar.collapsed .settings-action { justify-content: center; padding-inline: .3rem; }
+}
+@media (max-width: 759px) {
+  .sidebar-group-label { display: none; }
+}
+.home-explore { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1rem 2rem; align-items: start; }
+.home-explore-main { min-width: 0; }
+.home-explore .demo-card { margin: 0; }
+@media (max-width: 64rem) { .home-explore { grid-template-columns: minmax(0, 1fr); } }
+/* phone/tablet menu: five steps get the full row, tools sit in one tidy row below */
+@media (max-width: 759px) {
+  .workflow-sidebar { flex-wrap: wrap; }
+  .workflow-sidebar nav { flex: 1 1 100%; max-width: none; }
+  .workflow-sidebar .finance-sidebar-entry, .workflow-sidebar .settings-action {
+    width: auto; min-height: 2.2rem; margin: 0; padding: .3rem .75rem; border: 1px solid var(--line); border-left: 1px solid var(--line);
+    border-radius: 999px; color: var(--ink); font-size: .8rem; align-self: center;
+  }
+  .side-icon { margin-right: .35rem; }
+}
+@media (max-width: 759px) {
+  .workflow-sidebar nav { grid-column: 1 / -1; }
+  .workflow-sidebar .finance-sidebar-entry, .workflow-sidebar .settings-action { justify-content: center; justify-self: stretch; }
+}
+
+/* ===== Study class (강사·스터디용 공부 반) ===== */
+.class-page h1 { margin: .2rem 0 .8rem; font-size: clamp(1.6rem, 3vw, 2.3rem); }
+.class-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: .5rem 0 1.25rem; }
+.class-kpis .kpi-value.small { font-size: 1.15rem; white-space: normal; }
+.class-invite { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .8rem 1rem; border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line)); border-radius: var(--radius); }
+.class-invite strong { font-size: 1.3rem; letter-spacing: .18em; font-variant-numeric: tabular-nums; color: var(--accent); }
+.class-invite small { flex-basis: 100%; color: var(--muted); }
+.class-section { margin: 1.5rem 0; min-width: 0; }
+.class-section h2 { margin: 0 0 .7rem; font-size: 1.15rem; }
+.class-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin: .6rem 0; }
+.class-row label { color: var(--muted); font-size: .85rem; font-weight: 700; }
+.class-row input { min-width: 0; flex: 1 1 12rem; max-width: 22rem; padding: .55rem .8rem; border: 1px solid var(--line); border-radius: .6rem; background: var(--surface); color: var(--ink); font: inherit; }
+.class-help { color: var(--muted); font-size: .85rem; line-height: 1.55; max-width: 44rem; }
+.class-message { padding: .6rem .9rem; border-radius: .6rem; background: var(--accent-faint); }
+.class-bar { position: relative; display: inline-flex; align-items: center; gap: .5rem; min-width: 8rem; }
+.class-bar::before { content: ""; position: absolute; left: 0; top: 50%; width: 5rem; height: .45rem; margin-top: -.225rem; border-radius: 99px; background: var(--line); }
+.class-bar i { position: relative; display: block; height: .45rem; max-width: 5rem; border-radius: 99px; background: var(--series-b); flex: 0 0 auto; }
+.class-bar i[data-full] { background: var(--accent); }
+.class-bar b { margin-left: 5.4rem; position: absolute; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.class-table td, .class-table th { white-space: nowrap; }
+.class-table small { color: var(--muted); font-weight: 500; }
+.class-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
+.class-cards, .class-assignments { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.class-cards a { display: grid; gap: .2rem; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); text-decoration: none; }
+.class-cards a:hover { border-color: var(--accent); }
+.class-cards span { color: var(--muted); font-size: .85rem; }
+.class-assignments li { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.class-assignments li > div { display: grid; flex: 1 1 14rem; min-width: 0; }
+.class-assignments small { color: var(--muted); }
+.class-foot { margin-top: 2rem; }
+.claim-stats { margin: 0; color: var(--muted); font-size: .85rem; }
+.claim-stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.claim-stats b.down { color: var(--down); }
+@media (max-width: 64rem) { .class-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .class-lists { grid-template-columns: minmax(0, 1fr); } }
+.class-page .primary-action:disabled, .class-page .secondary-action:disabled { opacity: .5; cursor: not-allowed; }
+.class-new { display: inline-block; margin-left: .5rem; padding: .1rem .5rem; border-radius: 99px; background: var(--accent); color: var(--on-accent); font-size: .72rem; font-weight: 800; vertical-align: middle; }
+.class-cell { display: inline-flex; padding: .2rem .3rem; border: 1px solid transparent; border-radius: .5rem; background: none; color: inherit; font: inherit; cursor: pointer; }
+.class-cell:hover, .class-cell:focus-visible { border-color: var(--line); background: var(--accent-faint); }
+.class-notes { margin-top: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.class-notes-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.class-notes h3 { margin: 0; font-size: 1rem; }
+.class-notes ol { margin: .8rem 0 0; padding-left: 1.2rem; display: grid; gap: .7rem; }
+.class-notes li p { margin: .2rem 0; }
+.class-notes small { color: var(--muted); }
+.plan-card.class { border-color: var(--series-b); }
+/* collapsed desktop menu: only the stage letter, centred, so labels never squeeze into "A묻다" */
+@media (min-width: 760px) {
+  .workflow-sidebar.collapsed nav [data-workflow-step] .workflow-label { display: none; }
+  .workflow-sidebar.collapsed nav [data-workflow-step] .workflow-code { display: inline; min-width: 0; text-align: center; color: var(--item-stage, var(--ink)); }
+  .workflow-sidebar.collapsed nav [data-workflow-step] { justify-content: center; min-height: 2.6rem; }
+}

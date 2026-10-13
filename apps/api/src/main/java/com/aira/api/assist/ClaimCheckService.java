@@ -45,6 +45,11 @@ public class ClaimCheckService {
     private final Clock clock;
     private final ObjectMapper json;
     private final Map<UUID, ArrayDeque<Instant>> calls = new HashMap<>();
+    private ClaimStats stats;
+
+    /** 판정 개수 통계(선택). 없거나 실패해도 사실 확인은 그대로 동작한다. */
+    @Autowired(required = false)
+    void setStats(ClaimStats stats) { this.stats = stats; }
 
     @Autowired
     public ClaimCheckService(OfficialFactReader reader, ObjectProvider<ReadingAssistModel> models, ObjectMapper json) {
@@ -67,7 +72,7 @@ public class ClaimCheckService {
                 "AI는 문장에서 확인할 말을 나누기만 했고, 맞는지는 저장된 공식 값과 직접 비교해 판정했습니다.",
                 "AIRA에 저장된 사업연도의 6개 항목(매출·영업이익·순이익·자산·부채·자본) 공식 값만 비교할 수 있습니다.");
         if (model == null || !model.available()) {
-            return new ClaimResponse("NONE", List.of(), "RULE", withNote(base, "AI를 사용할 수 없어 지금은 문장을 나눌 수 없습니다."));
+            return byRules(text, base, "AI를 사용할 수 없어 지금은 문장을 나눌 수 없습니다.");
         }
         if (!allow(userId)) {
             return new ClaimResponse("NONE", List.of(), "RULE", withNote(base, "사실 확인은 1시간에 30회까지 사용할 수 있습니다."));
@@ -81,7 +86,7 @@ public class ClaimCheckService {
             claims = json.readTree(raw.substring(start, end + 1)).path("claims");
         } catch (RuntimeException failure) {
             log.info("claim-check provider={} method=NONE reason=PROVIDER_FAILURE", model.providerKey());
-            return new ClaimResponse("NONE", List.of(), model.providerKey(), withNote(base, "AI 호출에 실패해 문장을 나누지 못했습니다."));
+            return byRules(text, base, "AI 호출에 실패해 문장을 나누지 못했습니다.");
         }
         List<ClaimResult> results = new ArrayList<>();
         for (JsonNode claim : claims) {
@@ -93,7 +98,27 @@ public class ClaimCheckService {
             return new ClaimResponse("NONE", List.of(), model.providerKey(), withNote(base, "확인할 만한 말을 찾지 못했습니다."));
         }
         log.info("claim-check provider={} method=AI claims={}", model.providerKey(), results.size());
+        if (stats != null) stats.record(results);
         return new ClaimResponse("AI", results, model.providerKey(), base);
+    }
+
+    /**
+     * AI가 없거나 실패했을 때: "삼성전자 작년 영업이익 43.6조"처럼 회사·항목·금액이 한 문장에 함께 있는 간단한 말만
+     * 규칙으로 나눠 같은 방식(저장된 공식 값과 직접 비교)으로 판정한다. 하나도 못 나누면 예전처럼 안내만 한다.
+     */
+    private ClaimResponse byRules(String text, List<String> base, String failureNote) {
+        List<ClaimResult> results = new ArrayList<>();
+        for (JsonNode claim : RuleClaims.split(text, json)) {
+            if (results.size() == MAX_CLAIMS) break;
+            ClaimResult result = verify(claim);
+            if (result != null) results.add(result);
+        }
+        if (results.isEmpty()) return new ClaimResponse("NONE", List.of(), "RULE", withNote(base, failureNote));
+        log.info("claim-check provider=RULE method=RULE claims={}", results.size());
+        if (stats != null) stats.record(results);
+        return new ClaimResponse("RULE", results, "RULE", List.of(
+                "AI 없이 규칙으로 「회사·항목·금액」이 함께 있는 간단한 문장만 나눴고, 맞는지는 저장된 공식 값과 직접 비교해 판정했습니다.",
+                base.get(1)));
     }
 
     private ClaimResult verify(JsonNode claim) {

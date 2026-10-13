@@ -3,9 +3,10 @@ import { getScreener } from './api/stockApi.js'
 import { formatPercent, formatWon } from './stockMath.js'
 
 /** 첫 화면: 오늘 시장을 숫자 몇 개와 상위 종목으로 짧게. 자세한 건 「오늘의 시장」으로. */
-export default function HomeMarketSummary() {
-  const [state, setState] = useState({ loading: true, data: null })
-  useEffect(() => { getScreener().then(data => setState({ loading: false, data })).catch(() => setState({ loading: false, data: null })) }, [])
+export default function HomeMarketSummary({ screener }) {
+  const [own, setOwn] = useState({ loading: true, data: null })
+  useEffect(() => { if (screener) return; getScreener().then(data => setOwn({ loading: false, data })).catch(() => setOwn({ loading: false, data: null })) }, [screener])
+  const state = screener ?? own
   const rows = useMemo(() => (state.data?.rows ?? []).filter(r => r.close !== null && r.close !== undefined)
     .map(r => ({ ...r, changeRate: r.changeRate === null || r.changeRate === undefined ? null : Number(r.changeRate), tradingValue: r.tradingValue === null || r.tradingValue === undefined ? null : Number(r.tradingValue) })), [state.data])
   if (state.loading || rows.length < 20) return null

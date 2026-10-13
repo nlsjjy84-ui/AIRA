@@ -47,6 +47,11 @@ public class DemoLoginService implements ApplicationRunner {
     /** Many reviewers share one demo account, so its AI hourly quota is larger than a normal user's. */
     static final int DEMO_QUOTA_MULTIPLIER = 10;
     private static volatile UUID demoUserId;
+    private com.aira.api.stock.StudyClassController classes;
+
+    /** 예시 공부 반(선택). 없거나 실패해도 데모 로그인은 그대로 된다. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setClasses(com.aira.api.stock.StudyClassController classes) { this.classes = classes; }
 
     /** Hourly AI call limit for this user: the normal limit, or a larger shared one for the demo account. */
     public static int hourlyLimit(UUID userId, int normalLimit) {
@@ -102,6 +107,7 @@ public class DemoLoginService implements ApplicationRunner {
         AuthenticationCredential credential = credentials.findByUserId(user.getId()).orElseThrow();
         rememberDemoUser(user.getId());
         seedInterests(user.getId());
+        seedClass(user.getId());
         String rawToken = tokenGenerator.generate();
         loginPersistence.save(user, credential, tokenHasher.hash(rawToken));
         return new LoginResult(LoginResponse.from(user), rawToken);
@@ -115,6 +121,19 @@ public class DemoLoginService implements ApplicationRunner {
             return signupPersistence.save(DEMO_NICKNAME, DEMO_NICKNAME, passwordHasher.hash(unknowablePassword));
         } catch (DataIntegrityViolationException raced) {
             return users.findByNicknameNormalized(DEMO_NICKNAME).orElseThrow(() -> raced);
+        }
+    }
+
+    /** 면접관이 강사 화면(공부 반 진도표)을 볼 수 있게 예시 반을 하나 만든다. Never fails the login. */
+    private void seedClass(UUID userId) {
+        if (classes == null) return;
+        try {
+            var company = entities.findPubliclyAvailableCompanies().stream()
+                    .filter(c -> "삼성전자".equals(c.getCanonicalName())).findFirst()
+                    .or(() -> entities.findPubliclyAvailableCompanies().stream().findFirst());
+            company.ifPresent(c -> classes.seedSample(userId, c.getId(), c.getCanonicalName()));
+        } catch (RuntimeException seedFailure) {
+            log.warn("Demo class seeding skipped: {}", seedFailure.getClass().getSimpleName());
         }
     }
 

@@ -21,7 +21,7 @@ import org.springframework.stereotype.Component;
 @Order(0)
 public class StockSchema implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(StockSchema.class);
-    static final List<String> FILES = List.of("V25__create_stock_page_cache.sql", "V26__add_stock_profile_industry.sql", "V27__create_stock_quarterly.sql", "V28__create_user_stock_note.sql", "V29__create_user_price_alert.sql", "V30__create_user_study.sql");
+    static final List<String> FILES = List.of("V25__create_stock_page_cache.sql", "V26__add_stock_profile_industry.sql", "V27__create_stock_quarterly.sql", "V28__create_user_stock_note.sql", "V29__create_user_price_alert.sql", "V30__create_user_study.sql", "V31__create_study_class.sql");
     private final JdbcTemplate jdbc;
 
     public StockSchema(JdbcTemplate jdbc) { this.jdbc = jdbc; }

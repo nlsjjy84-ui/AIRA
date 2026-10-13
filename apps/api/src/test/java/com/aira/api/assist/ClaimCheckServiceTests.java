@@ -155,11 +155,16 @@ class ClaimCheckServiceTests {
     }
 
     @Test
-    void malformedAiAnswerGivesNoResults() {
+    void malformedAiAnswerFallsBackToRules() {
         var response = service(new FakeModel("죄송합니다", false)).check(USER, "삼성전자 영업이익 43.6조");
-        assertEquals("NONE", response.method());
-        assertTrue(response.results().isEmpty());
-        assertEquals("NONE", service(new FakeModel("", true)).check(USER, "삼성전자 영업이익 43.6조").method());
+        assertEquals("RULE", response.method());
+        assertEquals("MATCH", response.results().get(0).verdict());
+        assertTrue(service(new FakeModel("죄송합니다", false)).check(USER, "좋은 회사인 것 같아요").results().isEmpty());
+        // AI가 실패해도 간단한 문장은 규칙으로 판정한다(같은 공식 값 비교).
+        var fallback = service(new FakeModel("", true)).check(USER, "삼성전자 영업이익 43.6조");
+        assertEquals("RULE", fallback.method());
+        assertEquals("MATCH", fallback.results().get(0).verdict());
+        assertEquals("NONE", service(new FakeModel("", true)).check(USER, "오늘 시장 분위기가 좋네요").method());
     }
 
     @Test
@@ -189,10 +194,18 @@ class ClaimCheckServiceTests {
     }
 
     @Test
-    void unavailableModelReturnsNone() {
-        var response = new ClaimCheckService(new FakeReader(), null, CLOCK, MAPPER).check(USER, "삼성전자 영업이익 43.6조");
-        assertEquals("NONE", response.method());
-        assertEquals(List.of(), response.results());
+    void unavailableModelFallsBackToRulesForSimpleSentences() {
+        var none = new ClaimCheckService(new FakeReader(), null, CLOCK, MAPPER).check(USER, "요즘 반도체가 대세라던데");
+        assertEquals("NONE", none.method());
+        assertEquals(List.of(), none.results());
+        var rule = new ClaimCheckService(new FakeReader(), null, CLOCK, MAPPER)
+                .check(USER, "삼성전자 작년 매출이 400조 원을 넘었다던데? 삼성전자는 2024년 영업이익이 32.7조원. 삼성전자 영업이익 33% 늘었다");
+        assertEquals("RULE", rule.method());
+        assertEquals(2, rule.results().size(), "the percent sentence is not an amount claim");
+        assertEquals("MISMATCH", rule.results().get(0).verdict());
+        assertEquals("매출", rule.results().get(0).item());
+        assertEquals("MATCH", rule.results().get(1).verdict());
+        assertEquals(2024, rule.results().get(1).year());
     }
 
     @Test

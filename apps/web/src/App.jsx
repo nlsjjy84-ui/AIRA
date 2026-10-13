@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import HistoricalAssessment from './HistoricalAssessment.jsx'
 import CanonicalExplorer from './CanonicalExplorer.jsx'
 import PersonalFinance from './PersonalFinance.jsx'
-import MarketIndexBoard from './MarketIndexBoard.jsx'
+import HomeDashboard from './HomeDashboard.jsx'
+import ClassPage from './ClassPage.jsx'
+import { getScreener } from './api/stockApi.js'
 import EconomicIndicatorBoard from './EconomicIndicatorBoard.jsx'
 import MarketFilingBoard from './MarketFilingBoard.jsx'
 import StockPage from './StockPage.jsx'
@@ -13,6 +15,7 @@ import MarketPage from './MarketPage.jsx'
 import StudyPage from './StudyPage.jsx'
 import PlansPage from './PlansPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
+import ClaimCheck from './ClaimCheck.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
 import { searchEntities } from './api/canonicalApi.js'
@@ -72,6 +75,7 @@ function DemoCard({ user, onDemo, demoState, onLogout }) {
     <ol className="demo-steps">
       <li><a href="#my-interests"><strong>내 관심회사 → 종목 화면</strong><span>회사 3곳 · 누르면 주가·실적·공시를 깊게</span></a></li>
       <li><a href="#my-briefing"><strong>내 브리핑</strong><span>새 변화를 AI가 읽기 쉽게 정리</span></a></li>
+      <li><a href="/classes"><strong>공부 반 · 강사 진도표</strong><span>예시 반에서 수강생 진도를 한눈에</span></a></li>
       <li><a href="/explore"><strong>질문·주장 확인</strong><span>공시 원문 인용과 숫자 대조</span></a></li>
     </ol>
     <button type="button" className="secondary-action" onClick={onLogout}>데모 끝내기</button>
@@ -89,8 +93,8 @@ function DemoCard({ user, onDemo, demoState, onLogout }) {
     <p className="eyebrow">처음 오셨나요?</p>
     <h2 id="demo-card-title">가입 없이 30초 둘러보기</h2>
     <ol className="demo-steps">
-      <li><span className="demo-num" aria-hidden="true">1</span><div><strong>종목 화면</strong><span>주가·실적·재무·공시·배당을 묻다·보다·잇다·가늠하다로</span></div></li>
-      <li><span className="demo-num" aria-hidden="true">2</span><div><strong>관심회사·브리핑</strong><span>회사 3곳과 최근 공시를 한곳에</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">1</span><div><strong>이 말, 사실이야?</strong><span>들은 말을 공식 값·접수번호로 판정</span></div></li>
+      <li><span className="demo-num" aria-hidden="true">2</span><div><strong>공부 반 · 강사 진도표</strong><span>같은 회사 과제를 내고 수강생 진도를 한 화면에</span></div></li>
       <li><span className="demo-num" aria-hidden="true">3</span><div><strong>왜 그럴까 · 내 공부</strong><span>숫자의 이유를 회사 공시로 풀고, 알게 된 것을 저장</span></div></li>
     </ol>
     <button type="button" className="primary-action demo-action" onClick={onDemo} disabled={demoState.loading}>
@@ -360,6 +364,15 @@ export default function App() {
     return loadMarketIndices()
   }, [routePath, loadMarketIndices])
 
+  const [screenerState, setScreenerState] = useState({ loading: false, data: null })
+  useEffect(() => {
+    if (routePath !== '/') return undefined
+    let alive = true
+    setScreenerState({ loading: true, data: null })
+    getScreener().then(data => alive && setScreenerState({ loading: false, data })).catch(() => alive && setScreenerState({ loading: false, data: null }))
+    return () => { alive = false }
+  }, [routePath])
+
   const loadRealGdp = useCallback(() => {
     const current = beginRequest('realGdp')
     const controller = new AbortController()
@@ -503,7 +516,8 @@ export default function App() {
       setSession({ loading: false, user, error: null, notice: '데모 계정으로 들어왔습니다. 관심회사·브리핑·알림과 AI 읽기 도움을 둘러보세요.' })
       setAuthMode(null)
       setDemoState({ loading: false, error: null })
-    } catch (error) { setDemoState({ loading: false, error }) }
+      return true
+    } catch (error) { setDemoState({ loading: false, error }); return false }
   }
 
   useEffect(() => {
@@ -603,28 +617,30 @@ export default function App() {
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
+      <p className="sidebar-group-label" aria-hidden="true">도구</p>
       <a className="finance-sidebar-entry" href="/study" aria-current={routePath === '/study' ? 'page' : undefined} aria-label="내 공부">
-        <span aria-hidden="true">{sidebarCollapsed ? '📚' : '내 공부'}</span>
+        <span aria-hidden="true"><i className="side-icon">✎</i>{!sidebarCollapsed && '내 공부'}</span>
+      </a>
+      <a className="finance-sidebar-entry" href="/classes" aria-current={routePath === '/classes' ? 'page' : undefined} aria-label="공부 반">
+        <span aria-hidden="true"><i className="side-icon">◎</i>{!sidebarCollapsed && '공부 반'}</span>
       </a>
       <a className="finance-sidebar-entry" href="/market" aria-current={routePath === '/market' ? 'page' : undefined} aria-label="시장 지도">
-        <span aria-hidden="true">{sidebarCollapsed ? '▦' : '시장 지도'}</span>
+        <span aria-hidden="true"><i className="side-icon">▦</i>{!sidebarCollapsed && '시장 지도'}</span>
       </a>
       <a className="finance-sidebar-entry" href="/screen" aria-current={routePath === '/screen' ? 'page' : undefined} aria-label="조건 찾기">
-        <span aria-hidden="true">{sidebarCollapsed ? '⌕' : '조건 찾기'}</span>
+        <span aria-hidden="true"><i className="side-icon">⌕</i>{!sidebarCollapsed && '조건 찾기'}</span>
       </a>
-      <a className="finance-sidebar-entry" href="/plans" aria-current={routePath === '/plans' ? 'page' : undefined} aria-label="요금 안내">
-        <span aria-hidden="true">{sidebarCollapsed ? '◇' : '요금 안내'}</span>
-      </a>
+      <p className="sidebar-group-label" aria-hidden="true">계정</p>
       <a className="finance-sidebar-entry" href="/finance" aria-current={finance ? 'page' : undefined} aria-label="내 금융">
-        <span aria-hidden="true">{sidebarCollapsed ? '₩' : '내 금융'}</span>
+        <span aria-hidden="true"><i className="side-icon">₩</i>{!sidebarCollapsed && '내 금융'}</span>
       </a>
       <button className="settings-action" aria-label="설정" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>
-        <span aria-hidden="true">{sidebarCollapsed ? '⚙' : '설정'}</span></button>
+        <span aria-hidden="true"><i className="side-icon">⚙</i>{!sidebarCollapsed && '설정'}</span></button>
     </aside>
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/classes' ? <ClassPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} onDemo={startDemo} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
@@ -632,19 +648,20 @@ export default function App() {
         onLogin: () => setAuthMode('login'), onSave: entityId => changeInterest(false, entityId),
         onRemove: entityId => changeInterest(true, entityId), onAlert: (entityId, enabled) => changeAlertSetting(enabled, entityId),
       }} /> : <>
-      <div className="home-orientation">
-        <section className="intro" aria-labelledby="page-title"><p className="eyebrow">UNDERSTAND · 보는 데서 끝나지 않는 투자 공부</p><h1 id="page-title">왜 그런지 이해하고,<br />내 지식으로 쌓으세요.</h1><p className="intro-copy">회사 이름을 검색하면 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 깊게 펼치고, 숫자가 왜 그런지 회사의 공식 설명으로 풀어 드립니다. 종목 추천과 광고 없이, 알게 된 것은 「내 공부」에 쌓입니다.</p>
-          <div className="quick-stocks" aria-label="바로 보기">{['삼성전자', 'SK하이닉스', 'NAVER', '현대자동차', '카카오', 'LG에너지솔루션'].map(name =>
-            <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
-          {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>
-            <a key={item.id} href={`/stock/${item.id}`}>{item.name}</a>)}</div>}
-          <div className="intro-actions"><a className="primary-action" href="/market">오늘의 시장 지도</a><a className="secondary-action" href="/screen">조건으로 종목 찾기</a><a className="secondary-action" href="/explore">단계별 탐색 시작</a>
-            <button type="button" className="secondary-action" onClick={() => openSearch('삼성전자', 'ask.course')}>처음이라면: 회사 읽기 코스</button></div></section>
+      <HomeDashboard indexState={marketIndexState} screener={screenerState} onEvidence={openOfficialEvidence}
+        aside={<ClaimCheck hero loggedIn={Boolean(session.user)} onNeedLogin={startDemo} />} />
+      <section className="home-explore" aria-label="회사 깊게 보기"><div className="home-explore-main">
+        <p className="intro-more">회사를 골라 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 펼쳐 보세요. 종목 추천과 광고는 하지 않습니다.</p>
+        <div className="quick-stocks" aria-label="바로 보기">{['삼성전자', 'SK하이닉스', 'NAVER', '현대자동차', '카카오', 'LG에너지솔루션'].map(name =>
+          <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
+        {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>
+          <a key={item.id} href={`/stock/${item.id}`}>{item.name}</a>)}</div>}
+        <div className="intro-actions"><a className="secondary-action" href="/screen">조건으로 종목 찾기</a><a className="secondary-action" href="/explore">단계별 탐색 시작</a>
+          <button type="button" className="secondary-action" onClick={() => openSearch('삼성전자', 'ask.course')}>처음이라면: 회사 읽기 코스</button></div></div>
         <DemoCard user={session.loading ? null : session.user} onDemo={startDemo} demoState={demoState} onLogout={performLogout} />
-      </div>
-      <MarketIndexBoard state={marketIndexState} retry={loadMarketIndices} onEvidence={openOfficialEvidence} />
+      </section>
       {(realGdpState.loading || (realGdpState.data?.observations?.length ?? 0) > 0) && <EconomicIndicatorBoard state={realGdpState} retry={loadRealGdp} onEvidence={openOfficialEvidence} />}
-      <HomeMarketSummary />
+      <HomeMarketSummary screener={screenerState.loading ? null : screenerState} />
       <MarketFilingBoard />
       {!marketNewsState.error && (marketNewsState.loading || (marketNewsState.data?.items?.length ?? 0) > 0) && <MarketNewsBoard state={marketNewsState} retry={loadMarketNews} />}
       {historicalId && <HistoricalAssessment assessmentId={historicalId} openEvidence={openOfficialEvidence} />}
@@ -774,6 +791,7 @@ export default function App() {
           </article>}
         </section>}
 
+      <nav className="home-foot-links" aria-label="AIRA 안내"><a href="/plans">요금 안내</a><a href="/privacy">개인정보와 이용자 보호</a><span>공식 자료: KRX · OpenDART · 한국은행 ECOS</span></nav>
       </>}
     </main>
     {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}
