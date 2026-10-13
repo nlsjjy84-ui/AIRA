@@ -168,6 +168,16 @@ class ClaimCheckServiceTests {
     }
 
     @Test
+    void writtenKoreanAmountWinsOverTheAiCopy() {
+        // AI가 "1조544억"을 1,544억으로 옮겨 써도 서버가 글에서 직접 읽은 값으로 비교한다.
+        String answer = wrap(claim("삼성전자 2025년 영업이익 43조6010억원", "FACT", "삼성전자", "OPERATING_INCOME", "2025", "6010", "억원"));
+        var response = service(new FakeModel(answer, false)).check(USER, "삼성전자 2025년 영업이익 43조6010억원");
+        // 43조6010억 vs 공식 43조6010.51억: 억 아래를 버린 값이라 「거의 일치」
+        assertEquals("APPROX", response.results().get(0).verdict());
+        assertEquals("436010억원", response.results().get(0).stated());
+    }
+
+    @Test
     void aiVerdictFieldsAreIgnored() {
         String answer = "{\"claims\":[{\"text\":\"영업이익 50조\",\"kind\":\"FACT\",\"company\":\"삼성전자\",\"item\":\"OPERATING_INCOME\",\"year\":2025,"
                 + "\"amount\":\"50\",\"unit\":\"조원\",\"verdict\":\"MATCH\",\"true\":true}]}";

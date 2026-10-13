@@ -27,10 +27,16 @@ public class ClaimStats {
     private final JdbcTemplate jdbc;
     private final Clock clock;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public ClaimStats(JdbcTemplate jdbc) { this(jdbc, Clock.systemUTC()); }
+    /** 공식 집계 시작일. 판정 규칙을 고친(2026-10-13) 뒤부터 센다 — 고치기 전 실험 판정이 첫 화면 숫자에 섞이지 않게. */
+    static final LocalDate COUNT_FROM = LocalDate.of(2026, 10, 14);
+    private final LocalDate countFrom;
 
-    ClaimStats(JdbcTemplate jdbc, Clock clock) { this.jdbc = jdbc; this.clock = clock; }
+    @org.springframework.beans.factory.annotation.Autowired
+    public ClaimStats(JdbcTemplate jdbc) { this(jdbc, Clock.systemUTC(), COUNT_FROM); }
+
+    ClaimStats(JdbcTemplate jdbc, Clock clock) { this(jdbc, clock, null); }
+
+    ClaimStats(JdbcTemplate jdbc, Clock clock, LocalDate countFrom) { this.jdbc = jdbc; this.clock = clock; this.countFrom = countFrom; }
 
     /** 판정 결과 개수를 더한다. 통계가 실패해도 사실 확인 자체는 막지 않는다. */
     public void record(List<ClaimResult> results) {
@@ -63,6 +69,7 @@ public class ClaimStats {
         int window = Math.max(1, Math.min(days, 365));
         LocalDate today = LocalDate.now(clock.withZone(KST));
         LocalDate since = today.minusDays(window - 1L);
+        if (countFrom != null && since.isBefore(countFrom)) since = countFrom;
         Map<String, Integer> byVerdict = new LinkedHashMap<>();
         for (String verdict : VERDICTS) byVerdict.put(verdict, 0);
         Map<String, int[]> byItem = new LinkedHashMap<>();

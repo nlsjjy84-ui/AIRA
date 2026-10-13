@@ -16,7 +16,6 @@ final class RuleClaims {
     /** 문장 끝: 마침표(소수점 43.6의 점은 제외)·물음표·느낌표·줄바꿈. */
     private static final Pattern SENTENCE_END = Pattern.compile("(?<!\\d)\\.|\\.(?!\\d)|[!?\\n]");
     private static final Pattern ITEM = Pattern.compile("(매출액|매출|영업이익|영업손실|당기순이익|순이익|순손실|자산\\s*총계|총자산|자산|부채\\s*총계|총부채|부채|자본\\s*총계|자본)");
-    private static final Pattern AMOUNT = Pattern.compile("(-?\\d[\\d,]*(?:\\.\\d+)?)\\s*(조|억|만)?\\s*원?");
     private static final Pattern YEAR = Pattern.compile("(20\\d{2})\\s*년");
     private static final Pattern PARTICLE = Pattern.compile("(은|는|이|가|의|도)$");
 
@@ -30,11 +29,10 @@ final class RuleClaims {
             if (sentence.length() < 4) continue;
             Matcher item = ITEM.matcher(sentence);
             if (!item.find()) continue;
-            Matcher amount = AMOUNT.matcher(sentence);
-            if (!amount.find(item.end())) continue;
-            if (sentence.substring(amount.end()).matches("\\s*%.*") || sentence.substring(item.end(), amount.start()).contains("%")) continue;
-            String unit = amount.group(2) == null ? "원" : amount.group(2) + "원";
-            if (amount.group(2) == null && !sentence.substring(amount.start(), Math.min(sentence.length(), amount.end() + 1)).contains("원")) continue;
+            String after = sentence.substring(item.end());
+            if (after.contains("%")) continue;
+            ClaimMath.Korean amount = ClaimMath.koreanAmount(after);
+            if (amount == null) continue;
             String first = sentence.split("\\s+")[0];
             String company = PARTICLE.matcher(first).replaceAll("");
             if (company.isBlank() || ITEM.matcher(company).find()) continue;
@@ -46,8 +44,8 @@ final class RuleClaims {
             Matcher year = YEAR.matcher(sentence);
             if (year.find()) claim.put("year", Integer.parseInt(year.group(1)));
             else claim.putNull("year");
-            claim.put("amount", amount.group(1).replace(",", ""));
-            claim.put("unit", unit);
+            claim.put("amount", amount.amount().toPlainString());
+            claim.put("unit", amount.unit());
             claim.put("change", "");
             out.add(claim);
         }

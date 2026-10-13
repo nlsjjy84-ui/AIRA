@@ -139,6 +139,14 @@ public class ClaimCheckService {
         if (CHANGES.contains(change)) return verifyChange(claim, sentence, item, change);
         BigDecimal factor = ClaimMath.factor(claim.path("unit").asText(null));
         BigDecimal amount = ClaimMath.amount(claim.path("amount").asText(null));
+        String unitText = claim.path("unit").asText("");
+        // 글에 한글 금액이 꼭 하나 있으면 AI가 옮겨 쓴 숫자 대신 서버가 직접 읽은 값을 쓴다("1조544억"을 1,544억으로 잘못 옮기는 일 방지).
+        ClaimMath.Korean written = ClaimMath.koreanAmount(sentence);
+        if (written != null) {
+            amount = written.amount();
+            factor = ClaimMath.factor(written.unit());
+            unitText = written.unit();
+        }
         String companyName = ReadingAssistService.field(claim.path("company").asText(""));
         if (!ITEMS.containsKey(item) || factor == null || amount == null || companyName.isBlank()) {
             return notCheckable(sentence, "회사·항목·금액을 함께 비교할 수 있는 말이 아닙니다(확인 가능한 항목은 매출·영업이익·순이익·자산·부채·자본).");
@@ -153,7 +161,7 @@ public class ClaimCheckService {
             if (value >= 2000 && value <= LocalDate.now(clock).getYear()) year = value;
         }
         String stated = amount.toPlainString();
-        String statedText = stated + claim.path("unit").asText("");
+        String statedText = stated + unitText;
         Resolved resolved = reader.resolve(companyName);
         if (resolved.status().equals("MANY")) {
             return new ClaimResult(sentence, "NO_DATA", companyName, ITEMS.get(item), year, statedText, null, null, null, null,
