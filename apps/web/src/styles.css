@@ -2873,3 +2873,36 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
   .workflow-sidebar.collapsed nav [data-workflow-step] .workflow-code { display: inline; min-width: 0; text-align: center; color: var(--item-stage, var(--ink)); }
   .workflow-sidebar.collapsed nav [data-workflow-step] { justify-content: center; min-height: 2.6rem; }
 }
+
+/* ---------- v11: 유료 플랜 고르기 · 결제 직전 확인 ---------- */
+.cycle-switch { display: inline-flex; gap: .25rem; padding: .25rem; border: 1px solid var(--line); border-radius: 999px; justify-self: start; flex-wrap: wrap; }
+.cycle-switch button { border: 0; border-radius: 999px; padding: .45rem .9rem; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+.cycle-switch button.on { background: var(--accent); color: var(--on-accent); }
+.plan-card .plan-price small { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.plan-card .muted { margin: 0; }
+.plan-card .plan-note { margin: 0; font-weight: 700; }
+.plan-card button { justify-self: start; }
+.plan-compare { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.plan-compare caption { text-align: left; font-weight: 800; padding-bottom: .5rem; }
+.plan-compare th, .plan-compare td { padding: .55rem .6rem; border-bottom: 1px solid var(--line); text-align: left; }
+.plan-compare thead th { color: var(--muted); font-size: .8rem; }
+.plan-compare tbody th { font-weight: 600; }
+.plan-compare td.diff { font-weight: 800; }
+.checkout { display: grid; gap: 1rem; padding: 1.2rem; border: 1px solid var(--accent); border-radius: var(--radius); background: var(--accent-faint); min-width: 0; }
+.checkout h2 { margin: 0; }
+.checkout > .text-action { justify-self: start; margin: 0; width: auto; text-align: left; padding: 0; }
+.seat-input { display: grid; gap: .3rem; font-weight: 700; }
+.seat-input input { width: 8rem; padding: .45rem .6rem; border: 1px solid var(--line); border-radius: .5rem; font: inherit; background: var(--surface); color: inherit; }
+.order-sum { display: grid; gap: 0; margin: 0; border: 1px solid var(--line); border-radius: .6rem; background: var(--surface); }
+.order-sum > div { display: grid; grid-template-columns: minmax(7rem, 30%) 1fr; gap: .8rem; padding: .6rem .8rem; border-bottom: 1px solid var(--line); }
+.order-sum > div:last-child { border-bottom: 0; }
+.order-sum dt { color: var(--muted); font-size: .85rem; }
+.order-sum dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 0; }
+.order-sum dd.big { font-size: 1.35rem; font-weight: 850; }
+.pay-method { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; border: 0; padding: 0; margin: 0; }
+.pay-method legend { font-weight: 800; margin-bottom: .35rem; }
+.refund-rule ul { margin: 0; padding-left: 1.1rem; display: grid; gap: .35rem; }
+.agree { display: grid; gap: .45rem; }
+.agree label { display: flex; gap: .5rem; align-items: flex-start; }
+.pay-btn { justify-self: start; }
+.pay-btn:disabled { opacity: .45; cursor: not-allowed; }
