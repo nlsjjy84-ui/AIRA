@@ -14,6 +14,27 @@ const VERDICT = {
  * "Is this statement true?" The AI only splits the pasted text into statements. The verdict on each one comes
  * from comparing the stated amount with the stored official value, and the source is shown next to it.
  */
+/**
+ * AIRA's official value is always the consolidated (연결) annual figure from the audited business report (사업보고서).
+ * Articles often quote a different basis, so mismatches come with a short guide to the three bases.
+ */
+export const BASIS_LABEL = '연결 · 사업보고서 확정치'
+export const BASES = [
+  { key: 'linked', name: '연결', text: '자회사까지 합친 회사 전체 숫자예요. AIRA는 이 값으로 비교해요.' },
+  { key: 'separate', name: '별도', text: '본사 한 곳만의 숫자예요. 자회사가 크면 연결과 많이 달라요.' },
+  { key: 'provisional', name: '잠정', text: '사업보고서 전에 먼저 알리는 감사 전 실적이에요. 확정치와 조금 다를 수 있어요.' }
+]
+
+export function BasisGuide({ open }) {
+  return <details className="claim-basis" open={open}>
+    <summary>숫자가 다르게 보일 수 있는 이유 · 연결 / 별도 / 잠정</summary>
+    <dl>
+      {BASES.map(basis => <div key={basis.key} className={basis.key === 'linked' ? 'is-ours' : undefined}><dt>{basis.name}</dt><dd>{basis.text}</dd></div>)}
+    </dl>
+    {open && <p>들은 숫자가 별도나 잠정 기준이면 공식 값과 다르게 나와요. 기사·글에 어떤 기준인지 적혀 있는지 확인해 보세요.</p>}
+  </details>
+}
+
 export const HERO_EXAMPLES = [
   '삼성전자 작년 영업이익은 전년보다 33% 늘었다고 한다.',
   '삼성전자 작년 매출이 400조 원을 넘었다던데?'
@@ -88,11 +109,13 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
             {result.company && <div><dt>대상</dt><dd>{result.company} · {result.item}</dd></div>}
             {result.stated && <div><dt>말한 값</dt><dd>{result.stated}</dd></div>}
             {result.official && <div><dt>공식 값</dt><dd>{result.official}</dd></div>}
+            {result.official && <div><dt>기준</dt><dd>{BASIS_LABEL}</dd></div>}
             {result.period && <div><dt>기간</dt><dd>{result.period}</dd></div>}
             {result.receiptNumber && <div><dt>접수번호</dt><dd>{result.receiptNumber}</dd></div>}
             {result.priorReceiptNumber && <div><dt>전년 접수번호</dt><dd>{result.priorReceiptNumber}</dd></div>}
           </dl>}
           {result.note && <p className="ai-assist-note">{result.note}</p>}
+          {result.official && <BasisGuide open={result.verdict === 'MISMATCH' || result.verdict === 'APPROX'} />}
           <div className="claim-check-links">
             {result.evidenceUrl && <a className="ai-assist-link" href={result.evidenceUrl} target="_blank" rel="noreferrer">DART에서 공시 열기</a>}
             {result.priorEvidenceUrl && <a className="ai-assist-link" href={result.priorEvidenceUrl} target="_blank" rel="noreferrer">전년 공시 열기</a>}

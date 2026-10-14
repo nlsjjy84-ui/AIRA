@@ -102,4 +102,25 @@ describe('claim check', () => {
     render(<ClaimCheck hero loggedIn={false} onNeedLogin={async () => true} />)
     expect(await screen.findByLabelText('최근 30일 사실 확인 통계')).toHaveTextContent('최근 30일 확인한 말 37건 · 공식 값과 다름 11건 · 가장 많이 확인한 숫자: 영업이익')
   })
+  it('names the basis of the official value and opens the 연결·별도·잠정 guide on a mismatch', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(ok({ method: 'AI', providerKey: 'GEMINI', limitations: [],
+      results: [
+        { claim: '영업이익 50조', verdict: 'MISMATCH', company: '삼성전자', item: '영업이익', year: 2025, stated: '50조원',
+          official: '43.60조 원', period: '2025-01-01 ~ 2025-12-31', note: '말한 금액이 공식 값과 다릅니다.' },
+        { claim: '매출 300조', verdict: 'MATCH', company: '삼성전자', item: '매출', year: 2025, stated: '300조원',
+          official: '300.87조 원', period: '2025-01-01 ~ 2025-12-31', note: '공식 값과 같습니다.' },
+        { claim: '좋은 회사', verdict: 'NOT_CHECKABLE', note: '의견이라 확인할 수 없습니다.' }
+      ] })))
+    const { container } = render(<ClaimCheck loggedIn />)
+    fireEvent.change(screen.getByLabelText('확인하고 싶은 말'), { target: { value: '삼성전자 영업이익 50조, 매출 300조' } })
+    fireEvent.click(screen.getByRole('button', { name: '사실 확인' }))
+    expect(await screen.findByText('다름')).toBeInTheDocument()
+    expect(screen.getAllByText('연결 · 사업보고서 확정치')).toHaveLength(2)
+    const guides = container.querySelectorAll('details.claim-basis')
+    expect(guides).toHaveLength(2)
+    expect(guides[0]).toHaveAttribute('open')
+    expect(guides[1]).not.toHaveAttribute('open')
+    expect(screen.getAllByText(/본사 한 곳만의 숫자/)).toHaveLength(2)
+    expect(screen.getByText(/별도나 잠정 기준이면/)).toBeInTheDocument()
+  })
 })

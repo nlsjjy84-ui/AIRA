@@ -2315,6 +2315,14 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .claim-check-compare dt { font-size: .72rem; opacity: .7; }
 .claim-check-compare dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
 .claim-check-links { display: flex; gap: 16px; flex-wrap: wrap; }
+.claim-basis { border-radius: 10px; background: color-mix(in srgb, currentColor 4%, transparent); padding: 8px 12px; font-size: .86rem; }
+.claim-basis summary { cursor: pointer; font-weight: 700; opacity: .85; }
+.claim-basis dl { display: grid; gap: 6px; margin: 8px 0 0; }
+.claim-basis dl div { display: grid; grid-template-columns: 3.2em 1fr; gap: 8px; align-items: baseline; min-width: 0; }
+.claim-basis dt { font-weight: 800; }
+.claim-basis dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.claim-basis .is-ours dt { color: var(--accent, #C9EE6B); }
+.claim-basis p { margin: 8px 0 0; line-height: 1.5; }
 
 /* ── 2026-10-11 layout polish ─────────────────────────────────────────────
    1) Header spans the full width so the logo lines up with the left rail.
