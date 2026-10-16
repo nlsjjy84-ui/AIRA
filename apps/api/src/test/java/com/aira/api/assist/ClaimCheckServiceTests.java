@@ -175,6 +175,12 @@ class ClaimCheckServiceTests {
         assertEquals("MATCH", result.verdict(), result.note());
         assertEquals("매출(공시: 영업수익)", result.item());
         assertTrue(result.note().contains("'영업수익' 줄과 비교했습니다"), result.note());
+        // 공시 줄과 다르면 '틀림'이 아니라 참고 값으로만 보여 준다(기사의 '매출' 기준을 알 수 없으므로).
+        var other = service(new FakeModel(wrap(claim("KB금융 2025년 매출 50조", "FACT", "KB금융", "REVENUE", "2025", "50", "조원")), false));
+        other.setRevenueLines((id, year) -> new RevenueLineSource.Line(2025, "이자수익", new java.math.BigDecimal("80120000000000"), "20260315000111"));
+        var differs = other.check(USER, "KB금융 2025년 매출 50조").results().get(0);
+        assertEquals("NO_DATA", differs.verdict(), differs.note());
+        assertTrue(differs.note().contains("틀렸다고 판정하지 않았습니다"), differs.note());
         // 수익 줄을 찾지 못하면 예전처럼 비교하지 않고 이유와 순이익을 알린다.
         var none = service(new FakeModel(wrap(claim("KB금융 2025년 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")), false));
         none.setRevenueLines((id, year) -> null);

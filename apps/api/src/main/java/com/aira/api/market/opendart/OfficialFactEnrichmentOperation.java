@@ -41,7 +41,11 @@ public class OfficialFactEnrichmentOperation {
                 .collect(Collectors.joining(","));
     }
 
-    /** 그 해 매출은 있지만 추가 항목이 하나도 없는 회사의 OpenDART 회사 코드. */
+    /**
+     * 다시 채울 회사의 OpenDART 회사 코드: (1) 그 해 매출은 있지만 추가 항목이 하나도 없는 회사,
+     * (2) 그 해 자산은 있지만 매출이 없는 회사(매출을 표준 코드가 아닌 '매출액' 코드로 공시해 빠졌던 회사).
+     * 금융회사처럼 다시 받아도 매출이 없으면 run()이 이번 실행 동안 건너뛴다.
+     */
     Set<String> pendingCorpCodes(int businessYear) {
         LocalDate from = LocalDate.of(businessYear, 1, 1);
         LocalDate to = LocalDate.of(businessYear + 1, 1, 1);
@@ -53,7 +57,14 @@ public class OfficialFactEnrichmentOperation {
                   AND NOT EXISTS (SELECT 1 FROM fact f WHERE f.subject_entity_id = i.entity_id
                               AND f.predicate IN (""" + extendedList() + """
                               ) AND f.status = 'SUPPORTED' AND f.period_start >= ? AND f.period_start < ?)
-                """, (rs, n) -> rs.getString(1), from, to, from, to));
+                UNION
+                SELECT i.identifier_value FROM entity_external_identifier i
+                WHERE i.namespace = 'OPENDART' AND i.identifier_type = 'CORP_CODE'
+                  AND EXISTS (SELECT 1 FROM fact f WHERE f.subject_entity_id = i.entity_id AND f.predicate = 'TOTAL_ASSETS'
+                              AND f.status = 'SUPPORTED' AND f.period_start >= ? AND f.period_start < ?)
+                  AND NOT EXISTS (SELECT 1 FROM fact f WHERE f.subject_entity_id = i.entity_id AND f.predicate = 'REVENUE'
+                              AND f.status = 'SUPPORTED' AND f.period_start >= ? AND f.period_start < ?)
+                """, (rs, n) -> rs.getString(1), from, to, from, to, from, to, from, to));
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

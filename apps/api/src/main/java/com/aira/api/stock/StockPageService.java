@@ -411,6 +411,8 @@ public class StockPageService {
         if (company == null) return null;
         var full = fullStatements(company.corpCode());
         if (full.rows().isEmpty() || (year != null && full.year() != year)) return null;
+        // 영업수익 줄이 있으면 그것을 쓴다. 없으면 보험수익·이자수익 가운데 더 큰 줄(은행은 이자수익, 보험사는 보험수익)을 쓴다.
+        com.aira.api.assist.RevenueLineSource.Line best = null;
         for (String wanted : FINANCIAL_REVENUE_NAMES) {
             for (var row : full.rows()) {
                 String div = row.get("sj_div");
@@ -418,10 +420,13 @@ public class StockPageService {
                 if (!wanted.equals(plainAccountName(row.get("account_nm")))) continue;
                 var amount = KrxDailyRows.number(row.get("thstrm_amount"));
                 if (amount == null) continue;
-                return new com.aira.api.assist.RevenueLineSource.Line(full.year(), wanted, amount, row.get("rcept_no"));
+                var line = new com.aira.api.assist.RevenueLineSource.Line(full.year(), wanted, amount, row.get("rcept_no"));
+                if ("영업수익".equals(wanted)) return line;
+                if (best == null || amount.abs().compareTo(best.amount().abs()) > 0) best = line;
+                break;
             }
         }
-        return null;
+        return best;
     }
 
     public Map<String, Object> statements(StockCompanyLookup.Company company) {

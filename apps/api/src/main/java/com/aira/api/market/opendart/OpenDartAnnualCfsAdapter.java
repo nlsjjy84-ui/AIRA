@@ -41,6 +41,12 @@ public class OpenDartAnnualCfsAdapter {
             Map.entry(FactPredicate.FINANCING_CASH_FLOW, List.of("ifrs-full_CashFlowsFromUsedInFinancingActivities",
                     "ifrs_CashFlowsFromUsedInFinancingActivities")));
     /**
+     * 표준 매출 코드(ifrs Revenue)가 없을 때만 쓰는 예비 코드. 일부 회사는 손익계산서 맨 위 '매출액'을
+     * dart_RevenueFromSaleOfGoodsProduct로 공시한다. 표준 코드가 있으면 절대 쓰지 않는다(세부 매출과 섞이지 않게).
+     */
+    private static final List<String> REVENUE_FALLBACK_IDS = List.of("dart_RevenueFromSaleOfGoodsProduct");
+
+    /**
      * 새로 추가한 항목은 회사마다 계정 코드가 조금씩 달라 공시에서 못 찾을 수 있다. 그 경우 이 항목만 건너뛰고
      * 매출·영업이익 수집은 그대로 진행한다. 같은 계정 코드가 재무제표 여러 곳에 나오므로 어느 표(sj_div)의
      * 값인지도 함께 확인한다. 순이익은 손익계산서(IS) 또는 포괄손익계산서(CIS), 나머지는 재무상태표(BS)다.
@@ -206,6 +212,23 @@ public class OpenDartAnnualCfsAdapter {
                                 .equals(row.financialStatementDivision()))
                 .filter(row -> accountIds.contains(row.accountId()))
                 .toList();
+        if (matches.isEmpty() && predicate == FactPredicate.REVENUE) {
+            matches = response.list().stream()
+                    .filter(row -> row != null)
+                    .filter(row -> expectedReceiptNumber == null || expectedReceiptNumber.equals(row.receiptNumber()))
+                    .filter(row -> context.reportCode().equals(row.reportCode()))
+                    .filter(row -> Integer.toString(context.businessYear()).equals(row.businessYear()))
+                    .filter(row -> row.corpCode() == null || context.corpCode().equals(row.corpCode()))
+                    .filter(row -> row.financialStatementDivision() == null
+                            || context.financialStatementDivision().equals(row.financialStatementDivision()))
+                    .filter(row -> REVENUE_FALLBACK_IDS.contains(row.accountId()))
+                    .filter(row -> "IS".equals(row.statementDivision()) || "CIS".equals(row.statementDivision()))
+                    .filter(row -> row.currentTermAmount() != null && !row.currentTermAmount().isBlank())
+                    .toList();
+            if (matches.size() > 1 && matches.stream().map(r -> r.currentTermAmount().trim().replace(",", "")).distinct().count() == 1) {
+                matches = List.of(matches.getFirst());
+            }
+        }
         if (matches.isEmpty()) {
             throw new OpenDartProviderException(OpenDartProviderException.Category.NO_DATA,
                     "Supported annual CFS account was not returned");

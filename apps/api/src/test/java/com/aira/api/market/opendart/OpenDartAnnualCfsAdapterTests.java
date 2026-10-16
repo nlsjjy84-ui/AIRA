@@ -450,6 +450,26 @@ class OpenDartAnnualCfsAdapterTests {
     }
 
     @Test
+    void revenueFiledUnderTheSalesOfGoodsCodeIsUsedOnlyWhenTheStandardCodeIsMissing() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                statementRow("IS", "dart_RevenueFromSaleOfGoodsProduct", "700"), row("dart_OperatingIncomeLoss", "70")));
+        assertEquals(2, adapter.ingestFiling(CONTEXT, RECEIPT, List.of(FactPredicate.REVENUE, FactPredicate.OPERATING_INCOME)).size());
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(2)).ingest(captor.capture());
+        assertEquals("CFS/IS/dart_RevenueFromSaleOfGoodsProduct/thstrm_amount", captor.getAllValues().get(0).assertionLocator());
+    }
+
+    @Test
+    void theStandardRevenueCodeWinsOverTheSalesOfGoodsCode() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000"),
+                statementRow("IS", "dart_RevenueFromSaleOfGoodsProduct", "700")));
+        adapter.ingestFiling(CONTEXT, RECEIPT, List.of(FactPredicate.REVENUE));
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary).ingest(captor.capture());
+        assertEquals("CFS/IS/ifrs_Revenue/thstrm_amount", captor.getValue().assertionLocator());
+    }
+
+    @Test
     void failsWhenOnlyNewItemsWereRequestedAndNoneExist() {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
 

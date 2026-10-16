@@ -269,13 +269,20 @@ public class ClaimCheckService {
             boolean holds = above ? cmp >= 0 : cmp < 0;
             String thresholdNote = (fact.value().compareTo(threshold) >= 0
                     ? "공식 값이 말한 기준(" + statedText + ")을 넘습니다." : "공식 값이 말한 기준(" + statedText + ")에 못 미칩니다.");
-            return new ClaimResult(sentence, holds ? "MATCH" : "MISMATCH", company.name(), itemLabel(item, substituteLine), fact.periodEnd().getYear(),
+            return new ClaimResult(sentence, holds ? "MATCH" : substituteLine != null ? "NO_DATA" : "MISMATCH", company.name(), itemLabel(item, substituteLine), fact.periodEnd().getYear(),
                     statedText + (above ? " 넘음" : " 미만"), ClaimMath.format(fact.value()), fact.periodStart() + " ~ " + fact.periodEnd(),
                     fact.receiptNumber(), fact.originalUrl(), thresholdNote
                             + (year == null ? " 사업연도를 말하지 않아 가장 최근 값(" + fact.periodEnd().getYear() + ")과 비교했습니다." : "")
                             + (fact.separate() ? SEPARATE_LINE : "") + substituteNote(substituteLine));
         }
         ClaimMath.Closeness closeness = ClaimMath.compare(amount, factor, fact.value());
+        if (substituteLine != null && closeness == ClaimMath.Closeness.MISMATCH) {
+            // 기사 속 '매출'이 공시의 어느 숫자(영업수익 합계, 순영업수익 등)를 말하는지 알 수 없으므로, 다르다고 틀림으로 판정하지 않는다.
+            return new ClaimResult(sentence, "NO_DATA", company.name(), itemLabel(item, substituteLine), fact.periodEnd().getYear(), statedText,
+                    ClaimMath.format(fact.value()), fact.periodStart() + " ~ " + fact.periodEnd(), fact.receiptNumber(), fact.originalUrl(),
+                    "이 회사 재무제표에는 '매출' 줄이 없습니다. 공시에 적힌 '" + substituteLine + "' 줄은 이 값이라 말한 숫자와 다르지만, "
+                            + "기사의 '매출'은 다른 기준(영업수익 합계 등)일 수 있어 틀렸다고 판정하지 않았습니다.");
+        }
         String verdict = switch (closeness) {
             case MATCH -> "MATCH";
             case APPROX -> "APPROX";
