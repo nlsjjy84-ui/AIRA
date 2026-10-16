@@ -19,6 +19,7 @@ class ClaimCheckServiceTests {
     private static final UUID USER = UUID.randomUUID();
     private static final UUID SAMSUNG = UUID.randomUUID();
     private static final UUID BANK = UUID.randomUUID();
+    private static final UUID SMALL = UUID.randomUUID();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
 
     private static final class FakeReader implements OfficialFactReader {
@@ -27,9 +28,16 @@ class ClaimCheckServiceTests {
             if (name.equals("중복상사")) return new Resolved("MANY", null);
             if (name.equals("KB금융")) return new Resolved("ONE", new Company(BANK, "KB금융"));
             if (name.equals("iM금융지주")) return new Resolved("LISTED", null);
+            if (name.equals("작은회사")) return new Resolved("ONE", new Company(SMALL, "작은회사"));
             return new Resolved("NONE", null);
         }
         public Fact find(UUID id, String predicate, Integer year) {
+            if (id.equals(SMALL)) {
+                // 연결재무제표가 없는 회사: 별도 기준 값만 있다. 영업활동 현금흐름은 3,000억 유출.
+                if (!predicate.equals("OPERATING_CASH_FLOW")) return null;
+                return new Fact(new BigDecimal("-300000000000"), "KRW", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31),
+                        "20260320000222", "https://dart.fss.or.kr/small", "OFS");
+            }
             if (id.equals(BANK)) {
                 // 금융회사: 매출 줄이 없고 순이익만 있다.
                 if (!predicate.equals("NET_INCOME")) return null;
@@ -159,6 +167,22 @@ class ClaimCheckServiceTests {
     }
 
     @Test
+    void cashFlowOutflowIsComparedAsNegativeAndSeparateBasisIsShown() {
+        var result = one(wrap(claim("작은회사 2025년 영업활동 현금흐름 3000억원 유출", "FACT", "작은회사", "OPERATING_CASH_FLOW", "2025", "3000", "억원")));
+        assertEquals("MATCH", result.verdict(), result.note());
+        assertEquals("영업활동 현금흐름", result.item());
+        assertTrue(result.note().endsWith(ClaimCheckService.SEPARATE_LINE), result.note());
+    }
+
+    @Test
+    void ruleSplitterKnowsTheNewItemsBeforeTheShortOnes() {
+        assertEquals("CURRENT_ASSETS", RuleClaims.code("유동자산"));
+        assertEquals("OPERATING_CASH_FLOW", RuleClaims.code("영업활동 현금흐름"));
+        var claims = RuleClaims.split("작은회사 유동자산 1조원", new tools.jackson.databind.ObjectMapper());
+        assertEquals("CURRENT_ASSETS", claims.get(0).path("item").asText());
+    }
+
+    @Test
     void listedCompanyWithoutOfficialFinancialsIsNotCalledMissing() {
         var result = one(wrap(claim("iM금융지주 순이익 5천억", "FACT", "iM금융지주", "NET_INCOME", "2025", "1", "조원")));
         assertEquals("NO_DATA", result.verdict());
@@ -171,7 +195,8 @@ class ClaimCheckServiceTests {
     void financialCompanyWithoutRevenueLineSaysWhyInsteadOfComparing() {
         var result = one(wrap(claim("KB금융 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")));
         assertEquals("NO_DATA", result.verdict());
-        assertEquals(ClaimCheckService.NO_REVENUE_LINE, result.note());
+        assertTrue(result.note().startsWith(ClaimCheckService.NO_REVENUE_LINE));
+        assertTrue(result.note().contains("2025 사업연도 공식 값은 순이익"), result.note());
         assertEquals("MATCH", one(wrap(claim("KB금융 순이익 5조7820억", "FACT", "KB금융", "NET_INCOME", "2025", "57820", "억원"))).verdict());
     }
 

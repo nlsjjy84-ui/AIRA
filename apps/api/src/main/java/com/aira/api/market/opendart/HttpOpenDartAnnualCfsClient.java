@@ -38,6 +38,12 @@ public final class HttpOpenDartAnnualCfsClient implements OpenDartAnnualCfsClien
 
     @Override
     public OpenDartFinancialResponse fetch(String corpCode, int businessYear) {
+        return fetch(corpCode, businessYear, CFS);
+    }
+
+    @Override
+    public OpenDartFinancialResponse fetch(String corpCode, int businessYear, String fsDiv) {
+        if (!CFS.equals(fsDiv) && !"OFS".equals(fsDiv)) throw new IllegalArgumentException("fs_div must be CFS or OFS");
         if (apiKey.isBlank()) {
             throw new OpenDartProviderException(OpenDartProviderException.Category.AUTHENTICATION,
                     "OpenDART API key is not configured");
@@ -46,7 +52,7 @@ public final class HttpOpenDartAnnualCfsClient implements OpenDartAnnualCfsClien
                 + "&corp_code=" + encode(corpCode)
                 + "&bsns_year=" + businessYear
                 + "&reprt_code=" + ANNUAL_REPORT_CODE
-                + "&fs_div=" + CFS);
+                + "&fs_div=" + fsDiv);
         var request = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).GET().build();
         HttpResponse<String> response;
         try {

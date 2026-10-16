@@ -60,7 +60,7 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
     @Transactional(readOnly = true)
     public Fact find(UUID companyId, String predicate, Integer year) {
         StringBuilder sql = new StringBuilder("""
-                SELECT f.value_number, f.currency_code, f.period_start, f.period_end, ev.external_id, ev.original_url
+                SELECT f.value_number, f.currency_code, f.period_start, f.period_end, ev.external_id, ev.original_url, fa.locator
                 FROM fact f
                 JOIN fact_assertion fa ON fa.fact_id = f.id
                 JOIN evidence ev ON ev.id = fa.evidence_id
@@ -70,7 +70,8 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
         if (year != null) sql.append(" AND EXTRACT(YEAR FROM f.period_end) = ").append(year.intValue()).append('\n');
         sql.append(" ORDER BY f.period_end DESC, ev.collected_at DESC LIMIT 1");
         List<Fact> rows = jdbc.query(sql.toString(), (rs, n) -> new Fact(rs.getBigDecimal(1), rs.getString(2),
-                rs.getObject(3, LocalDate.class), rs.getObject(4, LocalDate.class), rs.getString(5), rs.getString(6)),
+                rs.getObject(3, LocalDate.class), rs.getObject(4, LocalDate.class), rs.getString(5), rs.getString(6),
+                rs.getString(7) != null && rs.getString(7).startsWith("OFS/") ? "OFS" : "CFS"),
                 companyId, predicate);
         return rows.isEmpty() ? null : rows.get(0);
     }

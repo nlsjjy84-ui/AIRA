@@ -59,9 +59,22 @@ public class OfficialCompanyDataPreparationOperation {
                 .orElseThrow(() -> new IllegalStateException("Official company was not found for stock code " + stockCode));
         var profile = profileClient.fetch(record.corpCode());
         if (!record.corpCode().equals(profile.corpCode())) throw new IllegalStateException("OpenDART company identity is inconsistent");
-        var filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
-                "11011", "CFS"),
-                FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+        OpenDartPreparedFiling filing;
+        try {
+            filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
+                    "11011", "CFS"),
+                    FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+        } catch (OpenDartProviderException e) {
+            // 자회사가 없어 연결재무제표를 내지 않는 회사는 별도재무제표(OFS)로 받는다. 저장 위치(locator)가 "OFS/..."로
+            // 남아 화면과 사실 확인에서 '별도 기준'으로 표시된다. 연결이 있는 회사는 절대 별도로 바꾸지 않는다.
+            // 연결 공시 자체가 없을 때(OpenDART 상태 013)만 별도로 간다. 연결은 있는데 계정만 못 찾은 경우는 그대로 건너뛴다.
+            if (e.category() != OpenDartProviderException.Category.NO_DATA
+                    || e.getMessage() == null || !e.getMessage().endsWith("status 013")) throw e;
+            log.info("Stock code {} has no consolidated annual statements for {}; trying separate (OFS)", stockCode, businessYear);
+            filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
+                    "11011", "OFS"),
+                    FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+        }
         UUID entityId = persistence.persist(filing, record).companyId();
         var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());
         log.info("Stock code {} maps to {} known alias(es): {}", stockCode, knownAliases.size(), knownAliases);

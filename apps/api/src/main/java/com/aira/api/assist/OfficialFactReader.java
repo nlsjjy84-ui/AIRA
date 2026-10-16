@@ -7,11 +7,18 @@ import java.util.UUID;
 /** Read-only access to stored official company facts. Nothing here is produced by AI. */
 public interface OfficialFactReader {
     record Company(UUID id, String name) {}
-    /** status is ONE, NONE or MANY; company is set only for ONE. */
     /** status: ONE(하나로 정함) · MANY(같은 이름 여러 곳) · LISTED(종목은 있으나 공식 재무 자료가 아직 없음) · NONE. */
     record Resolved(String status, Company company) {}
+    /** basis: CFS(연결) 또는 OFS(별도, 연결재무제표를 내지 않는 회사). */
     record Fact(BigDecimal value, String currency, LocalDate periodStart, LocalDate periodEnd,
-            String receiptNumber, String originalUrl) {}
+            String receiptNumber, String originalUrl, String basis) {
+        public Fact(BigDecimal value, String currency, LocalDate periodStart, LocalDate periodEnd,
+                String receiptNumber, String originalUrl) {
+            this(value, currency, periodStart, periodEnd, receiptNumber, originalUrl, "CFS");
+        }
+
+        public boolean separate() { return "OFS".equals(basis); }
+    }
 
     Resolved resolve(String name);
 

@@ -95,6 +95,16 @@ class OpenDartPeriodWitnessResolverTests {
     }
 
     @Test
+    void anOfsContextUsesOnlyOfsRowsAsWitnesses() {
+        var ofsContext = new OpenDartAnnualCfsContext(CORP, 2025, "11011", "OFS");
+        var cfs = OpenDartWitnessFixtures.witness(CORP, RECEIPT, "2025.04.01~2025.09.30").list().getFirst();
+        var ofs = new OpenDartPeriodWitnessResponse.Row(CORP, "2025", "11011", RECEIPT, "OFS", "2025.01.01~2025.12.31");
+        var resolved = OpenDartPeriodWitnessResolver.resolve(ofsContext, RECEIPT,
+                new OpenDartPeriodWitnessResponse("000", List.of(cfs, ofs)), NOW);
+        assertEquals("2025-01-01", resolved.start().toString());
+    }
+
+    @Test
     void ofsCannotSupplyThePeriodAndInvalidValueReceiptBlocks() {
         var ofs = new OpenDartPeriodWitnessResponse("000", List.of(new OpenDartPeriodWitnessResponse.Row(
                 CORP, "2025", "11011", RECEIPT, "OFS", "2025.01.01~2025.12.31")));

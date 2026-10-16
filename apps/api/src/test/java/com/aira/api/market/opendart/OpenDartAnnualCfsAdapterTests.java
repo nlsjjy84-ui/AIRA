@@ -428,6 +428,28 @@ class OpenDartAnnualCfsAdapterTests {
     }
 
     @Test
+    void separateStatementsAreFetchedAsOfsAndKeepTheirBasisInTheLocator() {
+        var ofs = new OpenDartAnnualCfsContext("00126380", 2025, "11011", "OFS");
+        when(client.fetch("00126380", 2025, "OFS")).thenReturn(success(revenueRow("1,000"),
+                statementRow("BS", "ifrs-full_Assets", "5,000")));
+        when(witnesses.fetch("00126380", 2025)).thenReturn(new OpenDartPeriodWitnessResponse("000", List.of(
+                new OpenDartPeriodWitnessResponse.Row("00126380", "2025", "11011", RECEIPT, "OFS", "2025.01.01 ~ 2025.12.31"))));
+
+        var receipts = adapter.ingestFiling(ofs, RECEIPT, List.of(FactPredicate.REVENUE, FactPredicate.TOTAL_ASSETS));
+
+        assertEquals(2, receipts.size());
+        verify(client, never()).fetch("00126380", 2025);
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(2)).ingest(captor.capture());
+        assertTrue(captor.getAllValues().stream().allMatch(input -> input.assertionLocator().startsWith("OFS/")));
+    }
+
+    @Test
+    void onlyAnnualCfsOrOfsContextsAreAccepted() {
+        assertThrows(IllegalArgumentException.class, () -> new OpenDartAnnualCfsContext("00126380", 2025, "11011", "XYZ"));
+    }
+
+    @Test
     void failsWhenOnlyNewItemsWereRequestedAndNoneExist() {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
 

@@ -15,7 +15,9 @@ import tools.jackson.databind.node.ObjectNode;
 final class RuleClaims {
     /** 문장 끝: 마침표(소수점 43.6의 점은 제외)·물음표·느낌표·줄바꿈. */
     private static final Pattern SENTENCE_END = Pattern.compile("(?<!\\d)\\.|\\.(?!\\d)|[!?\\n]");
-    private static final Pattern ITEM = Pattern.compile("(매출액|매출|영업이익|영업손실|당기순이익|순이익|순손실|자산\\s*총계|총자산|자산|부채\\s*총계|총부채|부채|자본\\s*총계|자본)");
+    private static final Pattern ITEM = Pattern.compile("(영업활동\\s*현금\\s*흐름|영업\\s*현금\\s*흐름|투자활동\\s*현금\\s*흐름|투자\\s*현금\\s*흐름"
+            + "|재무활동\\s*현금\\s*흐름|재무\\s*현금\\s*흐름|현금\\s*및\\s*현금성\\s*자산|현금성\\s*자산|유동\\s*자산|유동\\s*부채"
+            + "|매출액|매출|영업이익|영업손실|당기순이익|순이익|순손실|자산\\s*총계|총자산|자산|부채\\s*총계|총부채|부채|자본\\s*총계|자본)");
     private static final Pattern YEAR = Pattern.compile("(20\\d{2})\\s*년");
     private static final Pattern PARTICLE = Pattern.compile("(은|는|이|가|의|도)$");
 
@@ -60,6 +62,12 @@ final class RuleClaims {
             case "순이익", "당기순이익", "순손실" -> "NET_INCOME";
             case "자산", "자산총계", "총자산" -> "TOTAL_ASSETS";
             case "부채", "부채총계", "총부채" -> "TOTAL_LIABILITIES";
+            case "유동자산" -> "CURRENT_ASSETS";
+            case "유동부채" -> "CURRENT_LIABILITIES";
+            case "현금및현금성자산", "현금성자산" -> "CASH_AND_EQUIVALENTS";
+            case "영업활동현금흐름", "영업현금흐름" -> "OPERATING_CASH_FLOW";
+            case "투자활동현금흐름", "투자현금흐름" -> "INVESTING_CASH_FLOW";
+            case "재무활동현금흐름", "재무현금흐름" -> "FINANCING_CASH_FLOW";
             default -> "TOTAL_EQUITY";
         };
     }

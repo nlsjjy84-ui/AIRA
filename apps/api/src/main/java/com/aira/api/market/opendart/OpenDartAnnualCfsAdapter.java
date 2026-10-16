@@ -112,7 +112,9 @@ public class OpenDartAnnualCfsAdapter {
         if (predicates == null || predicates.isEmpty() || predicates.stream().anyMatch(p -> p == null)) {
             throw new IllegalArgumentException("At least one fact predicate is required");
         }
-        OpenDartFinancialResponse response = client.fetch(context.corpCode(), context.businessYear());
+        OpenDartFinancialResponse response = "CFS".equals(context.financialStatementDivision())
+                ? client.fetch(context.corpCode(), context.businessYear())
+                : client.fetch(context.corpCode(), context.businessYear(), context.financialStatementDivision());
         requireSuccess(response);
         if (expectedReceiptNumber != null) {
             validateExpectedFiling(response, context, expectedReceiptNumber);
@@ -139,6 +141,13 @@ public class OpenDartAnnualCfsAdapter {
                     if (predicates.size() == 1 || e.category() != OpenDartProviderException.Category.NO_DATA) throw e;
                     log.warn("OpenDART {} was not found for corp {} year {}; skipping this item",
                             predicate, context.corpCode(), context.businessYear());
+                    if (predicate == FactPredicate.REVENUE) {
+                        // 금융회사의 '영업수익·이자수익' 계정 코드를 확인하려고 손익계산서 앞쪽 계정 코드만 남긴다(값은 남기지 않음).
+                        log.info("OpenDART income statement accounts without revenue for corp {} year {}: {}",
+                                context.corpCode(), context.businessYear(), response.list().stream()
+                                        .filter(r -> r != null && ("IS".equals(r.statementDivision()) || "CIS".equals(r.statementDivision())))
+                                        .limit(8).map(r -> r.accountId() + "=" + r.accountName()).toList());
+                    }
                     continue;
                 }
                 chosenPredicates.add(predicate);
@@ -172,7 +181,7 @@ public class OpenDartAnnualCfsAdapter {
         }
         var valueEvidence = new EvidenceRegistration(EvidenceType.DISCLOSURE, receiptNumber,
                 "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receiptNumber,
-                "OpenDART annual CFS filing", filingHash, null, null, OffsetDateTime.now(clock), 1);
+                "OpenDART annual " + context.financialStatementDivision() + " filing", filingHash, null, null, OffsetDateTime.now(clock), 1);
         var prepared = new OpenDartPreparedFiling(context, valueEvidence, period, metrics);
         persistence.preflight(prepared);
         return prepared;

@@ -40,9 +40,12 @@ public final class OpenDartPeriodWitnessResolver {
         var canonicalRows = new ArrayList<String>();
         for (var row : response.list()) {
             if (row == null) throw blocked(PERIOD_WITNESS_MALFORMED);
-            // OFS rows are not witnesses. No value/name inference is used to select CFS rows.
-            if ("OFS".equals(row.financialStatementDivision())) continue;
-            if (!"CFS".equals(row.financialStatementDivision())
+            // Only rows of the requested division (CFS, or OFS for companies without consolidated statements)
+            // are witnesses; the other division's rows are skipped. No value/name inference is used.
+            String division = context.financialStatementDivision();
+            String other = "CFS".equals(division) ? "OFS" : "CFS";
+            if (other.equals(row.financialStatementDivision())) continue;
+            if (!division.equals(row.financialStatementDivision())
                     || !context.corpCode().equals(row.corpCode())
                     || !Integer.toString(context.businessYear()).equals(row.businessYear())
                     || !context.reportCode().equals(row.reportCode())

@@ -13,8 +13,10 @@ public record OpenDartAnnualCfsContext(
         if (businessYear < 1900 || businessYear > 9999) {
             throw new IllegalArgumentException("Business year is invalid");
         }
-        if (!"11011".equals(reportCode) || !"CFS".equals(financialStatementDivision)) {
-            throw new IllegalArgumentException("Only OpenDART annual CFS context is supported");
+        // CFS(연결)가 기본이고, 연결재무제표를 내지 않는 회사만 OFS(별도)를 쓴다.
+        if (!"11011".equals(reportCode)
+                || !("CFS".equals(financialStatementDivision) || "OFS".equals(financialStatementDivision))) {
+            throw new IllegalArgumentException("Only OpenDART annual CFS or OFS context is supported");
         }
     }
 }
