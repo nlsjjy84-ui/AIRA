@@ -75,6 +75,19 @@ public class StockReportFactSource implements ReportFactSource {
                 " 사업보고서 '직원 현황'의 합계(정규직·기간제 포함)입니다.");
     }
 
+    @Override
+    public Line researchAndDevelopment(UUID companyId, int year, String receiptNumber) {
+        try {
+            var found = pages.researchAndDevelopment(receiptNumber, year);
+            if (found == null) return null;
+            return new Line(year, null, found.amount(), receiptNumber,
+                    " 사업보고서 XBRL 원본 파일의 재무제표 주석(" + found.element() + ")에 적힌 값입니다"
+                            + ("OFS".equals(found.basis()) ? "(별도 기준)." : "."));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
     private static boolean isTotal(String value) {
         return value != null && (value.contains("합계") || value.contains("총계") || value.contains("전체"));
     }

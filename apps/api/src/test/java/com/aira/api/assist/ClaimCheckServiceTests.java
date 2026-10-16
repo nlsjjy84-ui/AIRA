@@ -51,6 +51,7 @@ class ClaimCheckServiceTests {
                 case "REVENUE" -> y == 2025 ? new BigDecimal("333605938000000") : new BigDecimal("300870903000000");
                 case "OPERATING_INCOME" -> y == 2025 ? new BigDecimal("43601051000000") : new BigDecimal("32725961000000");
                 case "NET_INCOME" -> y == 2025 ? new BigDecimal("-1200000000000") : new BigDecimal("3000000000000");
+                case "TOTAL_ASSETS" -> new BigDecimal("500000000000000");
                 default -> null;
             };
             if (value == null) return null;
@@ -181,6 +182,10 @@ class ClaimCheckServiceTests {
         public Line employees(UUID id, Integer year) {
             return id.equals(SAMSUNG) ? new Line(2025, null, new java.math.BigDecimal("120300"), "20260310002820", "") : null;
         }
+        public Line researchAndDevelopment(UUID id, int year, String receipt) {
+            return id.equals(SAMSUNG) && year == 2025 && "20260310002820".equals(receipt)
+                    ? new Line(2025, null, new java.math.BigDecimal("37000000000000"), receipt, " XBRL 주석 값입니다.") : null;
+        }
     }
 
     private static ClaimDtos.ClaimResult withReports(String answer) {
@@ -213,6 +218,13 @@ class ClaimCheckServiceTests {
         var qoq = withReports(wrap(quarterClaim("삼성전자 3분기 영업이익 전분기 대비 늘었다", "OPERATING_INCOME", "2025", "", "", "UP", "")));
         assertEquals("MATCH", qoq.verdict(), qoq.note());
         assertTrue(qoq.official().startsWith("2025년 2분기"), qoq.official());
+    }
+
+    @Test
+    void researchSpendingIsReadFromTheAnnualReportXbrl() {
+        var rnd = withReports(wrap(quarterClaim("삼성전자 2025년 연구개발비 37조원", "RESEARCH_AND_DEVELOPMENT", "2025", "37", "조원", "", "")));
+        assertEquals("MATCH", rnd.verdict(), rnd.note());
+        assertEquals("연구개발비", rnd.item());
     }
 
     @Test
@@ -298,7 +310,7 @@ class ClaimCheckServiceTests {
 
     @Test
     void unsupportedItemOfKnownCompanyIsNoData() {
-        assertEquals("NO_DATA", one(wrap(claim("자산 1조", "FACT", "삼성전자", "TOTAL_ASSETS", "2025", "1", "조원"))).verdict());
+        assertEquals("NO_DATA", one(wrap(claim("유동자산 1조", "FACT", "삼성전자", "CURRENT_ASSETS", "2025", "1", "조원"))).verdict());
     }
 
     @Test

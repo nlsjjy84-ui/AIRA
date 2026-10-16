@@ -17,4 +17,7 @@ public interface ReportFactSource {
     Line dividendPerShare(UUID companyId, Integer year);
 
     Line employees(UUID companyId, Integer year);
+
+    /** 사업보고서(receiptNumber)의 XBRL 원본 파일 주석에 적힌 그 사업연도 연구개발비. 주석을 XBRL로 내지 않은 회사는 null. */
+    default Line researchAndDevelopment(UUID companyId, int year, String receiptNumber) { return null; }
 }

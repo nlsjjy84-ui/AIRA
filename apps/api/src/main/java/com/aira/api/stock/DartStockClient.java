@@ -117,6 +117,25 @@ public class DartStockClient {
         return body == null ? List.of() : rows(body);
     }
 
+    /** XBRL 재무제표 원본 파일(zip). 사업보고서(11011) 기준. 파일이 없거나 zip이 아니면 null. */
+    public byte[] xbrlZip(String receiptNumber) {
+        if (apiKey.isBlank()) throw new DartUnavailableException("OpenDART API key is not configured");
+        if (receiptNumber == null || !receiptNumber.matches("[0-9]{14}")) return null;
+        URI uri = URI.create(BASE + "fnlttXbrl.xml?crtfc_key=" + enc(apiKey) + "&rcept_no=" + receiptNumber + "&reprt_code=11011");
+        try {
+            HttpResponse<byte[]> response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
+                    .send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(60)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+            byte[] body = response.body();
+            if (response.statusCode() != 200 || body == null || body.length < 4 || body[0] != 'P' || body[1] != 'K') return null;
+            return body;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DartUnavailableException("OpenDART request interrupted");
+        } catch (IOException e) {
+            throw new DartUnavailableException("OpenDART request failed");
+        }
+    }
+
     /** 지분공시: elestock(임원·주요주주 소유보고), majorstock(대량보유 상황보고). */
     public List<Map<String, String>> ownershipReports(String section, String corpCode) {
         if (!section.matches("elestock|majorstock")) throw new IllegalArgumentException("Unsupported ownership section");

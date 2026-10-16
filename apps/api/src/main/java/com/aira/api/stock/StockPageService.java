@@ -275,6 +275,22 @@ public class StockPageService {
         return null;
     }
 
+    // ---------- 연구개발비 (XBRL 원본 파일의 주석) ----------
+    private final Map<String, Map.Entry<Instant, java.util.Optional<XbrlResearchReader.Found>>> researchCache = new ConcurrentHashMap<>();
+
+    /** 사업보고서 접수번호의 XBRL 원본 파일에서 그 사업연도 연구개발비를 읽는다. 없으면 null. 결과는 7일 보관한다. */
+    public XbrlResearchReader.Found researchAndDevelopment(String receiptNumber, int fiscalYear) {
+        String key = receiptNumber + "|" + fiscalYear;
+        var cached = researchCache.get(key);
+        if (cached != null && cached.getKey().plus(Duration.ofDays(7)).isAfter(clock.instant())) return cached.getValue().orElse(null);
+        byte[] zip = dart.xbrlZip(receiptNumber);
+        XbrlResearchReader.Found found = zip == null ? null : XbrlResearchReader.read(zip, fiscalYear);
+        org.slf4j.LoggerFactory.getLogger(StockPageService.class).info("XBRL R&D receipt {} year {}: {}", receiptNumber, fiscalYear,
+                zip == null ? "no XBRL file" : found == null ? "no R&D expense element" : found.element() + "=" + found.amount() + " (" + found.basis() + ")");
+        researchCache.put(key, Map.entry(clock.instant(), java.util.Optional.ofNullable(found)));
+        return found;
+    }
+
     // ---------- 분기 실적 ----------
     public Map<String, Object> quarters(StockCompanyLookup.Company company) {
         Map<String, Map<String, BigDecimal>> cum = new java.util.HashMap<>();
