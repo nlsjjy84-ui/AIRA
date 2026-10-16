@@ -48,13 +48,45 @@ public class StockSchema implements ApplicationRunner {
         boolean postgres = postgres();
         for (String file : FILES) {
             if (!postgres && POSTGRES_ONLY.contains(file)) continue;
+            // 공식 재무 표(fact) 제약을 바꾸는 파일은 표 전체를 잠그고 다시 검사한다. 이미 바뀐 상태면 서버를 켤 때마다 되풀이하지 않는다.
+            if (postgres && POSTGRES_ONLY.contains(file) && extendedConstraintsInPlace()) continue;
             for (String statement : statements(file)) {
-                try { jdbc.execute(statement); applied++; }
+                try {
+                    if (postgres && POSTGRES_ONLY.contains(file)) executeWithLockTimeout(statement);
+                    else jdbc.execute(statement);
+                    applied++;
+                }
                 catch (RuntimeException e) { log.warn("Stock schema statement skipped ({}): {}", file, e.getMessage()); }
             }
         }
         log.info("Stock page schema checked: {} statements", applied);
         return applied;
+    }
+
+    /** fact 표의 두 제약이 이미 새 항목(현금성자산 등)을 받아들이도록 바뀌어 있으면 true. */
+    boolean extendedConstraintsInPlace() {
+        try {
+            Integer count = jdbc.queryForObject("""
+                    SELECT count(*) FROM pg_constraint
+                    WHERE conname IN ('ck_fact_predicate', 'ck_fact_earnings_number')
+                      AND pg_get_constraintdef(oid) LIKE '%CASH_AND_EQUIVALENTS%'
+                    """, Integer.class);
+            return count != null && count == 2;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** 다른 작업이 표를 쓰는 중이면 5초만 기다리고 포기한다. 오래 줄 서서 다른 읽기 요청까지 막는 일을 피한다. */
+    private void executeWithLockTimeout(String statement) {
+        jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            try (var st = connection.createStatement()) {
+                st.execute("SET lock_timeout = '5s'");
+                try { st.execute(statement); }
+                finally { st.execute("RESET lock_timeout"); }
+            }
+            return null;
+        });
     }
 
     static List<String> statements(String file) {
