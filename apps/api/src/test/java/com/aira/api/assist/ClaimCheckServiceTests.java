@@ -167,6 +167,21 @@ class ClaimCheckServiceTests {
     }
 
     @Test
+    void aBankRevenueClaimIsComparedWithTheFiledRevenueLineByItsOwnName() {
+        var s = service(new FakeModel(wrap(claim("KB금융 2025년 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")), false));
+        s.setRevenueLines((id, year) -> id.equals(BANK)
+                ? new RevenueLineSource.Line(2025, "영업수익", new java.math.BigDecimal("80120000000000"), "20260315000111") : null);
+        var result = s.check(USER, "KB금융 2025년 매출 80조").results().get(0);
+        assertEquals("MATCH", result.verdict(), result.note());
+        assertEquals("매출(공시: 영업수익)", result.item());
+        assertTrue(result.note().contains("'영업수익' 줄과 비교했습니다"), result.note());
+        // 수익 줄을 찾지 못하면 예전처럼 비교하지 않고 이유와 순이익을 알린다.
+        var none = service(new FakeModel(wrap(claim("KB금융 2025년 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")), false));
+        none.setRevenueLines((id, year) -> null);
+        assertTrue(none.check(USER, "KB금융 2025년 매출 80조").results().get(0).note().startsWith(ClaimCheckService.NO_REVENUE_LINE));
+    }
+
+    @Test
     void passingAnAmountIsNotMistakenForAYearOnYearIncrease() {
         // AI가 "넘었다"를 증가(UP)로 나눠도, 전년 비교 말이 없고 금액이 있으면 금액 기준으로 판정한다.
         String misSplit = "{\"text\":\"삼성전자 작년 매출이 400조 원을 넘었다던데?\",\"kind\":\"FACT\",\"company\":\"삼성전자\",\"item\":\"REVENUE\","

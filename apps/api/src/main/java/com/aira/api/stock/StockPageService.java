@@ -393,6 +393,37 @@ public class StockPageService {
 
     static final List<String> STATEMENT_ORDER = List.of("BS", "IS", "CIS", "CF", "SCE");
 
+    /** 금융회사가 '매출' 대신 쓰는 손익계산서 줄 이름. 이 순서로 처음 나오는 줄 하나를 쓴다. */
+    static final List<String> FINANCIAL_REVENUE_NAMES = List.of("영업수익", "보험수익", "이자수익");
+
+    /** "Ⅰ. 영업수익(주석 25)" → "영업수익". 번호·괄호·빈칸만 지우고 이름 자체는 바꾸지 않는다. */
+    static String plainAccountName(String raw) {
+        if (raw == null) return "";
+        return raw.replaceAll("\\(.*?\\)", "").replaceAll("^[\\sⅠ-Ⅻ0-9IVX.·\\-]+", "").replaceAll("\\s", "");
+    }
+
+    /**
+     * 매출 줄이 없는 금융회사의 손익계산서에서 회사가 적은 이름 그대로 '영업수익'·'보험수익'·'이자수익' 줄을 찾는다.
+     * 받은 재무제표의 사업연도가 묻는 해와 다르면 null(다른 해 숫자와 비교하지 않는다).
+     */
+    public com.aira.api.assist.RevenueLineSource.Line financialRevenueLine(UUID companyId, Integer year) {
+        var company = companies.find(companyId).orElse(null);
+        if (company == null) return null;
+        var full = fullStatements(company.corpCode());
+        if (full.rows().isEmpty() || (year != null && full.year() != year)) return null;
+        for (String wanted : FINANCIAL_REVENUE_NAMES) {
+            for (var row : full.rows()) {
+                String div = row.get("sj_div");
+                if (!"IS".equals(div) && !"CIS".equals(div)) continue;
+                if (!wanted.equals(plainAccountName(row.get("account_nm")))) continue;
+                var amount = KrxDailyRows.number(row.get("thstrm_amount"));
+                if (amount == null) continue;
+                return new com.aira.api.assist.RevenueLineSource.Line(full.year(), wanted, amount, row.get("rcept_no"));
+            }
+        }
+        return null;
+    }
+
     public Map<String, Object> statements(StockCompanyLookup.Company company) {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("source", "OpenDART 단일회사 전체 재무제표 · 사업보고서");

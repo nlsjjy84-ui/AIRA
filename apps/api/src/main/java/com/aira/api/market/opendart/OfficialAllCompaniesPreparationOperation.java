@@ -47,6 +47,12 @@ public class OfficialAllCompaniesPreparationOperation {
         this.identifiers = identifiers;
     }
 
+    private com.aira.api.stock.ListedStockCodes listed;
+
+    /** 지금 상장된 종목코드(거래소 최근 시세 기준). 있으면 상장폐지된 회사는 건너뛴다(선택). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setListed(com.aira.api.stock.ListedStockCodes listed) { this.listed = listed; }
+
     /**
      * @param skipStockCodes 이번 프로그램 실행 중 이미 "연결재무제표 없음/실패"로 확인한 종목코드. 처리하며 채워진다.
      */
@@ -59,8 +65,11 @@ public class OfficialAllCompaniesPreparationOperation {
             throw new IllegalArgumentException("Batch limit must be positive");
         }
         var directory = companyData.fetchDirectory();
+        // OpenDART 회사 목록에는 상장폐지된 회사의 종목코드도 남아 있다. 최근 거래소 시세가 있는 종목만 받는다.
+        java.util.Set<String> listedNow = listed == null ? java.util.Set.of() : listed.current();
         var pending = directory.records().stream()
                 .filter(record -> record.stockCode() != null)
+                .filter(record -> listedNow.isEmpty() || listedNow.contains(record.stockCode()))
                 .sorted(Comparator.comparing(OpenDartCompanyDirectoryRecord::stockCode))
                 .filter(record -> !skipStockCodes.contains(record.stockCode()))
                 .filter(record -> identifiers.findEntity(

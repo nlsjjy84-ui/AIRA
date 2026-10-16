@@ -71,9 +71,16 @@ public class OfficialCompanyDataPreparationOperation {
             if (e.category() != OpenDartProviderException.Category.NO_DATA
                     || e.getMessage() == null || !e.getMessage().endsWith("status 013")) throw e;
             log.info("Stock code {} has no consolidated annual statements for {}; trying separate (OFS)", stockCode, businessYear);
-            filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
-                    "11011", "OFS"),
-                    FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+            try {
+                filing = annualCfs.prepare(new OpenDartAnnualCfsContext(record.corpCode(), businessYear,
+                        "11011", "OFS"),
+                        FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+                log.info("Stock code {} collected from separate (OFS) statements for {}", stockCode, businessYear);
+            } catch (OpenDartProviderException ofs) {
+                log.info("Stock code {} separate (OFS) statements also unavailable for {}: {} {}", stockCode, businessYear,
+                        ofs.category(), ofs.getMessage());
+                throw ofs;
+            }
         }
         UUID entityId = persistence.persist(filing, record).companyId();
         var knownAliases = KNOWN_STOCK_CODE_ALIASES.getOrDefault(stockCode, List.of());

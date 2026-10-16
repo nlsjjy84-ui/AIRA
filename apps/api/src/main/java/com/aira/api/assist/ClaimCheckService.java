@@ -66,6 +66,15 @@ public class ClaimCheckService {
             + "기준이 다른 숫자를 맞대지 않으려고 매출 금액은 비교하지 않습니다. 영업이익·순이익·자산·부채·자본은 확인할 수 있습니다.";
 
     /** 매출 줄이 없는 금융회사: 같은 사업연도의 영업이익·순이익 공식 값을 함께 알려 준다(있을 때만). */
+    static String itemLabel(String item, String substituteLine) {
+        return substituteLine == null ? ITEMS.get(item) : ITEMS.get(item) + "(공시: " + substituteLine + ")";
+    }
+
+    static String substituteNote(String accountName) {
+        return accountName == null ? "" : " 이 회사 재무제표에는 '매출' 줄이 없어, 공시에 적힌 '" + accountName
+                + "' 줄과 비교했습니다. 기사마다 '매출'이라고 부르는 숫자가 다를 수 있습니다.";
+    }
+
     private String noRevenueNote(UUID companyId, Integer year) {
         StringBuilder note = new StringBuilder(NO_REVENUE_LINE);
         Fact income = reader.find(companyId, "OPERATING_INCOME", year);
@@ -91,6 +100,12 @@ public class ClaimCheckService {
     /** 판정 개수 통계(선택). 없거나 실패해도 사실 확인은 그대로 동작한다. */
     @Autowired(required = false)
     void setStats(ClaimStats stats) { this.stats = stats; }
+
+    private RevenueLineSource revenueLines;
+
+    /** 금융회사 '매출' 문장을 공시의 영업수익·보험수익·이자수익 줄과 비교할 때 쓴다(선택). */
+    @Autowired(required = false)
+    void setRevenueLines(RevenueLineSource revenueLines) { this.revenueLines = revenueLines; }
 
     @Autowired
     public ClaimCheckService(OfficialFactReader reader, ObjectProvider<ReadingAssistModel> models, ObjectMapper json) {
@@ -223,6 +238,18 @@ public class ClaimCheckService {
         }
         Company company = resolved.company();
         Fact fact = reader.find(company.id(), item, year);
+        String substituteLine = null;
+        if (fact == null && item.equals("REVENUE") && revenueLines != null && reader.latestYear(company.id()) != null
+                && reader.find(company.id(), item, null) == null) {
+            // 매출 줄이 없는 금융회사: 공시에 회사가 적은 이름 그대로의 수익 줄(영업수익 > 보험수익 > 이자수익)과 비교한다.
+            RevenueLineSource.Line line = revenueLines.revenueLine(company.id(), year);
+            if (line != null) {
+                fact = new Fact(line.amount(), "KRW", LocalDate.of(line.year(), 1, 1), LocalDate.of(line.year(), 12, 31),
+                        line.receiptNumber(), line.receiptNumber() == null ? null
+                                : "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + line.receiptNumber());
+                substituteLine = line.accountName();
+            }
+        }
         if (fact == null) {
             Integer latest = reader.latestYear(company.id());
             String note = latest == null ? "이 회사의 공식 재무 값이 아직 없습니다."
@@ -242,11 +269,11 @@ public class ClaimCheckService {
             boolean holds = above ? cmp >= 0 : cmp < 0;
             String thresholdNote = (fact.value().compareTo(threshold) >= 0
                     ? "공식 값이 말한 기준(" + statedText + ")을 넘습니다." : "공식 값이 말한 기준(" + statedText + ")에 못 미칩니다.");
-            return new ClaimResult(sentence, holds ? "MATCH" : "MISMATCH", company.name(), ITEMS.get(item), fact.periodEnd().getYear(),
+            return new ClaimResult(sentence, holds ? "MATCH" : "MISMATCH", company.name(), itemLabel(item, substituteLine), fact.periodEnd().getYear(),
                     statedText + (above ? " 넘음" : " 미만"), ClaimMath.format(fact.value()), fact.periodStart() + " ~ " + fact.periodEnd(),
                     fact.receiptNumber(), fact.originalUrl(), thresholdNote
                             + (year == null ? " 사업연도를 말하지 않아 가장 최근 값(" + fact.periodEnd().getYear() + ")과 비교했습니다." : "")
-                            + (fact.separate() ? SEPARATE_LINE : ""));
+                            + (fact.separate() ? SEPARATE_LINE : "") + substituteNote(substituteLine));
         }
         ClaimMath.Closeness closeness = ClaimMath.compare(amount, factor, fact.value());
         String verdict = switch (closeness) {
@@ -260,10 +287,10 @@ public class ClaimCheckService {
             case MISMATCH -> "말한 금액이 공식 값과 다릅니다.";
         };
         String period = fact.periodStart() + " ~ " + fact.periodEnd();
-        return new ClaimResult(sentence, verdict, company.name(), ITEMS.get(item), fact.periodEnd().getYear(), statedText,
+        return new ClaimResult(sentence, verdict, company.name(), itemLabel(item, substituteLine), fact.periodEnd().getYear(), statedText,
                 ClaimMath.format(fact.value()), period, fact.receiptNumber(), fact.originalUrl(), note
                         + (year == null ? " 사업연도를 말하지 않아 가장 최근 값(" + fact.periodEnd().getYear() + ")과 비교했습니다." : "")
-                        + (fact.separate() ? SEPARATE_LINE : ""));
+                        + (fact.separate() ? SEPARATE_LINE : "") + substituteNote(substituteLine));
     }
 
     /** "Up 12% from last year", "turned to a loss": compares two stored annual values, each with its own source. */
