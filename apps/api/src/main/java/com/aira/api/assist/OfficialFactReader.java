@@ -8,6 +8,7 @@ import java.util.UUID;
 public interface OfficialFactReader {
     record Company(UUID id, String name) {}
     /** status is ONE, NONE or MANY; company is set only for ONE. */
+    /** status: ONE(하나로 정함) · MANY(같은 이름 여러 곳) · LISTED(종목은 있으나 공식 재무 자료가 아직 없음) · NONE. */
     record Resolved(String status, Company company) {}
     record Fact(BigDecimal value, String currency, LocalDate periodStart, LocalDate periodEnd,
             String receiptNumber, String originalUrl) {}

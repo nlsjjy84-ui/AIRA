@@ -44,6 +44,12 @@ public class ClaimCheckService {
      * 은행·보험·증권사 재무제표에는 '매출' 줄이 없다(영업수익·이자수익·보험수익으로 적는다). 이를 매출로 바꿔 끼우면
      * 기사와 다른 기준의 숫자를 비교하게 되므로, 비교하지 않고 이유만 알린다.
      */
+    static final String LISTED_ONLY_LINE = "거래소 종목으로는 있지만, 이 회사의 공식 재무 자료는 아직 AIRA에 들어오지 않았습니다. 들어오는 대로 확인할 수 있습니다.";
+
+    private static String notFoundNote(Resolved resolved) {
+        return resolved.status().equals("LISTED") ? LISTED_ONLY_LINE : "AIRA에서 이 이름의 회사를 찾지 못했습니다.";
+    }
+
     static final String NO_REVENUE_LINE = "이 회사 재무제표에는 '매출' 항목이 없습니다. 은행·보험·증권사는 매출 대신 영업수익·이자수익으로 적기 때문에, "
             + "기준이 다른 숫자를 맞대지 않으려고 매출 금액은 비교하지 않습니다. 영업이익·순이익·자산·부채·자본은 확인할 수 있습니다.";
 
@@ -176,7 +182,7 @@ public class ClaimCheckService {
         }
         if (!resolved.status().equals("ONE")) {
             return new ClaimResult(sentence, "NO_DATA", companyName, ITEMS.get(item), year, statedText, null, null, null, null,
-                    "AIRA에서 이 이름의 회사를 찾지 못했습니다.");
+                    notFoundNote(resolved));
         }
         Company company = resolved.company();
         Fact fact = reader.find(company.id(), item, year);
@@ -235,7 +241,7 @@ public class ClaimCheckService {
         Resolved resolved = reader.resolve(companyName);
         if (!resolved.status().equals("ONE")) {
             return new ClaimResult(sentence, "NO_DATA", companyName, ITEMS.get(item), year, statedText, null, null, null, null,
-                    resolved.status().equals("MANY") ? "같은 이름의 회사가 여러 곳이라 하나로 정하지 못했습니다." : "AIRA에서 이 이름의 회사를 찾지 못했습니다.");
+                    resolved.status().equals("MANY") ? "같은 이름의 회사가 여러 곳이라 하나로 정하지 못했습니다." : notFoundNote(resolved));
         }
         Company company = resolved.company();
         Fact current = reader.find(company.id(), item, year);

@@ -26,6 +26,7 @@ class ClaimCheckServiceTests {
             if (name.equals("삼성전자")) return new Resolved("ONE", new Company(SAMSUNG, "삼성전자"));
             if (name.equals("중복상사")) return new Resolved("MANY", null);
             if (name.equals("KB금융")) return new Resolved("ONE", new Company(BANK, "KB금융"));
+            if (name.equals("iM금융지주")) return new Resolved("LISTED", null);
             return new Resolved("NONE", null);
         }
         public Fact find(UUID id, String predicate, Integer year) {
@@ -155,6 +156,15 @@ class ClaimCheckServiceTests {
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "삼성전자", "REVENUE", "2025", "약 1", "조원"))).verdict());
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "삼성전자", "REVENUE", "2025", "1", "달러"))).verdict());
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "", "REVENUE", "2025", "1", "조원"))).verdict());
+    }
+
+    @Test
+    void listedCompanyWithoutOfficialFinancialsIsNotCalledMissing() {
+        var result = one(wrap(claim("iM금융지주 순이익 5천억", "FACT", "iM금융지주", "NET_INCOME", "2025", "1", "조원")));
+        assertEquals("NO_DATA", result.verdict());
+        assertEquals(ClaimCheckService.LISTED_ONLY_LINE, result.note());
+        var unknown = one(wrap(claim("없는회사 순이익 5천억", "FACT", "없는회사", "NET_INCOME", "2025", "1", "조원")));
+        assertEquals("AIRA에서 이 이름의 회사를 찾지 못했습니다.", unknown.note());
     }
 
     @Test

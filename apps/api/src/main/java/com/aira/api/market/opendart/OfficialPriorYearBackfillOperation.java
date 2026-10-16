@@ -47,7 +47,7 @@ public class OfficialPriorYearBackfillOperation implements PriorYearBackfill {
         }
         Set<UUID> alreadyHave = new HashSet<>(jdbc.query("""
                 SELECT DISTINCT subject_entity_id FROM fact
-                WHERE predicate = 'REVENUE' AND status = 'SUPPORTED'
+                WHERE predicate IN ('REVENUE', 'TOTAL_ASSETS') AND status = 'SUPPORTED'
                   AND period_start >= ? AND period_start < ?
                 """, (rs, n) -> rs.getObject(1, UUID.class),
                 LocalDate.of(businessYear, 1, 1), LocalDate.of(businessYear + 1, 1, 1)));

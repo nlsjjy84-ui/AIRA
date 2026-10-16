@@ -130,8 +130,19 @@ public class OpenDartAnnualCfsAdapter {
                 chosenPredicates.add(predicate);
                 selected.add(row);
             } else {
+                OpenDartFinancialRow row;
+                try {
+                    row = selectRow(response, context, expectedReceiptNumber, predicate);
+                } catch (OpenDartProviderException e) {
+                    // 은행·보험·증권·금융지주는 '매출' 계정 없이 영업수익·이자수익으로 공시한다. 여러 항목을 한꺼번에
+                    // 모을 때는 그 항목만 건너뛰고 나머지 공식 값은 받는다. 한 항목만 요청한 경우는 예전처럼 실패로 둔다.
+                    if (predicates.size() == 1 || e.category() != OpenDartProviderException.Category.NO_DATA) throw e;
+                    log.warn("OpenDART {} was not found for corp {} year {}; skipping this item",
+                            predicate, context.corpCode(), context.businessYear());
+                    continue;
+                }
                 chosenPredicates.add(predicate);
-                selected.add(selectRow(response, context, expectedReceiptNumber, predicate));
+                selected.add(row);
             }
         }
         if (selected.isEmpty()) {

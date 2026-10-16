@@ -24,7 +24,20 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
             Resolved resolved = resolveExact(candidate);
             if (!resolved.status().equals("NONE")) return resolved;
         }
+        // 회사(재무 자료)로는 없지만 거래소 종목으로는 있는 경우: 아직 공식 재무를 받지 못한 회사다.
+        for (String candidate : CompanyNameVariants.of(name)) {
+            if (listedOnly(candidate)) return new Resolved("LISTED", null);
+        }
         return new Resolved("NONE", null);
+    }
+
+    private boolean listedOnly(String name) {
+        if (name == null || name.isBlank() || name.length() > 100) return false;
+        Integer count = jdbc.queryForObject("""
+                SELECT count(*) FROM entity e
+                WHERE e.active = true AND e.entity_type = 'SECURITY' AND lower(e.canonical_name) = lower(?)
+                """, Integer.class, name.strip());
+        return count != null && count > 0;
     }
 
     private Resolved resolveExact(String name) {

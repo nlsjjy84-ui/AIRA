@@ -416,6 +416,18 @@ class OpenDartAnnualCfsAdapterTests {
     }
 
     @Test
+    void collectsAFinancialCompanyThatHasNoRevenueLine() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                row("dart_OperatingIncomeLoss", "100"),
+                statementRow("IS", "ifrs-full_ProfitLoss", "80"),
+                statementRow("BS", "ifrs-full_Assets", "5,000")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+
+        assertEquals(3, receipts.size());
+    }
+
+    @Test
     void failsWhenOnlyNewItemsWereRequestedAndNoneExist() {
         when(client.fetch("00126380", 2025)).thenReturn(success(revenueRow("1,000")));
 
