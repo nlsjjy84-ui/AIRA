@@ -55,7 +55,7 @@ public class DataStatusController {
         sources.add(daily("MARKET_INDEX", "시장 지수(KOSPI·KOSDAQ)", "KRX", true, factSql("'INDEX_CLOSE'"), now));
         sources.add(daily("MARKET_NEWS", "시장 뉴스(참고)", "뉴스 검색", false,
                 "SELECT NULL AS observed, max(fetched_at) AS collected FROM market_news_cache", now));
-        sources.add(periodic("COMPANY_FINANCIALS", "회사 공식 재무(연결·연간)", "OpenDART", "사업보고서가 나올 때(연 1회)",
+        sources.add(periodic("COMPANY_FINANCIALS", "회사 공식 재무(연간 · 연결 우선, 없으면 별도)", "OpenDART", "사업보고서가 나올 때(연 1회)",
                 factSql("'REVENUE','OPERATING_INCOME','NET_INCOME','TOTAL_ASSETS','TOTAL_LIABILITIES','TOTAL_EQUITY'")));
         sources.add(periodic("FINANCIAL_HISTORY", "10년 실적표", "OpenDART", "사업보고서가 나올 때(연 1회)",
                 "SELECT CAST(max(report_year) AS varchar) AS observed, max(loaded_at) AS collected FROM company_financial_history_loaded"));
@@ -91,8 +91,9 @@ public class DataStatusController {
     static Source judgeDaily(String key, String label, String provider, boolean tradingDay,
             String observed, Instant collected, Instant now) {
         if (observed == null && collected == null) {
-            return new Source(key, label, provider, "매일", null, null, "UNKNOWN", "아직 저장된 자료가 없습니다.");
+            return new Source(key, label, provider, tradingDay ? "매일" : "하루 여러 번", null, null, "UNKNOWN", "아직 저장된 자료가 없습니다.");
         }
+        String cadence = tradingDay ? "매일" : "하루 여러 번";
         List<String> problems = new ArrayList<>();
         if (collected != null && Duration.between(collected, now).compareTo(DAILY_COLLECTION_LIMIT) > 0) {
             problems.add("마지막 수집이 " + Duration.between(collected, now).toHours() + "시간 전이라 자동 수집이 멈췄을 수 있어요");
@@ -103,10 +104,11 @@ public class DataStatusController {
             if (behind >= TRADING_DAY_LIMIT_DAYS) problems.add("가장 최근 거래일 자료가 " + behind + "일 전 것이에요");
         }
         if (problems.isEmpty()) {
-            return new Source(key, label, provider, "매일", observed, collected, "OK",
-                    tradingDay ? "장이 끝난 뒤 하루 한 번 공식 자료로 바뀌어요. 실시간 시세가 아닙니다." : "하루에 여러 번 새로 가져와요.");
+            return new Source(key, label, provider, cadence, observed, collected, "OK",
+                    tradingDay ? "거래소가 그날 시세를 다음 영업일 아침에 공개해서, 매일 오전 8시 30분에 직전 거래일 종가가 들어와요. 실시간 시세가 아닙니다."
+                            : "하루에 여러 번 새로 가져와요.");
         }
-        return new Source(key, label, provider, "매일", observed, collected, "LATE", String.join(" · ", problems) + ".");
+        return new Source(key, label, provider, cadence, observed, collected, "LATE", String.join(" · ", problems) + ".");
     }
 
     private static Source unknown(String key, String label, String provider, String cadence) {

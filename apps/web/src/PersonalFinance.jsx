@@ -172,6 +172,16 @@ export default function PersonalFinance({ user, onLogin }) {
   </section>
 
   if (access.loading) return <section className="finance-page"><p className="status" role="status">내 금융 보호 상태를 확인하는 중입니다.</p></section>
+  if (!access.authorized && user?.nickname === '데모계정') return <section className="finance-page finance-gate" aria-labelledby="finance-title">
+    <div className="finance-gate-copy">
+      <p className="eyebrow">PERSONAL FINANCE · 보호 영역</p>
+      <h1 id="finance-title">내 금융은 내 계정에서만 열립니다.</h1>
+      <p>여럿이 함께 쓰는 데모 계정에는 비밀번호가 없어 금융정보 보호 확인을 할 수 없어요. 가입하면 AIRA 데모 금융 자료로 이 화면을 직접 써 볼 수 있습니다.</p>
+      <div className="finance-security-steps" aria-label="내 금융 보호 단계">
+        <span className="complete">01 로그인</span><span className="current">02 보호 확인</span><span>03 내 금융</span>
+      </div>
+    </div>
+  </section>
   if (!access.authorized) return <section className="finance-page finance-gate" aria-labelledby="finance-title">
     <div className="finance-gate-copy">
       <p className="eyebrow">PERSONAL FINANCE · 보호 영역</p>

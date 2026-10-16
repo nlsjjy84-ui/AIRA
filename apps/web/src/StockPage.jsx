@@ -17,6 +17,7 @@ import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
   formatCount, formatPercent, formatPrice, formatWon, lastDays, normalizeTogether, priceStats, routeQuestion, withRatios, yearOverYear,
   GLOSSARY, VALUATIONS, valuation, rememberStock, movingAverage, dartNumber, aggregateCandles, industryName, peerMetrics, PEER_METRICS, peerPosition, RADAR_AXES, percentileOf, ratioText, downloadCsv, buildQuiz, spanName, normalizeMany,
+  intradayChange,
 } from './stockMath.js'
 
 const COLORS = { a: 'var(--series-a)', b: 'var(--series-b)', c: 'var(--series-c)', d: 'var(--series-d)', n: 'var(--series-neutral)', up: 'var(--up)', down: 'var(--down)' }
@@ -37,7 +38,7 @@ export const STOCK_TREE = [
   ['inspect', 'Inspect', '보다', '모아 둔 공식 자료를 분류별로 펼쳐 봅니다. 그래프·표·용어 풀이가 함께 있습니다.', [
     ['summary', '한눈에', '주가·실적·재무·시장 평가·최근 공시를 한 화면에 모았습니다. 칸을 누르면 그 자료로 깊게 들어갑니다.'],
     ['company', '회사 개요', '어떤 회사인지, 누가 이끌고 장부는 믿을 만한지 봅니다.', [['basic', '기본 정보'], ['listing', '상장 정보'], ['audit', '감사의견'], ['execs', '임원'], ['pay', '임원 보수'], ['affiliates', '다른 회사 출자'], ['shares', '주식 수']]],
-    ['price', '주가', '한국거래소(KRX)의 하루 단위 공식 시세입니다. 실시간 시세가 아니며, 지금은 약 6개월치를 보관합니다.',
+    ['price', '주가', '한국거래소(KRX)의 하루 단위 공식 시세입니다. 실시간 시세가 아니며, 최근 1년치를 보관합니다.',
       [['trend', '가격 흐름'], ['candle', '봉 차트'], ['daily', '일별 시세'], ['volume', '거래량·거래대금'], ['cap', '시가총액'], ['range', '기간 최고·최저']]],
     ['earnings', '실적(손익)', '1년 동안 얼마를 팔고 얼마를 남겼는지 사업보고서 기준으로 봅니다.',
       [['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익'], ['quarters', '분기 실적'], ['all', '한 표로 보기']]],
@@ -193,7 +194,8 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
         {interest && <InterestButton interest={interest} />}
         {last && <div className="stock-price-now"><strong>{formatPrice(last.close)}</strong>
           <span className={Number(last.changeRate) > 0 ? 'up' : Number(last.changeRate) < 0 ? 'down' : ''}>{formatPercent(last.changeRate)}</span>
-          <small>{last.date} 종가 · KRX</small></div>}
+          <small>{last.date} 종가 · KRX</small>
+          {last.open !== null && last.open !== undefined && <small className="stock-open">시가 {formatPrice(last.open)} → 종가 {formatPrice(last.close)}{intradayChange(last.open, last.close) !== null && ` (장중 ${formatPercent(intradayChange(last.open, last.close))})`}</small>}</div>}
       </div>
       <dl className="stock-keyfacts">
         <div><dt>시가총액</dt><dd>{last ? formatWon(last.marketCap) : '—'}</dd></div>
@@ -211,7 +213,10 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
     <Guide go={go} />
     {loggedIn && <div className="stock-tools"><NotePanel companyId={companyId} /><StockPriceAlerts companyId={companyId} lastClose={last?.close} /></div>}
     {last && latestYear && <AiAssist kind="INSPECT" save={{ companyId, companyName: name }} subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
-      { label: '종가', value: formatPrice(last.close), period: last.date }, { label: '시가총액', value: formatWon(last.marketCap), period: last.date },
+      { label: '종가', value: formatPrice(last.close), period: last.date },
+      ...(last.open !== null && last.open !== undefined ? [{ label: '시가(장 시작 가격)', value: formatPrice(last.open), period: last.date },
+        ...(intradayChange(last.open, last.close) !== null ? [{ label: '장중 변화(시가→종가)', value: formatPercent(intradayChange(last.open, last.close)), period: last.date }] : [])] : []),
+      { label: '시가총액', value: formatWon(last.marketCap), period: last.date },
       ...(yearStats ? [{ label: '1년 주가 변화', value: formatPercent(yearStats.change), period: `${yearStats.first.date} — ${yearStats.last.date}` }] : []),
       { label: '매출', value: formatWon(latestYear.values.REVENUE), period: `${latestYear.year} 사업연도` },
       { label: '영업이익', value: formatWon(latestYear.values.OPERATING_INCOME), period: `${latestYear.year} 사업연도` },
@@ -356,7 +361,7 @@ function CompanyView({ ctx, view }) {
   const p = o?.profile ?? {}
   const rows = view === 'basic'
     ? [['회사 이름', o?.name], ['영문 이름', p.corp_name_eng], ['대표자', p.ceo_nm], ['설립일', p.est_dt && `${p.est_dt.slice(0, 4)}.${p.est_dt.slice(4, 6)}.${p.est_dt.slice(6, 8)}`],
-      ['결산월', p.acc_mt && `${Number(p.acc_mt)}월`], ['본사 주소', p.adres], ['홈페이지', p.hm_url], ['업종 코드(통계청)', p.induty_code]]
+      ['결산월', p.acc_mt && `${Number(p.acc_mt)}월`], ['본사 주소', p.adres], ['홈페이지', p.hm_url], ['업종(통계청)', p.induty_code && `${industryName(p.induty_code)} · 코드 ${p.induty_code}`]]
     : [['시장', o?.market], ['종목 코드', o?.shortCode], ['DART 고유번호', o?.corpCode],
       ['상장주식수', ctx.points.length ? formatCount(ctx.points[ctx.points.length - 1].listedShares) : null],
       ['시가총액', ctx.points.length ? formatWon(ctx.points[ctx.points.length - 1].marketCap) : null]]
@@ -461,7 +466,7 @@ function PriceBody({ ctx, view }) {
         <div><dt>{span} 최고 종가</dt><dd><button type="button" className="link-button" onClick={() => ctx.go(['inspect', 'price', 'daily', s.high.date])}>{formatPrice(s.high.close)} · {s.high.date}</button></dd></div>
         <div><dt>{span} 최저 종가</dt><dd><button type="button" className="link-button" onClick={() => ctx.go(['inspect', 'price', 'daily', s.low.date])}>{formatPrice(s.low.close)} · {s.low.date}</button></dd></div>
         <div><dt>지금 위치</dt><dd>최저가보다 {formatPercent((Number(s.last.close) - Number(s.low.close)) / Number(s.low.close) * 100)} · 최고가보다 {formatPercent((Number(s.last.close) - Number(s.high.close)) / Number(s.high.close) * 100)}</dd></div></> })()}</dl>
-      <Learn terms={[['52주', '최근 1년(52주) 동안을 뜻합니다. 여기서는 일별 종가 기준입니다(장중 최고·최저가 아님).'], ['보관 기간', 'AIRA는 지금 주가를 약 6개월치 보관합니다. 기간이 1년보다 짧으면 「52주」 대신 실제 개월 수로 표시합니다.']]}>지금 가격이 저장된 기간 안에서 어디쯤인지 보는 화면입니다.</Learn>
+      <Learn terms={[['52주', '최근 1년(52주) 동안을 뜻합니다. 여기서는 일별 종가 기준입니다(장중 최고·최저가 아님).'], ['보관 기간', 'AIRA는 주가를 최근 1년치 보관합니다. 새로 상장해 기간이 1년보다 짧으면 「52주」 대신 실제 개월 수로 표시합니다.']]}>지금 가격이 저장된 기간 안에서 어디쯤인지 보는 화면입니다.</Learn>
     </>}
     <Source>{ctx.pricesState.data?.source} · 단위 원</Source>
   </>
@@ -491,7 +496,7 @@ function DailyTable({ ctx }) {
     <div className="stock-actions">{limit < rows.length && <button type="button" className="secondary-action" onClick={() => setLimit(limit + 60)}>더 보기 ({rows.length - limit}일 남음)</button>}
 </div>
     <p className="stock-hint">거래소 시세는 이용약관상 파일로 다시 내보낼 수 없어 화면에서만 보여 드려요. 재무·조건 검색 결과는 내려받을 수 있어요.</p>
-    <Learn terms={[['시가', '그날 처음 거래된 가격'], ['고가 / 저가', '그날 가장 높았던 / 낮았던 가격'], ['등락률', '전날 종가 대비 오늘 종가의 변화'], ['● 공시', '그날 접수된 공시가 있다는 표시']]}>
+    <Learn terms={[['시가', '그날 처음 거래된 가격'], ['고가 / 저가', '그날 가장 높았던 / 낮았던 가격'], ['등락률', '전날 종가 대비 그날 종가의 변화'], ['● 공시', '그날 접수된 공시가 있다는 표시']]}>
       날짜를 누르면 그날 하루를 더 자세히 봅니다.</Learn>
   </>
 }
@@ -885,7 +890,7 @@ function ValuationView({ ctx }) {
           : item.key === 'pbr' ? `${formatWon(v.marketCap)} ÷ ${formatWon(year.values.TOTAL_EQUITY)}`
           : item.key === 'psr' ? `${formatWon(v.marketCap)} ÷ ${formatWon(year.values.REVENUE)}`
           : item.key === 'eps' ? `${formatWon(year.values.NET_INCOME)} ÷ ${formatCount(v.shares)}` : `${formatWon(year.values.TOTAL_EQUITY)} ÷ ${formatCount(v.shares)}`}</td></tr>)}</tbody></table></div>
-    <Learn terms={VALUATIONS.map(item => [item.label, item.meaning])}>지금 주가에는 오늘의 시가총액이, 재무 값에는 지난 사업연도 값이 쓰여 시점이 다릅니다. 같은 업종 회사와 함께 보면 이해가 쉽습니다(「잇다 › 종목 × 종목」).</Learn>
+    <Learn terms={VALUATIONS.map(item => [item.label, item.meaning])}>주가 쪽에는 가장 최근 종가 기준 시가총액이, 재무 값에는 지난 사업연도 값이 쓰여 시점이 다릅니다. 같은 업종 회사와 함께 보면 이해가 쉽습니다(「잇다 › 종목 × 종목」).</Learn>
     <Source>KRX 일별 매매정보(시가총액·상장주식수) · OpenDART 주요계정으로 AIRA가 계산</Source>
   </>
 }

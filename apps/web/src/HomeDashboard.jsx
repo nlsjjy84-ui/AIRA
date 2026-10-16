@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { MarketMap } from './MarketPage.jsx'
-import { formatWon } from './stockMath.js'
+import { formatWon, intradayChange, formatPercent, closeDayLabel } from './stockMath.js'
 
 const INDEX_NUMBER = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const SIGNED = new Intl.NumberFormat('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: 'always' })
@@ -13,6 +13,7 @@ function IndexTile({ item, onEvidence }) {
     <span className="kpi-label">{item.marketCode}</span>
     <strong className="kpi-value">{INDEX_NUMBER.format(Number(item.close))}</strong>
     <span className={`kpi-change ${dir}`}>{dir === 'up' ? '▲' : dir === 'down' ? '▼' : '–'} {SIGNED.format(Number(item.change))} ({SIGNED.format(rate)}%)</span>
+    {item.open !== null && item.open !== undefined && <span className="kpi-open">시가 {INDEX_NUMBER.format(Number(item.open))} → 종가 {INDEX_NUMBER.format(Number(item.close))}{intradayChange(item.open, item.close) !== null && ` (장중 ${formatPercent(intradayChange(item.open, item.close))})`}</span>}
     <span className="kpi-sub">{item.tradingDate} · KRX{item.evidenceId && <> · <button type="button" className="kpi-link" onClick={() => onEvidence(item.evidenceId)}>근거</button></>}</span>
   </div>
 }
@@ -32,9 +33,9 @@ export default function HomeDashboard({ indexState, screener, onEvidence, aside 
   return <section className="home-dash" aria-labelledby="page-title">
     <div className="home-dash-head">
       <p className="eyebrow">AIRA · 출처가 확인된 공식 숫자 · KRX · OpenDART</p>
-      <h1 id="page-title">오늘 시장, 공식 숫자로 봅니다.</h1>
+      <h1 id="page-title">{closeDayLabel(priceDate) ? `${closeDayLabel(priceDate)} 장 마감, 공식 숫자로 봅니다.` : '최근 장 마감, 공식 숫자로 봅니다.'}</h1>
     </div>
-    <div className="kpi-row" aria-label="오늘의 숫자">
+    <div className="kpi-row" aria-label="장 마감 숫자">
       {indices.slice(0, 2).map(item => <IndexTile key={item.marketCode} item={item} onEvidence={onEvidence} />)}
       <div className="kpi-tile">
         <span className="kpi-label">오른 종목 · 내린 종목</span>

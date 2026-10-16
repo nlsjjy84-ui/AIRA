@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { getScreener } from './api/stockApi.js'
 import { screenRow } from './ScreenerPage.jsx'
 import { squarify } from './treemap.js'
-import { formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
+import { closeDayLabel, formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
 
 const TABS = [['map', '시장 지도'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '기간 최고가 근처'], ['low', '기간 최저가 근처']]
 
@@ -99,7 +99,7 @@ export default function MarketPage() {
   const up = scoped.filter(r => r.changeRate > 0).length
   const down = scoped.filter(r => r.changeRate < 0).length
   return <section className="stock-page market-page" aria-labelledby="market-title">
-    <header className="stock-header"><div><p className="eyebrow">MARKET · {state.data?.priceDate ?? ''} 공식 종가 기준</p><h1 id="market-title">오늘의 시장</h1>
+    <header className="stock-header"><div><p className="eyebrow">MARKET · {state.data?.priceDate ?? ''} 공식 종가 기준</p><h1 id="market-title">{closeDayLabel(state.data?.priceDate) ?? '최근'} 장 마감 시장</h1>
       <p className="stock-hint">코스피·코스닥 전 종목의 최근 거래일 공식 시세입니다. 실시간 시세가 아닙니다.</p></div>
       {!state.loading && <dl className="stock-keyfacts"><div><dt>오른 종목</dt><dd className="up">{up.toLocaleString('ko-KR')}개</dd></div><div><dt>내린 종목</dt><dd className="down">{down.toLocaleString('ko-KR')}개</dd></div>
         <div><dt>전체</dt><dd>{scoped.length.toLocaleString('ko-KR')}개</dd></div></dl>}</header>
@@ -128,7 +128,7 @@ export default function MarketPage() {
           {(tab === 'high' || tab === 'low') && <td>{formatPrice(r.low52)} ~ {formatPrice(r.high52)}</td>}</tr>)}</tbody></table></div>}
       {!state.loading && tab !== 'map' && tab !== 'sectors' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
       <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div><dl>
-        <div><dt>기간 최고가 근처</dt><dd>AIRA가 보관한 기간(지금 약 6개월, 최대 1년)의 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 100거래일 이상 자료가 있는 종목만).</dd></div>
+        <div><dt>기간 최고가 근처</dt><dd>AIRA가 보관한 기간(최근 1년)의 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 100거래일 이상 자료가 있는 종목만).</dd></div>
         <div><dt>거래대금</dt><dd>그날 사고판 금액의 합. 관심이 몰린 종목을 볼 때 씁니다.</dd></div>
         <div><dt>등락률 순위</dt><dd>하루 변화일 뿐 이유를 뜻하지 않습니다. 종목 화면의 「잇다 › 주가 × 공시」에서 같은 날 공시를 함께 보세요.</dd></div></dl></div></details>
       <p className="stock-source">출처 · KRX 일별 매매정보 · OpenDART 기업개황(업종)</p>

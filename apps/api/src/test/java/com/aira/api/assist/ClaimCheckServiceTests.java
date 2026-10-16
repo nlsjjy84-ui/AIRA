@@ -167,6 +167,22 @@ class ClaimCheckServiceTests {
     }
 
     @Test
+    void passingAnAmountIsNotMistakenForAYearOnYearIncrease() {
+        // AI가 "넘었다"를 증가(UP)로 나눠도, 전년 비교 말이 없고 금액이 있으면 금액 기준으로 판정한다.
+        String misSplit = "{\"text\":\"삼성전자 작년 매출이 400조 원을 넘었다던데?\",\"kind\":\"FACT\",\"company\":\"삼성전자\",\"item\":\"REVENUE\","
+                + "\"year\":2025,\"amount\":\"400\",\"unit\":\"조원\",\"change\":\"UP\",\"percent\":\"\"}";
+        var wrong = one(wrap(misSplit));
+        assertEquals("MISMATCH", wrong.verdict(), wrong.note());
+        assertTrue(wrong.note().contains("못 미칩니다"), wrong.note());
+        var right = one(wrap(claim("삼성전자 2025년 매출이 300조 원을 넘었다", "FACT", "삼성전자", "REVENUE", "2025", "300", "조원")));
+        assertEquals("MATCH", right.verdict(), right.note());
+        var below = one(wrap(claim("삼성전자 2025년 매출은 400조 원에 못 미쳤다", "FACT", "삼성전자", "REVENUE", "2025", "400", "조원")));
+        assertEquals("MATCH", below.verdict(), below.note());
+        // 전년 비교 말이 있으면 예전처럼 증감으로 본다.
+        assertEquals("MATCH", one(wrap(change("삼성전자 작년 영업이익은 전년보다 33% 늘었다", "삼성전자", "OPERATING_INCOME", "2025", "UP", "33"))).verdict());
+    }
+
+    @Test
     void cashFlowOutflowIsComparedAsNegativeAndSeparateBasisIsShown() {
         var result = one(wrap(claim("작은회사 2025년 영업활동 현금흐름 3000억원 유출", "FACT", "작은회사", "OPERATING_CASH_FLOW", "2025", "3000", "억원")));
         assertEquals("MATCH", result.verdict(), result.note());

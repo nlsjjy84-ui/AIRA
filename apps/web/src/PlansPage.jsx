@@ -211,7 +211,7 @@ export default function PlansPage({ loggedIn = false }) {
   const pick = key => { setPlan(key); if (typeof window !== 'undefined') window.scrollTo?.(0, 0) }
   return <section className="plans-page" aria-labelledby="plans-title">
     <header><p className="eyebrow">AIRA 요금 안내 · 출시 계획</p>
-      <h1 id="plans-title">광고도, 종목 추천도 없이 이해를 돕는 데에만 돈을 받습니다</h1>
+      <h1 id="plans-title">숫자는 누구에게나, 이해는 더 깊게</h1>
       <p>AIRA는 「사라·팔라」를 말하지 않고 광고도 싣지 않습니다. 대신 내가 이해하고 쌓아 가는 데 드는 AI와 기록 기능을 유료로 둡니다.
         지금은 출시 전이라 <strong>모든 기능을 무료로 열어 두었습니다.</strong> 가격은 출시 전 가정값이에요(부가세 포함).
         결제는 <strong>토스페이먼츠 테스트 모드</strong>로 끝까지 해 볼 수 있어요. 실제로 돈이 나가지 않아요.</p></header>

@@ -76,7 +76,18 @@ public class MarketIndexQuery {
         Row rate = byPredicate.get("INDEX_CHANGE_RATE");
         return new IndexView(marketCode, CanonicalDataState.AVAILABLE, null, date,
                 close.value(), change.value(), rate.value(), close.evidenceId(),
-                close.sourceName(), close.originalUrl());
+                close.sourceName(), close.originalUrl(), openOf(marketCode, date));
+    }
+
+    /** 같은 날 KRX 일별 지수 자료(stock_price_daily)에 저장된 시가. 없거나 표가 없으면 null(지수 칸은 그대로 보인다). */
+    private BigDecimal openOf(String marketCode, LocalDate date) {
+        try {
+            List<BigDecimal> rows = jdbc.query("SELECT open_price FROM stock_price_daily WHERE short_code=? AND trading_date=? AND open_price IS NOT NULL",
+                    (rs, n) -> rs.getBigDecimal(1), marketCode, date);
+            return rows.isEmpty() ? null : rows.get(0);
+        } catch (RuntimeException missingTable) {
+            return null;
+        }
     }
 
     private static IndexView empty(String marketCode, CanonicalDataState state, String reason) {

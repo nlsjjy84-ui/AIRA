@@ -100,6 +100,20 @@ export function formatCount(value, unit = '주') {
   return `${n.toLocaleString('ko-KR')} ${unit}`
 }
 
+/** "2026-10-15" → "10월 15일". 거래소 공식 종가는 다음 영업일 아침에 나오므로 '오늘'이라고 쓰지 않고 기준일을 적는다. */
+export function closeDayLabel(date) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(date ?? '')
+  return m ? `${Number(m[1])}월 ${Number(m[2])}일` : null
+}
+
+/** 장중 변화율: (종가 - 시가) ÷ 시가 × 100. 시가가 없거나 0이면 null. AI가 아니라 여기서 계산한다. */
+export function intradayChange(open, close) {
+  const o = num(open)
+  const c = num(close)
+  if (o === null || c === null || !Number.isFinite(o) || !Number.isFinite(c) || o === 0) return null
+  return (c - o) / o * 100
+}
+
 export function formatPercent(value, { sign = true } = {}) {
   const n = num(value)
   if (n === null || !Number.isFinite(n)) return '—'
@@ -306,7 +320,7 @@ export const GLOSSARY = [
   { term: '유동자산 / 유동부채', group: '재무상태', text: '1년 안에 현금이 되는 자산 / 1년 안에 갚아야 하는 빚입니다.' },
   { term: '종가', group: '주가', text: '그날 마지막에 거래된 가격입니다.' },
   { term: '시가 · 고가 · 저가', group: '주가', text: '그날 처음 거래된 가격 · 가장 높았던 가격 · 가장 낮았던 가격입니다.' },
-  { term: '등락률', group: '주가', text: '전날 종가 대비 오늘 종가의 변화율입니다.' },
+  { term: '등락률', group: '주가', text: '전날 종가 대비 그날 종가의 변화율입니다.' },
   { term: '거래량 · 거래대금', group: '주가', text: '그날 사고판 주식 수 · 금액입니다.' },
   { term: '시가총액', group: '주가', text: '주가 × 상장주식수. 시장이 매긴 회사 전체의 값입니다.' },
   { term: '52주 최고·최저', group: '주가', text: '최근 1년 동안 가장 높았던·낮았던 종가입니다(AIRA는 일별 종가 기준).' },
