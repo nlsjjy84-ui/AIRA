@@ -21,7 +21,8 @@ import org.springframework.stereotype.Component;
 @Order(0)
 public class StockSchema implements ApplicationRunner {
     private static final Logger log = LoggerFactory.getLogger(StockSchema.class);
-    static final List<String> FILES = List.of("V25__create_stock_page_cache.sql", "V26__add_stock_profile_industry.sql", "V27__create_stock_quarterly.sql", "V28__create_user_stock_note.sql", "V29__create_user_price_alert.sql", "V30__create_user_study.sql", "V31__create_study_class.sql");
+    static final List<String> FILES = List.of("V25__create_stock_page_cache.sql", "V26__add_stock_profile_industry.sql", "V27__create_stock_quarterly.sql", "V28__create_user_stock_note.sql", "V29__create_user_price_alert.sql", "V30__create_user_study.sql", "V31__create_study_class.sql",
+            "V32__allow_extended_company_financial_facts.sql", "V33__create_plan_payment.sql");
     private final JdbcTemplate jdbc;
 
     public StockSchema(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -29,9 +30,24 @@ public class StockSchema implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) { ensure(); }
 
+    /** 운영 DB(PostgreSQL)에서만 실행하는 파일. 테스트용 H2는 Hibernate가 만든 표라 제약 조건을 바꾸지 않는다. */
+    static final java.util.Set<String> POSTGRES_ONLY = java.util.Set.of("V32__allow_extended_company_financial_facts.sql");
+
+    private boolean postgres() {
+        try {
+            String name = jdbc.execute((org.springframework.jdbc.core.ConnectionCallback<String>)
+                    connection -> connection.getMetaData().getDatabaseProductName());
+            return name != null && name.toLowerCase(java.util.Locale.ROOT).contains("postgres");
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     public int ensure() {
         int applied = 0;
+        boolean postgres = postgres();
         for (String file : FILES) {
+            if (!postgres && POSTGRES_ONLY.contains(file)) continue;
             for (String statement : statements(file)) {
                 try { jdbc.execute(statement); applied++; }
                 catch (RuntimeException e) { log.warn("Stock schema statement skipped ({}): {}", file, e.getMessage()); }

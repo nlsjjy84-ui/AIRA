@@ -33,7 +33,9 @@ public final class DemoReadOnlyFilter extends OncePerRequestFilter {
 
     // Briefing and alert reconcile are POSTs that only assemble read views from stored analyses.
     static boolean allowed(String path) {
+        // 결제 시험: 데모 계정은 승인 직후 전액 취소되고 플러스는 켜지지 않는다(PlanPaymentService).
         return path.startsWith("/api/me/assist/")
+                || path.startsWith("/api/me/payments/")
                 || path.equals("/api/me/briefings/current")
                 || path.equals("/api/me/alerts/reconcile")
                 || path.equals("/api/auth/logout")

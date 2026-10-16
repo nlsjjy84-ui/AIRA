@@ -44,6 +44,9 @@ class DemoReadOnlyFilterTests {
         assertTrue(passes("POST", "/api/auth/logout"));
         assertTrue(passes("POST", "/api/me/briefings/current"));
         assertTrue(passes("POST", "/api/me/alerts/reconcile"));
+        // 결제 시험은 해 볼 수 있다(승인 직후 전액 취소, 플러스는 켜지지 않음).
+        assertTrue(passes("POST", "/api/me/payments/orders"));
+        assertTrue(passes("POST", "/api/me/payments/confirm"));
         assertFalse(passes("POST", "/api/me/finance/demo-import"));
         assertFalse(passes("POST", "/api/me/interests/" + UUID.randomUUID()));
         assertFalse(passes("DELETE", "/api/me/interests/" + UUID.randomUUID()));

@@ -12,7 +12,9 @@ class StockSchemaTests {
     void createsTablesOnceAndCanRunAgainWithoutErrors() {
         var ds = new DriverManagerDataSource("jdbc:h2:mem:stock-schema;MODE=PostgreSQL;DB_CLOSE_DELAY=-1", "sa", "");
         var jdbc = new JdbcTemplate(ds);
-        int total = StockSchema.FILES.stream().mapToInt(f -> StockSchema.statements(f).size()).sum();
+        // 운영(PostgreSQL)에서만 실행하는 파일은 H2 테스트에서 건너뛴다.
+        int total = StockSchema.FILES.stream().filter(f -> !StockSchema.POSTGRES_ONLY.contains(f))
+                .mapToInt(f -> StockSchema.statements(f).size()).sum();
         assertTrue(total >= 12);
         assertEquals(total, new StockSchema(jdbc).ensure());
         assertEquals(total, new StockSchema(jdbc).ensure(), "second run must be a no-op without errors");
