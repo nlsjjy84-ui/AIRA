@@ -19,6 +19,10 @@ final class ClaimMath {
             case "만원" -> BigDecimal.valueOf(10_000L);
             case "억원" -> BigDecimal.valueOf(100_000_000L);
             case "조원" -> BigDecimal.valueOf(1_000_000_000_000L);
+            // 직원 수처럼 사람 수를 말한 경우
+            case "명" -> BigDecimal.ONE;
+            case "천명" -> BigDecimal.valueOf(1_000L);
+            case "만명" -> BigDecimal.valueOf(10_000L);
             default -> null;
         };
     }

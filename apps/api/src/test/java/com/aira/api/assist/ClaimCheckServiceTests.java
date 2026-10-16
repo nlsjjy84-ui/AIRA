@@ -166,6 +166,65 @@ class ClaimCheckServiceTests {
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "", "REVENUE", "2025", "1", "조원"))).verdict());
     }
 
+    private static final class FakeReports implements ReportFactSource {
+        public Line quarterValue(UUID id, String item, Integer year, int quarter) {
+            if (!id.equals(SAMSUNG) || !item.equals("OPERATING_INCOME")) return null;
+            int y = year == null ? 2025 : year;
+            java.math.BigDecimal v = y == 2025 && quarter == 3 ? new java.math.BigDecimal("12000000000000")
+                    : y == 2025 && quarter == 2 ? new java.math.BigDecimal("9000000000000")
+                    : y == 2024 && quarter == 3 ? new java.math.BigDecimal("10000000000000") : null;
+            return v == null ? null : new Line(y, quarter, v, "20261114000001", " 분기 값은 누적에서 빼서 계산했습니다.");
+        }
+        public Line dividendPerShare(UUID id, Integer year) {
+            return id.equals(SAMSUNG) ? new Line(2025, null, new java.math.BigDecimal("1444"), "20260310002820", "") : null;
+        }
+        public Line employees(UUID id, Integer year) {
+            return id.equals(SAMSUNG) ? new Line(2025, null, new java.math.BigDecimal("120300"), "20260310002820", "") : null;
+        }
+    }
+
+    private static ClaimDtos.ClaimResult withReports(String answer) {
+        var s = service(new FakeModel(answer, false));
+        s.setReportFacts(new FakeReports());
+        return s.check(USER, "삼성전자 실적").results().get(0);
+    }
+
+    private static String quarterClaim(String text, String item, String year, String amount, String unit, String change, String percent) {
+        return "{\"text\":\"" + text + "\",\"kind\":\"FACT\",\"company\":\"삼성전자\",\"item\":\"" + item + "\",\"year\":" + year
+                + ",\"quarter\":null,\"amount\":\"" + amount + "\",\"unit\":\"" + unit + "\",\"change\":\"" + change + "\",\"percent\":\"" + percent + "\"}";
+    }
+
+    @Test
+    void aQuarterClaimIsComparedWithTheQuarterNotTheWholeYear() {
+        var r = withReports(wrap(quarterClaim("삼성전자 2025년 3분기 영업이익 12조원", "OPERATING_INCOME", "2025", "12", "조원", "", "")));
+        assertEquals("MATCH", r.verdict(), r.note());
+        assertEquals("영업이익(3분기)", r.item());
+        // 분기 자료를 읽을 수 없으면 1년치 값과 비교하지 않는다.
+        var none = one(wrap(quarterClaim("삼성전자 2025년 3분기 영업이익 12조원", "OPERATING_INCOME", "2025", "12", "조원", "", "")));
+        assertEquals("NO_DATA", none.verdict(), none.note());
+        assertEquals("NOT_CHECKABLE", one(wrap(quarterClaim("삼성전자 상반기 영업이익 20조원", "OPERATING_INCOME", "2025", "20", "조원", "", ""))).verdict());
+    }
+
+    @Test
+    void quarterChangesCompareTheSameQuarterOrThePreviousQuarter() {
+        var yoy = withReports(wrap(quarterClaim("삼성전자 3분기 영업이익 전년 동기 대비 20% 증가", "OPERATING_INCOME", "2025", "", "", "UP", "20")));
+        assertEquals("MATCH", yoy.verdict(), yoy.note());
+        assertTrue(yoy.official().startsWith("2024년 3분기"), yoy.official());
+        var qoq = withReports(wrap(quarterClaim("삼성전자 3분기 영업이익 전분기 대비 늘었다", "OPERATING_INCOME", "2025", "", "", "UP", "")));
+        assertEquals("MATCH", qoq.verdict(), qoq.note());
+        assertTrue(qoq.official().startsWith("2025년 2분기"), qoq.official());
+    }
+
+    @Test
+    void dividendPerShareAndHeadcountComeFromTheBusinessReport() {
+        var dps = withReports(wrap(quarterClaim("삼성전자 2025년 주당 배당금 1,444원", "DIVIDEND_PER_SHARE", "2025", "1444", "원", "", "")));
+        assertEquals("MATCH", dps.verdict(), dps.note());
+        assertEquals("1,444원", dps.official());
+        var staff = withReports(wrap(quarterClaim("삼성전자 직원 12만명", "EMPLOYEES", "null", "12", "만명", "", "")));
+        assertEquals("MATCH", staff.verdict(), staff.note());
+        assertEquals("120,300명", staff.official());
+    }
+
     @Test
     void aBankRevenueClaimIsComparedWithTheFiledRevenueLineByItsOwnName() {
         var s = service(new FakeModel(wrap(claim("KB금융 2025년 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")), false));
