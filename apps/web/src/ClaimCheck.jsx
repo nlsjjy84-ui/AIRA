@@ -35,9 +35,11 @@ export function BasisGuide({ open }) {
   </details>
 }
 
+/** 첫 화면 예시. 누르면 바로 판정까지 보여 줘서, 아무것도 입력하지 않아도 AIRA가 하는 일을 알 수 있게 한다. */
 export const HERO_EXAMPLES = [
-  '삼성전자 작년 영업이익은 전년보다 33% 늘었다고 한다.',
-  '삼성전자 작년 매출이 400조 원을 넘었다던데?'
+  { text: '삼성전자 작년 영업이익이 43.6조 원이라던데?', hint: '맞는 말' },
+  { text: '삼성전자 작년 매출이 400조 원을 넘었다던데?', hint: '틀린 말' },
+  { text: '삼성전자 작년 영업이익은 전년보다 33% 늘었다고 한다.', hint: '증감' }
 ]
 
 export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
@@ -60,8 +62,11 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
 
   async function submit(event) {
     event.preventDefault()
-    const value = text.trim()
-    if (value.length < 4) return
+    await run(text.trim())
+  }
+
+  async function run(value) {
+    if (value.length < 4 || state.status === 'loading') return
     setState({ status: 'loading', response: null })
     if (!loggedIn) {
       const entered = onNeedLogin ? await onNeedLogin() : false
@@ -87,8 +92,10 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
       <textarea id="claim-check-input" value={text} maxLength={600} rows={hero ? 2 : 3} onChange={event => setText(event.target.value)}
         placeholder={hero ? '유튜브·기사·단톡방에서 들은 말을 붙여 넣어 보세요.' : '예: 삼성전자는 작년 영업이익이 43.6조 원이라고 한다.'} />
       {hero && <div className="claim-check-examples" aria-label="예시 문장">
-        <span>예시로 해 보기</span>
-        {HERO_EXAMPLES.map(example => <button key={example} type="button" onClick={() => setText(example)}>{example}</button>)}
+        <span>눌러서 바로 확인해 보기</span>
+        {HERO_EXAMPLES.map(example => <button key={example.text} type="button" disabled={state.status === 'loading'}
+          onClick={() => { setText(example.text); run(example.text) }}>
+          <small>{example.hint}</small> {example.text}</button>)}
       </div>}
       <div className="claim-check-actions">
         <button type="submit" disabled={state.status === 'loading' || text.trim().length < 4}>{state.status === 'loading' ? '확인하는 중…' : '사실 확인'}</button>

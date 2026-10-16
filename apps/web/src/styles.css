@@ -2733,6 +2733,8 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .claim-check-examples span { color: var(--muted); margin-right: .2rem; }
 .claim-check-examples button { padding: .3rem .75rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; max-width: 100%; }
 .claim-check-examples button:hover { border-color: var(--accent); }
+.claim-check-examples button small { display: inline-block; margin-right: .3rem; padding: 0 .4rem; border-radius: 999px; background: var(--surface2, var(--line)); color: var(--muted); font-size: .72rem; font-weight: 700; }
+.claim-check-examples button:disabled { opacity: .6; cursor: wait; }
 .intro-more { margin: .9rem 0 .6rem; color: var(--muted); font-size: .95rem; line-height: 1.55; max-width: 36rem; }
 
 /* ===== Home v3: numbers and pictures first ===== */
@@ -2906,3 +2908,24 @@ h1, h2, h3, h4, p, li, dd, label { word-break: keep-all; overflow-wrap: break-wo
 .agree label { display: flex; gap: .5rem; align-items: flex-start; }
 .pay-btn { justify-self: start; }
 .pay-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ===== 자료 상태(/status): 자료 기준일과 마지막 수집 시각을 나눠 보여 준다 ===== */
+.data-status-page { display: grid; gap: 1rem; max-width: 64rem; padding-block: 1.5rem 3rem; min-width: 0; }
+.data-status-page h1 { margin: 0; font-size: clamp(1.4rem, 2.4vw, 1.9rem); line-height: 1.3; text-wrap: balance; }
+.data-status-lead { margin: 0; color: var(--muted); line-height: 1.6; max-width: 44rem; }
+.data-status-overall { margin: 0; padding: .7rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.data-status-overall.is-late { border-color: var(--error); }
+.data-status-overall small { color: var(--muted); }
+.data-status-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: .8rem; }
+.data-status-item { display: grid; gap: .55rem; align-content: start; min-width: 0; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.data-status-item.is-late { border-color: var(--error); }
+.data-status-head { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; }
+.data-status-head h2 { margin: 0; font-size: 1rem; }
+.data-status-badge { flex: none; padding: .1rem .55rem; border-radius: 999px; font-size: .78rem; font-weight: 700; background: var(--accent-soft); color: var(--ink); }
+.is-late .data-status-badge { background: var(--error); color: var(--on-accent); }
+.is-unknown .data-status-badge { background: var(--surface2, var(--line)); color: var(--muted); }
+.data-status-item dl { margin: 0; display: grid; gap: .25rem; }
+.data-status-item dl div { display: grid; grid-template-columns: 6.5rem 1fr; gap: .5rem; font-size: .88rem; }
+.data-status-item dt { color: var(--muted); }
+.data-status-item dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.data-status-note { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.5; }

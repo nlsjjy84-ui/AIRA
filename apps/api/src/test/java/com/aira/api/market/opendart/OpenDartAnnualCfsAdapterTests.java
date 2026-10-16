@@ -349,6 +349,35 @@ class OpenDartAnnualCfsAdapterTests {
     }
 
     @Test
+    void collectsCurrentItemsCashAndTheThreeCashFlowsFromTheRightStatements() {
+        when(client.fetch("00126380", 2025)).thenReturn(success(
+                revenueRow("1,000"), row("dart_OperatingIncomeLoss", "100"),
+                statementRow("BS", "ifrs-full_CurrentAssets", "1,200"),
+                statementRow("BS", "ifrs-full_CurrentLiabilities", "700"),
+                statementRow("BS", "ifrs-full_CashAndCashEquivalents", "300"),
+                // 현금흐름표 끝의 기말현금은 재무상태표 값과 같은 코드라도 쓰지 않는다.
+                statementRow("CF", "ifrs-full_CashAndCashEquivalents", "301"),
+                statementRow("CF", "ifrs-full_CashFlowsFromUsedInOperatingActivities", "150"),
+                statementRow("CF", "ifrs-full_CashFlowsFromUsedInInvestingActivities", "-90"),
+                statementRow("CF", "ifrs-full_CashFlowsFromUsedInFinancingActivities", "-20")));
+
+        var receipts = adapter.ingestFiling(CONTEXT, RECEIPT, FactPredicate.COLLECTED_COMPANY_FINANCIALS);
+
+        // 순이익·자산·부채·자본 줄이 없는 공시라 그 네 항목만 건너뛰고 나머지 8개를 저장한다.
+        assertEquals(8, receipts.size());
+        var captor = ArgumentCaptor.forClass(SourceAwareEarningsIngestionInput.class);
+        verify(boundary, org.mockito.Mockito.times(8)).ingest(captor.capture());
+        var byPredicate = new java.util.EnumMap<FactPredicate, BigDecimal>(FactPredicate.class);
+        captor.getAllValues().forEach(input -> byPredicate.put(input.predicate(), input.numberValue()));
+        assertEquals(0, new BigDecimal("1200").compareTo(byPredicate.get(FactPredicate.CURRENT_ASSETS)));
+        assertEquals(0, new BigDecimal("700").compareTo(byPredicate.get(FactPredicate.CURRENT_LIABILITIES)));
+        assertEquals(0, new BigDecimal("300").compareTo(byPredicate.get(FactPredicate.CASH_AND_EQUIVALENTS)));
+        assertEquals(0, new BigDecimal("150").compareTo(byPredicate.get(FactPredicate.OPERATING_CASH_FLOW)));
+        assertEquals(0, new BigDecimal("-90").compareTo(byPredicate.get(FactPredicate.INVESTING_CASH_FLOW)));
+        assertEquals(0, new BigDecimal("-20").compareTo(byPredicate.get(FactPredicate.FINANCING_CASH_FLOW)));
+    }
+
+    @Test
     void skipsOnlyTheNewItemsThatTheFilingDoesNotContain() {
         when(client.fetch("00126380", 2025)).thenReturn(success(
                 revenueRow("1,000"), row("dart_OperatingIncomeLoss", "100")));

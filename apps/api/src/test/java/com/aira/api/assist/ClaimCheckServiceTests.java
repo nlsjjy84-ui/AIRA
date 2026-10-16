@@ -18,15 +18,23 @@ class ClaimCheckServiceTests {
     private static final tools.jackson.databind.ObjectMapper MAPPER = new tools.jackson.databind.ObjectMapper();
     private static final UUID USER = UUID.randomUUID();
     private static final UUID SAMSUNG = UUID.randomUUID();
+    private static final UUID BANK = UUID.randomUUID();
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-10T00:00:00Z"), ZoneOffset.UTC);
 
     private static final class FakeReader implements OfficialFactReader {
         public Resolved resolve(String name) {
             if (name.equals("삼성전자")) return new Resolved("ONE", new Company(SAMSUNG, "삼성전자"));
             if (name.equals("중복상사")) return new Resolved("MANY", null);
+            if (name.equals("KB금융")) return new Resolved("ONE", new Company(BANK, "KB금융"));
             return new Resolved("NONE", null);
         }
         public Fact find(UUID id, String predicate, Integer year) {
+            if (id.equals(BANK)) {
+                // 금융회사: 매출 줄이 없고 순이익만 있다.
+                if (!predicate.equals("NET_INCOME")) return null;
+                return new Fact(new BigDecimal("5782000000000"), "KRW", LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31),
+                        "20260315000111", "https://dart.fss.or.kr/kb");
+            }
             if (!id.equals(SAMSUNG)) return null;
             int y = year == null ? 2025 : year;
             if (y != 2025 && y != 2024) return null;
@@ -40,7 +48,7 @@ class ClaimCheckServiceTests {
             String receipt = y == 2025 ? "20260310002820" : "20250311001085";
             return new Fact(value, "KRW", LocalDate.of(y, 1, 1), LocalDate.of(y, 12, 31), receipt, "https://dart.fss.or.kr/x" + y);
         }
-        public Integer latestYear(UUID id) { return id.equals(SAMSUNG) ? 2025 : null; }
+        public Integer latestYear(UUID id) { return id.equals(SAMSUNG) || id.equals(BANK) ? 2025 : null; }
     }
 
     private static final class FakeModel implements ReadingAssistModel {
@@ -147,6 +155,14 @@ class ClaimCheckServiceTests {
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "삼성전자", "REVENUE", "2025", "약 1", "조원"))).verdict());
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "삼성전자", "REVENUE", "2025", "1", "달러"))).verdict());
         assertEquals("NOT_CHECKABLE", one(wrap(claim("x", "FACT", "", "REVENUE", "2025", "1", "조원"))).verdict());
+    }
+
+    @Test
+    void financialCompanyWithoutRevenueLineSaysWhyInsteadOfComparing() {
+        var result = one(wrap(claim("KB금융 매출 80조", "FACT", "KB금융", "REVENUE", "2025", "80", "조원")));
+        assertEquals("NO_DATA", result.verdict());
+        assertEquals(ClaimCheckService.NO_REVENUE_LINE, result.note());
+        assertEquals("MATCH", one(wrap(claim("KB금융 순이익 5조7820억", "FACT", "KB금융", "NET_INCOME", "2025", "57820", "억원"))).verdict());
     }
 
     @Test

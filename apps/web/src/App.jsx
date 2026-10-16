@@ -14,6 +14,7 @@ import ScreenerPage from './ScreenerPage.jsx'
 import MarketPage from './MarketPage.jsx'
 import StudyPage from './StudyPage.jsx'
 import PlansPage from './PlansPage.jsx'
+import DataStatusPage from './DataStatusPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
 import ClaimCheck from './ClaimCheck.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
@@ -640,7 +641,7 @@ export default function App() {
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
     <main id="main">
-      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/classes' ? <ClassPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} onDemo={startDemo} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/status' ? <DataStatusPage /> : routePath === '/classes' ? <ClassPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} onDemo={startDemo} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{
@@ -791,7 +792,7 @@ export default function App() {
           </article>}
         </section>}
 
-      <nav className="home-foot-links" aria-label="AIRA 안내"><a href="/plans">요금 안내</a><a href="/privacy">개인정보와 이용자 보호</a><span>공식 자료: KRX · OpenDART · 한국은행 ECOS</span></nav>
+      <nav className="home-foot-links" aria-label="AIRA 안내"><a href="/plans">요금 안내</a><a href="/status">자료 상태</a><a href="/privacy">개인정보와 이용자 보호</a><span>공식 자료: KRX · OpenDART · 한국은행 ECOS</span></nav>
       </>}
     </main>
     {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}

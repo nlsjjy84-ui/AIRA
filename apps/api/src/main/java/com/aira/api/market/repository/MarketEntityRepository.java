@@ -27,7 +27,13 @@ public interface MarketEntityRepository extends JpaRepository<MarketEntity, UUID
                                      com.aira.api.market.domain.FactPredicate.NET_INCOME,
                                      com.aira.api.market.domain.FactPredicate.TOTAL_ASSETS,
                                      com.aira.api.market.domain.FactPredicate.TOTAL_LIABILITIES,
-                                     com.aira.api.market.domain.FactPredicate.TOTAL_EQUITY)
+                                     com.aira.api.market.domain.FactPredicate.TOTAL_EQUITY,
+                                     com.aira.api.market.domain.FactPredicate.CURRENT_ASSETS,
+                                     com.aira.api.market.domain.FactPredicate.CURRENT_LIABILITIES,
+                                     com.aira.api.market.domain.FactPredicate.CASH_AND_EQUIVALENTS,
+                                     com.aira.api.market.domain.FactPredicate.OPERATING_CASH_FLOW,
+                                     com.aira.api.market.domain.FactPredicate.INVESTING_CASH_FLOW,
+                                     com.aira.api.market.domain.FactPredicate.FINANCING_CASH_FLOW)
               and evidence.externalId is not null
               and evidence.originalUrl is not null
               and evidence.collectedAt is not null

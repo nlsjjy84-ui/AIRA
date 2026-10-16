@@ -18,7 +18,9 @@ export function formatQuantity(value, unit = '') {
 }
 
 const FACT_LABEL = { REVENUE: '매출', OPERATING_INCOME: '영업이익', NET_INCOME: '당기순이익',
-  TOTAL_ASSETS: '자산총계(기말)', TOTAL_LIABILITIES: '부채총계(기말)', TOTAL_EQUITY: '자본총계(기말)', CLOSE_PRICE: '종가',
+  TOTAL_ASSETS: '자산총계(기말)', TOTAL_LIABILITIES: '부채총계(기말)', TOTAL_EQUITY: '자본총계(기말)',
+  CURRENT_ASSETS: '유동자산(기말)', CURRENT_LIABILITIES: '유동부채(기말)', CASH_AND_EQUIVALENTS: '현금및현금성자산(기말)',
+  OPERATING_CASH_FLOW: '영업활동 현금흐름', INVESTING_CASH_FLOW: '투자활동 현금흐름', FINANCING_CASH_FLOW: '재무활동 현금흐름', CLOSE_PRICE: '종가',
   OPEN_PRICE: '시가', HIGH_PRICE: '고가', LOW_PRICE: '저가', TRADING_VOLUME: '거래량',
   MARKET_CAP: '시가총액' }
 const RELATION_LABEL = { FACT: '사실', EVENT: '사건', ASSESSMENT: '판단' }

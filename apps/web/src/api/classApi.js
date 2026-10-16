@@ -10,3 +10,4 @@ export const getMemberNotes = (id, member, assignment) => request(`/api/me/class
 export const deleteClass = id => request(`/api/me/classes/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const leaveClass = id => request(`/api/me/classes/${encodeURIComponent(id)}/membership`, { method: 'DELETE' })
 export const getClaimStats = (days = 30) => request(`/api/stocks/claim-stats?days=${days}`)
+export const getDataStatus = () => request('/api/stocks/data-status')

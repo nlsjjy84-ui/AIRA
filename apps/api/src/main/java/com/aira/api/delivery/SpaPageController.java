@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
 public class SpaPageController {
-    @GetMapping({"/explore", "/finance", "/privacy", "/stock/{companyId}", "/screen", "/market", "/study", "/plans", "/classes"})
+    @GetMapping({"/explore", "/finance", "/privacy", "/stock/{companyId}", "/screen", "/market", "/study", "/plans", "/classes", "/status"})
     public String forwardSpaRoute() {
         return "forward:/index.html";
     }

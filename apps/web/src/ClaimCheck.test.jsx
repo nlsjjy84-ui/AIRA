@@ -70,7 +70,7 @@ describe('claim check', () => {
     expect(screen.getByRole('link', { name: '전년 공시 열기' })).toHaveAttribute('href', 'https://dart.fss.or.kr/b')
   })
 
-  it('home hero works before login: an example fills the box and the check enters the demo account first', async () => {
+  it('home hero works before login: one tap on an example fills the box and runs the check, entering the demo account first', async () => {
     const order = []
     const onNeedLogin = vi.fn(async () => { order.push('login'); return true })
     const fetchMock = vi.fn(async url => {
@@ -82,9 +82,9 @@ describe('claim check', () => {
     expect(screen.getByText(/읽기 전용 데모 계정으로 바로 확인/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /매출이 400조/ }))
     expect(screen.getByLabelText('확인하고 싶은 말').value).toContain('400조')
-    fireEvent.click(screen.getByRole('button', { name: '사실 확인' }))
     expect(await screen.findByText('다름')).toBeInTheDocument()
     expect(order).toEqual(['login', 'check'])
+    expect(screen.getByRole('button', { name: /맞는 말.*43\.6조/ })).toBeInTheDocument()
   })
 
   it('home hero says so when the demo account cannot be entered, and does not call the check', async () => {

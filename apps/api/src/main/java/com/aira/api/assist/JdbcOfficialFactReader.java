@@ -19,6 +19,16 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
     @Transactional(readOnly = true)
     public Resolved resolve(String name) {
         if (name == null || name.isBlank() || name.length() > 100) return new Resolved("NONE", null);
+        // 기사 표기(KB금융지주, 신한금융그룹, IBK기업은행 등)를 거래소 약칭으로 차례로 맞춰 본다. 처음으로 걸리는 이름에서 멈춘다.
+        for (String candidate : CompanyNameVariants.of(name)) {
+            Resolved resolved = resolveExact(candidate);
+            if (!resolved.status().equals("NONE")) return resolved;
+        }
+        return new Resolved("NONE", null);
+    }
+
+    private Resolved resolveExact(String name) {
+        if (name == null || name.isBlank() || name.length() > 100) return new Resolved("NONE", null);
         List<Company> found = jdbc.query("""
                 SELECT e.id, e.canonical_name FROM entity e
                 WHERE e.active = true AND e.entity_type = 'COMPANY' AND lower(e.canonical_name) = lower(?)

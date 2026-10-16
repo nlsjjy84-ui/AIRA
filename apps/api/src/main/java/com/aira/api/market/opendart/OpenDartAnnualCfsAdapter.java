@@ -24,23 +24,39 @@ import org.springframework.transaction.annotation.Propagation;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class OpenDartAnnualCfsAdapter {
     private static final Logger log = LoggerFactory.getLogger(OpenDartAnnualCfsAdapter.class);
-    private static final Map<FactPredicate, List<String>> ACCOUNT_IDS = Map.of(
-            FactPredicate.REVENUE, List.of("ifrs_Revenue", "ifrs-full_Revenue"),
-            FactPredicate.OPERATING_INCOME, List.of("dart_OperatingIncomeLoss"),
-            FactPredicate.NET_INCOME, List.of("ifrs-full_ProfitLoss", "ifrs_ProfitLoss"),
-            FactPredicate.TOTAL_ASSETS, List.of("ifrs-full_Assets", "ifrs_Assets"),
-            FactPredicate.TOTAL_LIABILITIES, List.of("ifrs-full_Liabilities", "ifrs_Liabilities"),
-            FactPredicate.TOTAL_EQUITY, List.of("ifrs-full_Equity", "ifrs_Equity"));
+    private static final Map<FactPredicate, List<String>> ACCOUNT_IDS = Map.ofEntries(
+            Map.entry(FactPredicate.REVENUE, List.of("ifrs_Revenue", "ifrs-full_Revenue")),
+            Map.entry(FactPredicate.OPERATING_INCOME, List.of("dart_OperatingIncomeLoss")),
+            Map.entry(FactPredicate.NET_INCOME, List.of("ifrs-full_ProfitLoss", "ifrs_ProfitLoss")),
+            Map.entry(FactPredicate.TOTAL_ASSETS, List.of("ifrs-full_Assets", "ifrs_Assets")),
+            Map.entry(FactPredicate.TOTAL_LIABILITIES, List.of("ifrs-full_Liabilities", "ifrs_Liabilities")),
+            Map.entry(FactPredicate.TOTAL_EQUITY, List.of("ifrs-full_Equity", "ifrs_Equity")),
+            Map.entry(FactPredicate.CURRENT_ASSETS, List.of("ifrs-full_CurrentAssets", "ifrs_CurrentAssets")),
+            Map.entry(FactPredicate.CURRENT_LIABILITIES, List.of("ifrs-full_CurrentLiabilities", "ifrs_CurrentLiabilities")),
+            Map.entry(FactPredicate.CASH_AND_EQUIVALENTS, List.of("ifrs-full_CashAndCashEquivalents", "ifrs_CashAndCashEquivalents")),
+            Map.entry(FactPredicate.OPERATING_CASH_FLOW, List.of("ifrs-full_CashFlowsFromUsedInOperatingActivities",
+                    "ifrs_CashFlowsFromUsedInOperatingActivities")),
+            Map.entry(FactPredicate.INVESTING_CASH_FLOW, List.of("ifrs-full_CashFlowsFromUsedInInvestingActivities",
+                    "ifrs_CashFlowsFromUsedInInvestingActivities")),
+            Map.entry(FactPredicate.FINANCING_CASH_FLOW, List.of("ifrs-full_CashFlowsFromUsedInFinancingActivities",
+                    "ifrs_CashFlowsFromUsedInFinancingActivities")));
     /**
      * 새로 추가한 항목은 회사마다 계정 코드가 조금씩 달라 공시에서 못 찾을 수 있다. 그 경우 이 항목만 건너뛰고
      * 매출·영업이익 수집은 그대로 진행한다. 같은 계정 코드가 재무제표 여러 곳에 나오므로 어느 표(sj_div)의
      * 값인지도 함께 확인한다. 순이익은 손익계산서(IS) 또는 포괄손익계산서(CIS), 나머지는 재무상태표(BS)다.
      */
-    private static final Map<FactPredicate, java.util.Set<String>> STATEMENT_DIVISIONS = Map.of(
-            FactPredicate.NET_INCOME, java.util.Set.of("IS", "CIS"),
-            FactPredicate.TOTAL_ASSETS, java.util.Set.of("BS"),
-            FactPredicate.TOTAL_LIABILITIES, java.util.Set.of("BS"),
-            FactPredicate.TOTAL_EQUITY, java.util.Set.of("BS"));
+    private static final Map<FactPredicate, java.util.Set<String>> STATEMENT_DIVISIONS = Map.ofEntries(
+            Map.entry(FactPredicate.NET_INCOME, java.util.Set.of("IS", "CIS")),
+            Map.entry(FactPredicate.TOTAL_ASSETS, java.util.Set.of("BS")),
+            Map.entry(FactPredicate.TOTAL_LIABILITIES, java.util.Set.of("BS")),
+            Map.entry(FactPredicate.TOTAL_EQUITY, java.util.Set.of("BS")),
+            // 2026-10 추가: 현금성자산은 현금흐름표 끝에도 나오므로 재무상태표(BS) 값만 쓴다.
+            Map.entry(FactPredicate.CURRENT_ASSETS, java.util.Set.of("BS")),
+            Map.entry(FactPredicate.CURRENT_LIABILITIES, java.util.Set.of("BS")),
+            Map.entry(FactPredicate.CASH_AND_EQUIVALENTS, java.util.Set.of("BS")),
+            Map.entry(FactPredicate.OPERATING_CASH_FLOW, java.util.Set.of("CF")),
+            Map.entry(FactPredicate.INVESTING_CASH_FLOW, java.util.Set.of("CF")),
+            Map.entry(FactPredicate.FINANCING_CASH_FLOW, java.util.Set.of("CF")));
 
     private final OpenDartAnnualCfsClient client;
     private final OpenDartPeriodWitnessClient witnesses;

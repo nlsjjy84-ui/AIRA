@@ -40,6 +40,13 @@ public class ClaimCheckService {
             "REVENUE", "매출", "OPERATING_INCOME", "영업이익", "NET_INCOME", "순이익",
             "TOTAL_ASSETS", "자산 총계", "TOTAL_LIABILITIES", "부채 총계", "TOTAL_EQUITY", "자본 총계");
 
+    /**
+     * 은행·보험·증권사 재무제표에는 '매출' 줄이 없다(영업수익·이자수익·보험수익으로 적는다). 이를 매출로 바꿔 끼우면
+     * 기사와 다른 기준의 숫자를 비교하게 되므로, 비교하지 않고 이유만 알린다.
+     */
+    static final String NO_REVENUE_LINE = "이 회사 재무제표에는 '매출' 항목이 없습니다. 은행·보험·증권사는 매출 대신 영업수익·이자수익으로 적기 때문에, "
+            + "기준이 다른 숫자를 맞대지 않으려고 매출 금액은 비교하지 않습니다. 영업이익·순이익·자산·부채·자본은 확인할 수 있습니다.";
+
     private final OfficialFactReader reader;
     private final ReadingAssistModel model;
     private final Clock clock;
@@ -176,6 +183,7 @@ public class ClaimCheckService {
         if (fact == null) {
             Integer latest = reader.latestYear(company.id());
             String note = latest == null ? "이 회사의 공식 재무 값이 아직 없습니다."
+                    : item.equals("REVENUE") && reader.find(company.id(), item, null) == null ? NO_REVENUE_LINE
                     : year == null ? "이 항목의 공식 값이 아직 없습니다."
                     : "AIRA에는 " + latest + " 사업연도까지의 값만 있어 " + year + " 사업연도는 비교할 수 없습니다.";
             return new ClaimResult(sentence, "NO_DATA", company.name(), ITEMS.get(item), year, statedText, null, null, null, null, note);
@@ -233,7 +241,8 @@ public class ClaimCheckService {
         Fact current = reader.find(company.id(), item, year);
         if (current == null) {
             return new ClaimResult(sentence, "NO_DATA", company.name(), ITEMS.get(item), year, statedText, null, null, null, null,
-                    "이 항목의 공식 값이 아직 없습니다.");
+                    item.equals("REVENUE") && reader.latestYear(company.id()) != null && reader.find(company.id(), item, null) == null
+                            ? NO_REVENUE_LINE : "이 항목의 공식 값이 아직 없습니다.");
         }
         int currentYear = current.periodEnd().getYear();
         Fact previous = reader.find(company.id(), item, currentYear - 1);
