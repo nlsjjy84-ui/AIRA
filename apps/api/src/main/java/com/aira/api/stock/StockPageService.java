@@ -286,7 +286,8 @@ public class StockPageService {
         byte[] zip = dart.xbrlZip(receiptNumber);
         XbrlResearchReader.Found found = zip == null ? null : XbrlResearchReader.read(zip, fiscalYear);
         org.slf4j.LoggerFactory.getLogger(StockPageService.class).info("XBRL R&D receipt {} year {}: {}", receiptNumber, fiscalYear,
-                zip == null ? "no XBRL file" : found == null ? "no R&D expense element" : found.element() + "=" + found.amount() + " (" + found.basis() + ")");
+                zip == null ? "no XBRL file" : found == null ? "no R&D expense element; " + XbrlResearchReader.diagnose(zip)
+                        : found.element() + "=" + found.amount() + " (" + found.basis() + ")");
         researchCache.put(key, Map.entry(clock.instant(), java.util.Optional.ofNullable(found)));
         return found;
     }

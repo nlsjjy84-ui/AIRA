@@ -50,7 +50,9 @@ final class XbrlResearchReader {
 
     static boolean isResearchExpense(String localName) {
         String n = localName.toLowerCase(Locale.ROOT);
-        if (!n.contains("researchanddevelopment")) return false;
+        boolean named = n.contains("researchanddevelopment")
+                || (n.contains("research") && (n.contains("expense") || n.contains("cost") || n.contains("expenditure")));
+        if (!named) return false;
         return !(n.contains("intangible") || n.contains("capitali") || n.contains("ratio") || n.contains("percent")
                 || n.contains("asset") || n.contains("member") || n.contains("axis") || n.contains("abstract"));
     }
@@ -108,6 +110,42 @@ final class XbrlResearchReader {
             if (rank < bestRank) { bestRank = rank; best = new Found(amount.abs(), c.element(), basis); }
         }
         return best;
+    }
+
+    /** 못 찾았을 때 원인을 보려고: 파일 목록, 사실 수, 이름에 Research가 들어간 항목과 그 차원(최대 12개). */
+    static String diagnose(byte[] zip) {
+        StringBuilder out = new StringBuilder();
+        try (var in = new ZipInputStream(new ByteArrayInputStream(zip))) {
+            ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) {
+                String name = entry.getName();
+                out.append("[").append(name).append("] ");
+                String lower = name.toLowerCase(Locale.ROOT);
+                if (!(lower.endsWith(".xbrl") || lower.endsWith(".xml"))) continue;
+                XMLInputFactory factory = XMLInputFactory.newInstance();
+                factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+                factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+                XMLStreamReader r = factory.createXMLStreamReader(new java.io.FilterInputStream(in) {
+                    @Override public void close() { }
+                });
+                int facts = 0;
+                java.util.LinkedHashSet<String> research = new java.util.LinkedHashSet<>();
+                while (r.hasNext()) {
+                    if (r.next() != XMLStreamConstants.START_ELEMENT) continue;
+                    if (r.getAttributeValue(null, "contextRef") != null) {
+                        facts++;
+                        String local = r.getLocalName();
+                        if (local.toLowerCase(Locale.ROOT).contains("research") && research.size() < 12) {
+                            research.add(r.getPrefix() + ":" + local + "@" + r.getAttributeValue(null, "contextRef"));
+                        }
+                    }
+                }
+                out.append("facts=").append(facts).append(" research=").append(research).append(" ");
+            }
+        } catch (IOException | XMLStreamException | RuntimeException e) {
+            out.append("error ").append(e.getClass().getSimpleName());
+        }
+        return out.length() > 1500 ? out.substring(0, 1500) : out.toString();
     }
 
     private static LocalDate date(String text) {
