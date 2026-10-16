@@ -11,7 +11,7 @@ import AiAssist from './AiAssist.jsx'
 import { requestAssist, requestQuote } from './api/assistApi.js'
 import { StockPriceAlerts } from './PriceAlerts.jsx'
 import SaveToStudy from './SaveToStudy.jsx'
-import { getStudy, learnTerm, getStockSection, getStockStatements, saveStudyNote, getStockPreliminary } from './api/stockApi.js'
+import { getStudy, learnTerm, getStockSection, getStockStatements, saveStudyNote, getStockPreliminary, getStockSalesMix } from './api/stockApi.js'
 import { guideFor, SECTION_META, sectionColumns, visibleRows, orderStatement, COURSE, coursePrefix, courseDone, buildCalendar } from './stockGuide.js'
 import {
   ACCOUNT_LABEL, FILING_CATEGORIES, FILING_LABEL, QUESTION_ROUTES, RATIOS, aroundFilings, checklist, fixSubjectParticle,
@@ -37,7 +37,7 @@ export const STOCK_TREE = [
   ]],
   ['inspect', 'Inspect', '보다', '모아 둔 공식 자료를 분류별로 펼쳐 봅니다. 그래프·표·용어 풀이가 함께 있습니다.', [
     ['summary', '한눈에', '주가·실적·재무·시장 평가·최근 공시를 한 화면에 모았습니다. 칸을 누르면 그 자료로 깊게 들어갑니다.'],
-    ['company', '회사 개요', '어떤 회사인지, 누가 이끌고 장부는 믿을 만한지 봅니다.', [['basic', '기본 정보'], ['listing', '상장 정보'], ['audit', '감사의견'], ['execs', '임원'], ['pay', '임원 보수'], ['affiliates', '다른 회사 출자'], ['shares', '주식 수']]],
+    ['company', '회사 개요', '어떤 회사인지, 누가 이끌고 장부는 믿을 만한지 봅니다.', [['basic', '기본 정보'], ['mix', '매출 구성'], ['listing', '상장 정보'], ['audit', '감사의견'], ['execs', '임원'], ['pay', '임원 보수'], ['affiliates', '다른 회사 출자'], ['shares', '주식 수']]],
     ['price', '주가', '한국거래소(KRX)의 하루 단위 공식 시세입니다. 실시간 시세가 아니며, 최근 1년치를 보관합니다.',
       [['trend', '가격 흐름'], ['candle', '봉 차트'], ['daily', '일별 시세'], ['volume', '거래량·거래대금'], ['cap', '시가총액'], ['range', '기간 최고·최저']]],
     ['earnings', '실적(손익)', '1년 동안 얼마를 팔고 얼마를 남겼는지 사업보고서 기준으로 봅니다.',
@@ -77,7 +77,7 @@ export const STOCK_TREE = [
 export const STOCK_TABS = [
   ['chart', '차트', [['가격 흐름', ['inspect', 'price', 'trend']], ['봉 차트', ['inspect', 'price', 'candle']], ['일별 시세', ['inspect', 'price', 'daily']],
     ['거래량·거래대금', ['inspect', 'price', 'volume']], ['시장과 비교', ['relate', 'market', 'compare']], ['공시와 함께', ['relate', 'filings', 'chart']]]],
-  ['info', '종목정보', [['한눈에', ['inspect', 'summary']], ['투자 지표', ['inspect', 'ratios', '시장 평가']], ['회사 개요', ['inspect', 'company']],
+  ['info', '종목정보', [['한눈에', ['inspect', 'summary']], ['투자 지표', ['inspect', 'ratios', '시장 평가']], ['매출 구성', ['inspect', 'company', 'mix']], ['회사 개요', ['inspect', 'company']],
     ['주주·배당', ['inspect', 'owners']], ['동종 업계', ['relate', 'industry', 'table']], ['여러 종목 비교', ['relate', 'peer', 'compare']], ['관련 사건', ['relate', 'events', 'timeline']]]],
   ['fin', '실적·재무', [['분기 실적', ['inspect', 'earnings', 'quarters']], ['연간 실적', ['inspect', 'earnings', 'all']], ['재무상태', ['inspect', 'balance']],
     ['비율', ['inspect', 'ratios', '수익성']], ['재무제표 원문', ['inspect', 'statements']]]],
@@ -321,7 +321,7 @@ function StockView({ ctx }) {
     case 'ask/quote': return <AskQuote ctx={ctx} />
     case 'ask/glossary': return <Glossary ctx={ctx} />
     case 'inspect/summary': return <SummaryView ctx={ctx} />
-    case 'inspect/company': return third[0] === 'pay' ? <><SectionView ctx={ctx} name="payAll" /><SectionView ctx={ctx} name="payTop" /></>
+    case 'inspect/company': return third[0] === 'mix' ? <SalesMixView ctx={ctx} /> : third[0] === 'pay' ? <><SectionView ctx={ctx} name="payAll" /><SectionView ctx={ctx} name="payTop" /></>
       : SECTION_META[third[0]] ? <SectionView ctx={ctx} name={third[0]} /> : <CompanyView ctx={ctx} view={third[0]} />
     case 'inspect/statements': return <StatementsView ctx={ctx} view={third[0]} />
     case 'inspect/price': return deeper[0] ? <DayDetail ctx={ctx} date={deeper[0]} /> : <PriceView ctx={ctx} view={third[0]} />
@@ -402,6 +402,30 @@ function CompanyView({ ctx, view }) {
       ['DART 고유번호', '금융감독원 전자공시에서 회사를 구분하는 8자리 번호입니다.'], ['상장주식수', '거래소에서 거래되는 이 회사 주식의 총수입니다.'],
       ['시가총액', '주가 × 상장주식수. 시장이 매긴 회사의 크기입니다.']]}>
       회사 이름만 같고 다른 회사인 경우가 있어, AIRA는 DART 고유번호로 회사를 구분합니다.</Learn>
+  </>
+}
+
+// ---------------- 보다 · 매출 구성 (사업보고서 「주요 제품 및 서비스」) ----------------
+function SalesMixView({ ctx }) {
+  const state = useLazy(() => getStockSalesMix(ctx.companyId), ctx.companyId)
+  if (state.loading) return <p className="status">사업보고서에서 매출 구성을 읽는 중입니다.</p>
+  const d = state.data
+  if (state.error || d?.state === 'UNAVAILABLE') return <Empty>지금은 사업보고서 원문을 읽을 수 없습니다. 잠시 후 다시 열어 주세요.</Empty>
+  if (d?.state !== 'AVAILABLE') return <Empty>이 회사 사업보고서에서 매출 구성 표를 찾지 못했습니다. {d?.dartUrl && <a href={d.dartUrl} target="_blank" rel="noopener noreferrer">원문에서 「주요 제품 및 서비스」 보기 ↗</a>}</Empty>
+  const items = d.items ?? []
+  const top = [...items].filter(i => Number(i.share) > 0).sort((a, b) => Number(b.share) - Number(a.share))[0]
+  const max = Math.max(1, ...items.map(i => Math.abs(Number(i.share) || 0)))
+  return <>
+    {top && <p className="quarter-sentence">{d.year}년 매출의 {Number(top.share).toLocaleString('ko-KR')}%는 「{top.name}」에서 나왔어요.</p>}
+    <ul className="mix-bars">{items.map(item => { const share = Number(item.share)
+      return <li key={item.name}><span className="mix-name">{item.name}</span>
+        <span className="mix-track" aria-hidden="true"><i className={share < 0 ? 'neg' : ''} style={{ width: `${Math.min(100, Math.abs(share) / max * 100)}%` }} /></span>
+        <strong className={share < 0 ? 'down' : ''}>{Number.isFinite(share) ? `${share.toLocaleString('ko-KR')}%` : '—'}</strong>
+        <small>{item.amount === null || item.amount === undefined ? '' : formatWon(item.amount)}</small></li> })}</ul>
+    <Learn terms={[['매출 구성', '회사가 사업보고서 「주요 제품 및 서비스」에 직접 적은 사업부문·품목별 매출과 비중입니다.'],
+      ['부문 간 거래', '사업부끼리 사고판 금액이 각 부문 매출에 들어 있으면 합이 100%를 넘고, 「기타」에 빼는 값(음수)으로 맞춥니다.']]}>
+      표 모양은 회사마다 달라 AIRA가 숫자 칸을 골라 읽었습니다. 정확한 값은 원문에서 확인하세요.</Learn>
+    <Source>{d.source} · {d.year} 사업보고서 · 접수번호 {d.receiptNo} · <a href={d.dartUrl} target="_blank" rel="noopener noreferrer">원문 ↗</a></Source>
   </>
 }
 

@@ -293,7 +293,7 @@ function PrivacyPage() {
 
 /** 토스처럼 큰 메뉴 5개, 그 아래 작은 메뉴 한 줄. 작은 메뉴 하나가 화면 하나다. */
 export const MAIN_MENUS = [
-  ['market', '시장', [['시장 지도', '/market'], ['환율·금리', '/market?tab=macro'], ['업종', '/market?tab=sectors'], ['상승 상위', '/market?tab=up'],
+  ['market', '시장', [['시장 지도', '/market'], ['지수', '/market?tab=index'], ['환율·금리·금', '/market?tab=macro'], ['ETF', '/market?tab=etf'], ['업종', '/market?tab=sectors'], ['상승 상위', '/market?tab=up'],
     ['하락 상위', '/market?tab=down'], ['거래대금 상위', '/market?tab=value'], ['최고가 근처', '/market?tab=high'], ['최저가 근처', '/market?tab=low']]],
   ['find', '종목 찾기', [['조건으로 찾기', '/screen'], ['회사·사건 탐색', '/explore']]],
   ['check', '주장 확인', [['이 말, 사실이야?', '/check']]],

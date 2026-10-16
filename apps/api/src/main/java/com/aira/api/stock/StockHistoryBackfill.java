@@ -102,7 +102,8 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         worker.start();
     }
 
-    @Scheduled(cron = "${aira.stock.backfill.cron:0 40 8,18 * * *}", zone = "Asia/Seoul")
+    // 하루 네 번(08:40 · 12:40 · 15:40 · 18:40): 아침 거래소 자료, 낮, 장 마감 직후, 저녁 공시까지 고르게 받는다.
+    @Scheduled(cron = "${aira.stock.backfill.cron:0 40 8,12,15,18 * * *}", zone = "Asia/Seoul")
     public void daily() {
         if (enabled) runOnce();
     }

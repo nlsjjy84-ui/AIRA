@@ -3081,3 +3081,28 @@ main.is-landing { max-width: none !important; margin: 0 !important; padding: 0 !
 
 /* 화면 머리: 큰 상자 대신 열린 공간(랜딩·메뉴와 같은 결) */
 .stock-header { border: 0; background: transparent; padding-inline: 0; padding-top: .6rem; }
+
+/* 매출 구성 막대 */
+.mix-bars { list-style: none; margin: .4rem 0; padding: 0; display: grid; gap: .55rem; }
+.mix-bars li { display: grid; grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr) 4.5rem minmax(5rem, auto); align-items: center; gap: .75rem; }
+.mix-name { font-weight: 650; overflow-wrap: anywhere; }
+.mix-track { height: .7rem; border-radius: 999px; background: var(--accent-faint); overflow: hidden; }
+.mix-track i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transform-origin: left; animation: mix-grow .8s ease both; }
+.mix-track i.neg { background: var(--down); }
+.mix-bars strong { text-align: right; font-variant-numeric: tabular-nums; }
+.mix-bars small { color: var(--muted); font-variant-numeric: tabular-nums; }
+@keyframes mix-grow { from { transform: scaleX(0); } }
+@media (max-width: 640px) { .mix-bars li { grid-template-columns: minmax(0, 1fr) 4rem; } .mix-track { grid-column: 1 / -1; order: 3; } .mix-bars small { display: none; } }
+@media (prefers-reduced-motion: reduce) { .mix-track i { animation: none; } }
+
+.etf-tools { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; justify-content: space-between; margin-bottom: .6rem; }
+.etf-tools input { min-width: min(18rem, 100%); padding: .55rem .9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; }
+
+/* 시장 › 지수: 등락률 막대(가운데 기준 없이 크기만), 금 타일 */
+.index-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; min-width: 0; }
+.index-table td:first-child { min-width: 11rem; }
+.index-bar-cell { width: 9rem; min-width: 6rem; }
+.index-bar { display: block; height: .5rem; width: var(--w, 0%); min-width: 2px; border-radius: 999px; background: var(--muted); opacity: .75; transition: width .5s cubic-bezier(.2,.7,.2,1); }
+.index-bar.up { background: var(--up); }
+.index-bar.down { background: var(--down); }
+.macro-tile.is-static { cursor: default; }

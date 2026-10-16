@@ -130,6 +130,112 @@ final class DartDocumentReader {
         return null;
     }
 
+    record MixItem(String name, BigDecimal amount, BigDecimal share) {}
+
+    record SalesMix(String unitText, List<MixItem> items) {}
+
+    private static final Pattern MIX_TITLE = Pattern.compile("<title[^>]*>[^<]*주요\\s*제품[^<]*</title>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern NEXT_TITLE = Pattern.compile("<title[^>]*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PCT = Pattern.compile("^\\(?\\s*([△-]?[0-9][0-9,]*(?:\\.[0-9]+)?)\\s*%?\\s*\\)?$");
+    private static final Pattern AMOUNT_WITH_PCT = Pattern.compile("^([△-]?[0-9][0-9,]*)\\s*\\(\\s*([△-]?[0-9][0-9.]*)\\s*%\\s*\\)$");
+    private static final Pattern SKIP_NAME = Pattern.compile("^(합\\s*계|총\\s*계|계|소\\s*계|매출\\s*총\\s*합\\s*계|총\\s*합\\s*계|\\(?내수.*|\\(?수출.*|매출\\s*합계)$");
+    private static final Pattern TYPE_WORD = Pattern.compile("^(제품|상품|용역|제품\\s*외|제품\\s*매출|상품\\s*매출|기타\\s*매출|용역\\s*매출|매출유형|-)$");
+
+    /** 사업보고서 「주요 제품 및 서비스」 표: 사업부문(또는 품목)별 매출액과 비중. 회사마다 표 모양이 달라 숫자 칸을 오른쪽에서 찾는다. */
+    static SalesMix salesMix(byte[] zip) {
+        for (String doc : documents(zip)) {
+            Matcher m = MIX_TITLE.matcher(doc);
+            if (!m.find()) continue;
+            Matcher next = NEXT_TITLE.matcher(doc);
+            int end = next.find(m.end()) ? next.start() : Math.min(doc.length(), m.end() + 300_000);
+            for (Table table : tablesOf(doc.substring(m.start(), end))) {
+                SalesMix mix = mixOf(table);
+                if (mix != null) return mix;
+            }
+        }
+        return null;
+    }
+
+    static SalesMix mixOf(Table table) {
+        boolean mentionsSales = table.rows().stream().anyMatch(r -> r.stream().anyMatch(c -> c.contains("매출")));
+        if (!mentionsSales) return null;
+        BigDecimal factor = factor(table.unit());
+        // 이름 칸: 머리글에서 「품목」이 있으면 그 칸, 없으면 「부문」 칸. 위 칸과 합쳐진(rowspan) 줄은 왼쪽 칸이 빠져 있으니 오른쪽 맞춤으로 옮긴다.
+        int nameCol = -1;
+        for (var row : table.rows()) {
+            int item = -1, part = -1;
+            for (int i = 0; i < row.size(); i++) {
+                String c = squash(row.get(i));
+                if (item < 0 && c.matches("품목|품명|제품명|제품군")) item = i;
+                if (part < 0 && c.matches("(사업)?부문|구분")) part = i;
+            }
+            if (item >= 0 || part >= 0) { nameCol = item >= 0 ? item : part; break; }
+        }
+        int width = table.rows().stream().filter(r -> r.stream().anyMatch(DartDocumentReader::isFigure)).mapToInt(List::size).max().orElse(0);
+        List<MixItem> items = new ArrayList<>();
+        for (var row : table.rows()) {
+            BigDecimal amount = null, share = null;
+            int firstNumber = -1;
+            for (int i = 0; i < row.size(); i++) {
+                String c = row.get(i).trim().replace(" ", "");
+                Matcher both = AMOUNT_WITH_PCT.matcher(c);
+                if (both.matches()) { amount = number(both.group(1)); share = number(both.group(2)); if (firstNumber < 0) firstNumber = i; continue; }
+                if (c.endsWith("%")) { Matcher pm = PCT.matcher(c); if (pm.matches()) { share = number(pm.group(1)); if (firstNumber < 0) firstNumber = i; continue; } }
+                BigDecimal n = number(c);
+                if (n == null) continue;
+                if (firstNumber < 0) firstNumber = i;
+                if (amount == null) amount = n;
+                else if (share == null && n.abs().compareTo(new BigDecimal("100.5")) <= 0 && c.contains(".")) share = n;
+            }
+            if (firstNumber <= 0 || (amount == null && share == null)) continue;
+            String name = null;
+            if (nameCol >= 0) {
+                int idx = nameCol - (width - row.size());
+                if (idx >= 0 && idx < firstNumber) name = row.get(idx).trim();
+            }
+            if (name == null || name.isEmpty() || TYPE_WORD.matcher(squash(name)).matches()) {
+                name = null;
+                for (int i = 0; i < firstNumber; i++) {
+                    String c = row.get(i).trim();
+                    if (!c.isEmpty() && c.length() <= 40 && !TYPE_WORD.matcher(squash(c)).matches()) { name = c; break; }
+                }
+            }
+            if (name == null || SKIP_NAME.matcher(squash(name)).matches()) continue;
+            items.add(new MixItem(name.replaceAll("\\s+", " "), amount == null || factor == null ? null : amount.multiply(factor), share));
+        }
+        if (items.isEmpty()) return null;
+        // 비중이 비어 있으면 매출액 합계로 계산한다.
+        BigDecimal total = items.stream().map(MixItem::amount).filter(x -> x != null && x.signum() > 0).reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<MixItem> out = new ArrayList<>();
+        for (var it : items) {
+            BigDecimal share = it.share();
+            if (share == null && it.amount() != null && total.signum() > 0)
+                share = it.amount().multiply(BigDecimal.valueOf(100)).divide(total, 1, java.math.RoundingMode.HALF_UP);
+            out.add(new MixItem(it.name(), it.amount(), share));
+        }
+        return new SalesMix(table.unit(), out.size() > 12 ? out.subList(0, 12) : out);
+    }
+
+    private static boolean isFigure(String cell) {
+        String c = cell.trim().replace(" ", "");
+        return number(c) != null || AMOUNT_WITH_PCT.matcher(c).matches() || (c.endsWith("%") && PCT.matcher(c).matches());
+    }
+
+    private static List<String> documents(byte[] zip) {
+        List<String> out = new ArrayList<>();
+        try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(zip))) {
+            ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) {
+                String name = entry.getName().toLowerCase(Locale.ROOT);
+                if (entry.isDirectory() || !(name.endsWith(".xml") || name.endsWith(".htm") || name.endsWith(".html"))) continue;
+                out.add(decode(readLimited(in)));
+            }
+        } catch (IOException e) {
+            return out;
+        }
+        return out;
+    }
+
     private static final Map<String, String> ITEMS = Map.of(
             "매출액", "REVENUE", "영업수익", "REVENUE", "영업이익", "OPERATING_INCOME",
             "법인세비용차감전계속사업이익", "PRETAX_INCOME", "당기순이익", "NET_INCOME",

@@ -129,6 +129,43 @@ public class DartStockClient {
         return zip("document.xml", "&rcept_no=" + receiptNumber);
     }
 
+    static final String VIEWER = "https://dart.fss.or.kr/";
+    private static final java.util.regex.Pattern VIEW_DOC = java.util.regex.Pattern.compile(
+            "viewDoc\\(\"([0-9]{14})\",\\s*\"([0-9]+)\",\\s*\"([0-9]+)\",\\s*\"([0-9]+)\",\\s*\"([0-9]+)\",\\s*\"([A-Za-z0-9.]+)\"");
+
+    /**
+     * 누구나 보는 DART 공시 화면의 본문(HTML). 금융감독원 API가 원문 파일을 주지 않는 공시(거래소 공정공시 등)를 읽을 때만 쓴다.
+     * 첫 화면(main.do)에서 본문 문서 번호를 찾고 viewer.do 본문을 받는다. 없으면 null.
+     */
+    public String viewerHtml(String receiptNumber) {
+        if (receiptNumber == null || !receiptNumber.matches("[0-9]{14}")) return null;
+        try {
+            HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).followRedirects(HttpClient.Redirect.NORMAL).build();
+            String main = new String(get(client, URI.create(VIEWER + "dsaf001/main.do?rcpNo=" + receiptNumber)), StandardCharsets.UTF_8);
+            java.util.regex.Matcher m = VIEW_DOC.matcher(main);
+            while (m.find()) {
+                if (!receiptNumber.equals(m.group(1))) continue;
+                byte[] body = get(client, URI.create(VIEWER + "report/viewer.do?rcpNo=" + m.group(1) + "&dcmNo=" + m.group(2) + "&eleId=" + m.group(3)
+                        + "&offset=" + m.group(4) + "&length=" + m.group(5) + "&dtd=" + enc(m.group(6))));
+                String head = new String(body, 0, Math.min(body.length, 1500), StandardCharsets.ISO_8859_1).toLowerCase(java.util.Locale.ROOT);
+                return new String(body, head.contains("euc-kr") ? java.nio.charset.Charset.forName("MS949") : StandardCharsets.UTF_8);
+            }
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static byte[] get(HttpClient client, URI uri) throws IOException, InterruptedException {
+        HttpResponse<byte[]> r = client.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20))
+                .header("User-Agent", "Mozilla/5.0 (AIRA public disclosure reader)").GET().build(), HttpResponse.BodyHandlers.ofByteArray());
+        if (r.statusCode() != 200) throw new IOException("HTTP " + r.statusCode());
+        return r.body();
+    }
+
     private byte[] zip(String endpoint, String query) {
         if (apiKey.isBlank()) throw new DartUnavailableException("OpenDART API key is not configured");
         URI uri = URI.create(BASE + endpoint + "?crtfc_key=" + enc(apiKey) + query);

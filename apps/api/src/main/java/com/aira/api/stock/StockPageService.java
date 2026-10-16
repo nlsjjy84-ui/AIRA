@@ -211,8 +211,13 @@ public class StockPageService {
         out.put("to", to.toString());
         try {
             List<Map<String, String>> rows = new ArrayList<>();
-            rows.addAll(dart.marketFilings(from, to, "Y"));
-            rows.addAll(dart.marketFilings(from, to, "K"));
+            var kospi = dart.marketFilings(from, to, "Y");
+            var kosdaq = dart.marketFilings(from, to, "K");
+            rows.addAll(kospi);
+            rows.addAll(kosdaq);
+            // 시장마다 최근 100건까지만 받는다. 100건이 꽉 차면 그보다 오래된 공시는 빠져 있을 수 있다.
+            out.put("truncated", kospi.size() >= 100 || kosdaq.size() >= 100);
+            out.put("checkedAt", clock.instant().toString());
             var ids = companies.companyIdsByCorpCode(rows.stream().map(r -> r.get("corp_code"))
                     .filter(c -> c != null && c.matches("[0-9]{8}")).distinct().toList());
             List<Map<String, Object>> items = rows.stream().map(row -> {
@@ -332,6 +337,14 @@ public class StockPageService {
         try {
             byte[] doc = dart.documentZip(receipt);
             var found = doc == null ? null : DartDocumentReader.preliminary(DartDocumentReader.tables(doc));
+            String how = doc == null ? "no document file" : found == null ? "document file without readable table" : "document file";
+            if (found == null) {
+                // 거래소 공정공시는 원문 파일이 없거나 양식이 달라, 누구나 보는 DART 공시 화면의 같은 표를 읽는다.
+                String html = dart.viewerHtml(receipt);
+                found = html == null ? null : DartDocumentReader.preliminary(DartDocumentReader.tablesOf(html));
+                how += html == null ? "; viewer unavailable" : found == null ? "; viewer without readable table" : "; viewer page";
+            }
+            org.slf4j.LoggerFactory.getLogger(StockPageService.class).info("Preliminary earnings {} {}: {}", company.name(), receipt, how);
             if (found == null) {
                 out.put("state", "NOT_READABLE");
             } else {
@@ -342,6 +355,41 @@ public class StockPageService {
                 out.put("cumulative", found.cumulative());
             }
             preliminaryCache.put(receipt, Map.entry(clock.instant(), out));
+        } catch (RuntimeException e) {
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
+    }
+
+    // ---------- 매출 구성 (사업보고서 「주요 제품 및 서비스」 표) ----------
+    private final Map<String, Map.Entry<Instant, Map<String, Object>>> mixCache = new ConcurrentHashMap<>();
+
+    public Map<String, Object> salesMix(StockCompanyLookup.Company company) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 공시서류 원본 · 사업보고서 「주요 제품 및 서비스」");
+        var latest = financials.forCompany(company.corpCode()).stream().filter(v -> v.reportYear() == v.fiscalYear())
+                .max(Comparator.comparingInt(FinancialHistoryRows.Value::fiscalYear)).orElse(null);
+        if (latest == null) { out.put("state", "NO_DATA"); return out; }
+        String receipt = latest.receiptNo();
+        var cached = mixCache.get(receipt);
+        if (cached != null && cached.getKey().plus(Duration.ofDays(7)).isAfter(clock.instant())) return cached.getValue();
+        out.put("year", latest.fiscalYear());
+        out.put("receiptNo", receipt);
+        out.put("dartUrl", "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receipt);
+        try {
+            byte[] doc = dart.documentZip(receipt);
+            var mix = doc == null ? null : DartDocumentReader.salesMix(doc);
+            if (mix == null) out.put("state", "NOT_READABLE");
+            else {
+                out.put("state", "AVAILABLE");
+                out.put("unit", mix.unitText());
+                out.put("items", mix.items().stream().map(it -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name", it.name()); m.put("amount", it.amount()); m.put("share", it.share());
+                    return m;
+                }).toList());
+            }
+            mixCache.put(receipt, Map.entry(clock.instant(), out));
         } catch (RuntimeException e) {
             out.put("state", "UNAVAILABLE");
         }

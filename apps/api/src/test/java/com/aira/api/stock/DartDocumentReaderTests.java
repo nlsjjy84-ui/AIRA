@@ -67,4 +67,47 @@ class DartDocumentReaderTests {
         assertEquals(0, new BigDecimal("254130000000000").compareTo(found.cumulative().get("OPERATING_INCOME")));
         assertNull(found.values().get("NET_INCOME"));
     }
+
+    static String report(String title, String tables) {
+        return "<?xml version=\"1.0\" encoding=\"utf-8\"?><DOCUMENT><BODY><SECTION-2><TITLE ATOC=\"Y\">1. 사업의 개요</TITLE><TABLE><TR><TD>매출</TD><TD>1</TD></TR></TABLE></SECTION-2>"
+                + "<SECTION-2><TITLE ATOC=\"Y\">" + title + "</TITLE>" + tables + "</SECTION-2><SECTION-2><TITLE ATOC=\"Y\">3. 원재료</TITLE><TABLE><TR><TD>매출</TD><TD>99</TD></TR></TABLE></SECTION-2></BODY></DOCUMENT>";
+    }
+
+    @Test
+    void readsSegmentShares() throws Exception {
+        // 삼성전자 2025 사업보고서 양식
+        String xml = report("2. 주요 제품 및 서비스", "<TABLE><TR><TD>(단위 : 억원, %)</TD></TR></TABLE><TABLE>"
+                + "<TR><TH>부 문</TH><TH>주요 제품</TH><TH>매출액</TH><TH>비중</TH></TR>"
+                + "<TR><TD>DX 부문</TD><TD>TV, 모니터, 냉장고, 세탁기, 에어컨, 스마트폰, 네트워크시스템, PC 등</TD><TE>1,879,673</TE><TE>56.3%</TE></TR>"
+                + "<TR><TD>DS 부문</TD><TD>DRAM, NAND Flash, 모바일AP 등</TD><TE>1,301,282</TE><TE>39.0%</TE></TR>"
+                + "<TR><TD>기타</TD><TD>부문간 내부거래 제거 등</TD><TE>△301,146</TE><TE>△8.9%</TE></TR>"
+                + "<TR><TD>총 계</TD><TE>3,336,059</TE><TE>100.00%</TE></TR></TABLE>");
+        var mix = DartDocumentReader.salesMix(zip("a.xml", xml.getBytes("UTF-8")));
+        assertEquals(java.util.List.of("DX 부문", "DS 부문", "기타"), mix.items().stream().map(DartDocumentReader.MixItem::name).toList());
+        assertEquals(0, new BigDecimal("56.3").compareTo(mix.items().get(0).share()));
+        assertEquals(0, new BigDecimal("187967300000000").compareTo(mix.items().get(0).amount()));
+        assertEquals(0, new BigDecimal("-8.9").compareTo(mix.items().get(2).share()));
+    }
+
+    @Test
+    void followsMergedRowsAndCombinedAmountCells() throws Exception {
+        // 품목 칸이 있고, 위 칸과 합쳐진 줄은 왼쪽 칸이 빠진다(듀켐바이오 양식). 매출액(비율)이 한 칸인 양식(SK하이닉스)도 읽는다.
+        String xml = report("2. 주요 제품 및 서비스", "<TABLE><TR><TD>(단위 : 천원,%)</TD></TR></TABLE><TABLE>"
+                + "<TR><TD>사업부문</TD><TD>매출유형</TD><TD>품 목</TD><TD>용 도</TD><TD>제23기</TD></TR><TR><TD>매출액</TD><TD>비율</TD></TR>"
+                + "<TR><TD>방사성 의약품</TD><TD>제품매출</TD><TD>FDG</TD><TD>악성종양 진단용</TD><TD>22,017,140</TD><TD>57.1%</TD></TR>"
+                + "<TR><TD>Neuraceq,Vizamyl</TD><TD>알츠하이머 치매진단용</TD><TD>7,501,071</TD><TD>19.4%</TD></TR>"
+                + "<TR><TD>소 계</TD><TD>33,813,621</TD><TD>87.7%</TD></TR>"
+                + "<TR><TD>상품매출</TD><TD>조영제</TD><TD>조영제</TD><TD>1,478,779</TD><TD>3.8%</TD></TR>"
+                + "<TR><TD>매출 총 합 계</TD><TD>38,572,364</TD><TD>100.0%</TD></TR><TR><TD>(내수매출)</TD><TD>38,459,836</TD><TD>99.7%</TD></TR></TABLE>");
+        var mix = DartDocumentReader.salesMix(zip("b.xml", xml.getBytes("UTF-8")));
+        assertEquals(java.util.List.of("FDG", "Neuraceq,Vizamyl", "조영제"), mix.items().stream().map(DartDocumentReader.MixItem::name).toList());
+        String sk = report("2. 주요 제품 및 서비스", "<TABLE><TR><TD>[제78기 누계]</TD><TD>(단위: 백만원)</TD></TR></TABLE><TABLE>"
+                + "<TR><TD>사업부문</TD><TD>매출유형</TD><TD>품목</TD><TD>구체적용도</TD><TD>주요상표등</TD><TD>매출액(비율)</TD></TR>"
+                + "<TR><TD>반도체 부문</TD><TD>제품 외</TD><TD>DRAM, NAND Flash 등</TD><TD>산업용 전자기기</TD><TD>SK하이닉스</TD><TD>97,146,675(100%)</TD></TR>"
+                + "<TR><TD>합계</TD><TD>97,146,675(100%)</TD></TR></TABLE>");
+        var one = DartDocumentReader.salesMix(zip("c.xml", sk.getBytes("UTF-8")));
+        assertEquals(1, one.items().size());
+        assertEquals("DRAM, NAND Flash 등", one.items().get(0).name());
+        assertEquals(0, new BigDecimal("100").compareTo(one.items().get(0).share()));
+    }
 }

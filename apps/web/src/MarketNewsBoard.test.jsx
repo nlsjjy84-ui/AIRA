@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import MarketNewsBoard, { tidyTitle } from './MarketNewsBoard.jsx'
+import MarketNewsBoard, { tidyTitle, formatSeenAt } from './MarketNewsBoard.jsx'
 
 it('renders recent market news as external metadata links without AIRA interpretation', () => {
   render(<MarketNewsBoard state={{ loading: false, error: null, data: {
@@ -35,4 +35,15 @@ it('marks stale provider data without hiding the existing links', () => {
 it('joins the punctuation the news index splits apart', () => {
   expect(tidyTitle('[ 마켓뷰 ] 코스피 , 8거래일 만에 2 % 상승 마감 … 코스닥도 반등')).toBe('[마켓뷰] 코스피, 8거래일 만에 2% 상승 마감… 코스닥도 반등')
   expect(tidyTitle('외국인 귀환 ( 종합 )')).toBe('외국인 귀환 (종합)')
+})
+
+it('says today and yesterday in Korean time, and titles the board 오늘 only when today has news', () => {
+  const now = new Date('2026-10-16T05:00:00Z') // 한국 14:00
+  expect(formatSeenAt('2026-10-16T03:20:00Z', now)).toBe('오늘 12:20')
+  expect(formatSeenAt('2026-10-15T14:47:00Z', now)).toBe('어제 23:47')
+  expect(formatSeenAt('2026-10-15T16:10:00Z', now)).toBe('오늘 01:10')
+  render(<MarketNewsBoard now={now} state={{ loading: false, error: null, data: { provider: 'p', items: [
+    { title: '오늘 기사', originalUrl: 'https://news.example/t', domain: 'news.example', seenAt: '2026-10-16T03:20:00Z' }] } }} retry={vi.fn()} />)
+  expect(screen.getByRole('heading', { name: '오늘 시장 뉴스' })).toBeInTheDocument()
+  expect(screen.getByText('오늘 12:20 확인')).toBeInTheDocument()
 })

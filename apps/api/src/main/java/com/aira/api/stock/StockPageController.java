@@ -69,6 +69,11 @@ public class StockPageController {
         return with(companyId, service::preliminary);
     }
 
+    @GetMapping("/{companyId}/sales-mix")
+    public ResponseEntity<Map<String, Object>> salesMix(@PathVariable UUID companyId) {
+        return with(companyId, service::salesMix);
+    }
+
     @GetMapping("/{companyId}/cash-flow")
     public ResponseEntity<Map<String, Object>> cashFlow(@PathVariable UUID companyId) {
         return with(companyId, service::cashFlow);

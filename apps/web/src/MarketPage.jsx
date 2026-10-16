@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MarketIndicators from './MarketIndicators.jsx'
+import EtfBoard from './EtfBoard.jsx'
+import IndexBoard from './IndexBoard.jsx'
 import { getScreener } from './api/stockApi.js'
 import { screenRow } from './ScreenerPage.jsx'
 import { squarify } from './treemap.js'
 import { closeDayLabel, formatPercent, formatPrice, formatWon, industryName } from './stockMath.js'
 
-const TABS = [['map', '시장 지도'], ['macro', '환율·금리'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '기간 최고가 근처'], ['low', '기간 최저가 근처']]
+const TABS = [['map', '시장 지도'], ['index', '지수'], ['macro', '환율·금리·금'], ['etf', 'ETF'], ['sectors', '업종별 등락'], ['up', '상승 상위'], ['down', '하락 상위'], ['value', '거래대금 상위'], ['high', '기간 최고가 근처'], ['low', '기간 최저가 근처']]
 
 function tileColor(rate) {
   if (rate === null || rate === undefined || !Number.isFinite(rate)) return 'var(--surface)'
@@ -105,12 +107,14 @@ export default function MarketPage() {
       {!state.loading && <dl className="stock-keyfacts"><div><dt>오른 종목</dt><dd className="up">{up.toLocaleString('ko-KR')}개</dd></div><div><dt>내린 종목</dt><dd className="down">{down.toLocaleString('ko-KR')}개</dd></div>
         <div><dt>전체</dt><dd>{scoped.length.toLocaleString('ko-KR')}개</dd></div></dl>}</header>
     <h2 className="market-tab-title">{(TABS.find(([key]) => key === tab) ?? TABS[0])[1]}</h2>
-    <div className="stock-range" role="group" aria-label="시장">{[['ALL', '전체'], ['KOSPI', '코스피'], ['KOSDAQ', '코스닥']].map(([k, l]) => <button key={k} type="button" aria-pressed={market === k} onClick={() => setMarket(k)}>{l}</button>)}</div>
+    {!['macro', 'etf', 'index'].includes(tab) && <div className="stock-range" role="group" aria-label="시장">{[['ALL', '전체'], ['KOSPI', '코스피'], ['KOSDAQ', '코스닥']].map(([k, l]) => <button key={k} type="button" aria-pressed={market === k} onClick={() => setMarket(k)}>{l}</button>)}</div>}
     <div className="stock-body">
       {state.loading && <p className="status">전 종목 시세를 모으는 중입니다.</p>}
       {state.error && <p className="status">시세를 불러오지 못했습니다.</p>}
       {!state.loading && !state.error && rows.length === 0 && <p className="stock-empty">종목 자료를 채우는 중입니다(서버가 처음 켜진 뒤 30분쯤).</p>}
       {tab === 'macro' && <MarketIndicators />}
+      {tab === 'etf' && <EtfBoard />}
+      {tab === 'index' && <IndexBoard />}
       {!state.loading && rows.length > 0 && tab === 'map' && <><MarketMap rows={rows} market={market} />
         <div className="chart-legend"><span><i style={{ background: tileColor(-5) }} />−5% 이하</span><span><i style={{ background: tileColor(-1) }} />−1%</span><span><i style={{ background: tileColor(0) }} />0%</span>
           <span><i style={{ background: tileColor(1) }} />+1%</span><span><i style={{ background: tileColor(5) }} />+5% 이상</span></div>
@@ -124,16 +128,16 @@ export default function MarketPage() {
           <tbody>{(sectors.find(g => g.code === sector)?.items ?? []).sort((a, b) => b.marketCap - a.marketCap).map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td>
             <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatPrice(r.close)}</td><td>{formatWon(r.marketCap)}</td></tr>)}</tbody></table></div></>}
         <p className="stock-hint">업종 등락률은 큰 회사일수록 더 크게 반영한 값(시가총액 가중)입니다. 업종을 누르면 그 업종 회사들이 보입니다.</p></>}
-      {!state.loading && rows.length > 0 && tab !== 'map' && tab !== 'sectors' && tab !== 'macro' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>기간 범위</th>}</tr></thead>
+      {!state.loading && rows.length > 0 && tab !== 'map' && tab !== 'sectors' && tab !== 'macro' && tab !== 'etf' && tab !== 'index' && <div className="table-scroll"><table className="stock-table"><thead><tr><th>회사</th><th>시장</th><th>종가</th><th>등락률</th><th>거래대금</th><th>시가총액</th>{(tab === 'high' || tab === 'low') && <th>기간 범위</th>}</tr></thead>
         <tbody>{list.map(r => <tr key={r.companyId}><td><a href={`/stock/${r.companyId}`}>{r.name}</a></td><td>{r.market === 'KOSPI' ? '코스피' : '코스닥'}</td><td>{formatPrice(r.close)}</td>
           <td className={r.changeRate > 0 ? 'up' : r.changeRate < 0 ? 'down' : ''}>{formatPercent(r.changeRate)}</td><td>{formatWon(r.tradingValue)}</td><td>{formatWon(r.marketCap)}</td>
           {(tab === 'high' || tab === 'low') && <td>{formatPrice(r.low52)} ~ {formatPrice(r.high52)}</td>}</tr>)}</tbody></table></div>}
-      {!state.loading && tab !== 'map' && tab !== 'sectors' && tab !== 'macro' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
-      <details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div><dl>
+      {!state.loading && tab !== 'map' && tab !== 'sectors' && tab !== 'macro' && tab !== 'etf' && tab !== 'index' && list.length === 0 && rows.length > 0 && <p className="stock-empty">조건에 맞는 종목이 없습니다.</p>}
+      {!['macro', 'etf', 'index'].includes(tab) && <><details className="stock-learn"><summary>📘 읽는 법 · 용어 풀이</summary><div><dl>
         <div><dt>기간 최고가 근처</dt><dd>AIRA가 보관한 기간(최근 1년)의 일별 종가 최고값의 98% 이상인 종목입니다(장중 가격 아님, 100거래일 이상 자료가 있는 종목만).</dd></div>
         <div><dt>거래대금</dt><dd>그날 사고판 금액의 합. 관심이 몰린 종목을 볼 때 씁니다.</dd></div>
         <div><dt>등락률 순위</dt><dd>하루 변화일 뿐 이유를 뜻하지 않습니다. 종목 화면의 「잇다 › 주가 × 공시」에서 같은 날 공시를 함께 보세요.</dd></div></dl></div></details>
-      <p className="stock-source">출처 · KRX 일별 매매정보 · OpenDART 기업개황(업종)</p>
+      <p className="stock-source">출처 · KRX 일별 매매정보 · OpenDART 기업개황(업종)</p></>}
     </div>
     <p className="stock-disclaimer">AIRA는 공식 자료를 보여 주고 정리할 뿐, 매수·매도를 권하거나 주가를 예측하지 않습니다.</p>
   </section>
