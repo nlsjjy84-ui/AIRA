@@ -68,6 +68,9 @@ final class FinancialHistoryRows {
                 new Value(corp, fiscalYear, account, amount, fs, receipt.trim(), reportYear));
     }
 
+    /** 분기 말 잔액으로 저장하는 재무상태표 항목. */
+    static final Set<String> BALANCE = Set.of("TOTAL_ASSETS", "TOTAL_LIABILITIES", "TOTAL_EQUITY", "CURRENT_ASSETS", "CURRENT_LIABILITIES");
+
     record Cumulative(String corpCode, int fiscalYear, String period, String account, BigDecimal amount, String receiptNo) {}
 
     /** 분기·반기·3분기 보고서에서 손익 항목의 1월부터 누적 값을 꺼낸다(1분기는 당기 금액이 곧 누적). */
@@ -81,9 +84,15 @@ final class FinancialHistoryRows {
             if (corp == null || !corp.matches("[0-9]{8}") || fs == null) continue;
             if (hasConsolidated.contains(corp) ? !"CFS".equals(fs) : !"OFS".equals(fs)) continue;
             String account = ACCOUNTS.get(normalize(row.get("account_nm")));
-            if (account == null || !Set.of("REVENUE", "OPERATING_INCOME", "NET_INCOME").contains(account)) continue;
-            BigDecimal amount = KrxDailyRows.number(row.get("thstrm_add_amount"));
-            if (amount == null && "Q1".equals(period)) amount = KrxDailyRows.number(row.get("thstrm_amount"));
+            if (account == null) continue;
+            BigDecimal amount;
+            if (BALANCE.contains(account)) {
+                // 재무상태표 항목은 누적이 아니라 그 분기 말 잔액이다.
+                amount = KrxDailyRows.number(row.get("thstrm_amount"));
+            } else if (Set.of("REVENUE", "OPERATING_INCOME", "NET_INCOME").contains(account)) {
+                amount = KrxDailyRows.number(row.get("thstrm_add_amount"));
+                if (amount == null && "Q1".equals(period)) amount = KrxDailyRows.number(row.get("thstrm_amount"));
+            } else continue;
             String receipt = row.get("rcept_no");
             if (amount == null || receipt == null || receipt.isBlank()) continue;
             unique.putIfAbsent(corp + "|" + account, new Cumulative(corp, year, period, account, amount, receipt.trim()));

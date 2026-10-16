@@ -232,6 +232,9 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         return saved;
     }
 
+    /** 분기 재무상태표(부채·자본 등)를 함께 저장하기 시작한 시점. 이보다 먼저 받은 묶음은 한 번 더 받는다. */
+    static final java.time.Instant QUARTER_BALANCE_SINCE = java.time.Instant.parse("2026-10-16T15:00:00Z");
+
     /** 분기 실적: 올해와 지난 2년의 1분기·반기·3분기 보고서. 아직 나오지 않은 보고서는 다음에 다시 시도한다. */
     int backfillQuarters() {
         List<String> codes = companies.allCorpCodes();
@@ -244,7 +247,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
                 // 보고서 제출 기한(분기 말 + 45일) 전이면 묻지 않는다.
                 LocalDate due = LocalDate.of(year, switch (report[0]) { case "Q1" -> 5; case "H1" -> 8; default -> 11; }, 14);
                 if (today.isBefore(due)) continue;
-                Set<String> done = financials.loadedQuarterChunks(year, report[0]);
+                Set<String> done = financials.loadedQuarterChunks(year, report[0], QUARTER_BALANCE_SINCE);
                 for (int i = 0; i < codes.size(); i += 100) {
                     List<String> chunk = new ArrayList<>(codes.subList(i, Math.min(codes.size(), i + 100)));
                     if (done.contains(chunk.get(0))) continue;

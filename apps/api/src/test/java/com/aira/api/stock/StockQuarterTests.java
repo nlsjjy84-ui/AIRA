@@ -20,8 +20,11 @@ class StockQuarterTests {
                 Map.of("corp_code", "00126380", "fs_div", "CFS", "account_nm", "매출액", "rcept_no", "20260814000001", "thstrm_amount", "80", "thstrm_add_amount", "150"),
                 Map.of("corp_code", "00126380", "fs_div", "OFS", "account_nm", "매출액", "rcept_no", "20260814000001", "thstrm_amount", "1", "thstrm_add_amount", "1"),
                 Map.of("corp_code", "00126380", "fs_div", "CFS", "account_nm", "자산총계", "rcept_no", "20260814000001", "thstrm_amount", "999")), 2026, "H1");
-        assertEquals(1, rows.size());
+        assertEquals(2, rows.size());
         assertEquals(new BigDecimal("150"), rows.get(0).amount());
+        // 재무상태표 항목은 누적이 아니라 분기 말 잔액(thstrm_amount)을 저장한다.
+        assertEquals("TOTAL_ASSETS", rows.get(1).account());
+        assertEquals(new BigDecimal("999"), rows.get(1).amount());
         var q1 = FinancialHistoryRows.cumulative(List.of(
                 Map.of("corp_code", "00126380", "fs_div", "CFS", "account_nm", "영업이익", "rcept_no", "20260515000001", "thstrm_amount", "7")), 2026, "Q1");
         assertEquals(new BigDecimal("7"), q1.get(0).amount());

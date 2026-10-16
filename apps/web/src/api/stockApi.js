@@ -29,3 +29,5 @@ export const learnTerm = term => request('/api/me/study/terms', { method: 'POST'
 export const getStockSection = (id, section) => request(`${base(id)}/report-section/${encodeURIComponent(section)}`)
 export const getStockStatements = id => request(`${base(id)}/statements`)
 export const getPlan = () => request('/api/me/plan')
+export const getStockPreliminary = id => request(`${base(id)}/preliminary`)
+export const getMarketIndicators = () => request('/api/stocks/market-indicators')

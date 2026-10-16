@@ -17,6 +17,7 @@ import PlansPage from './PlansPage.jsx'
 import DataStatusPage from './DataStatusPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
 import ClaimCheck from './ClaimCheck.jsx'
+import LandingPage from './LandingPage.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
 import { searchEntities } from './api/canonicalApi.js'
@@ -290,6 +291,45 @@ function PrivacyPage() {
   </section>
 }
 
+/** 토스처럼 큰 메뉴 5개, 그 아래 작은 메뉴 한 줄. 작은 메뉴 하나가 화면 하나다. */
+export const MAIN_MENUS = [
+  ['market', '시장', [['시장 지도', '/market'], ['환율·금리', '/market?tab=macro'], ['업종', '/market?tab=sectors'], ['상승 상위', '/market?tab=up'],
+    ['하락 상위', '/market?tab=down'], ['거래대금 상위', '/market?tab=value'], ['최고가 근처', '/market?tab=high'], ['최저가 근처', '/market?tab=low']]],
+  ['find', '종목 찾기', [['조건으로 찾기', '/screen'], ['회사·사건 탐색', '/explore']]],
+  ['check', '주장 확인', [['이 말, 사실이야?', '/check']]],
+  ['study', '내 공부', [['공부 노트', '/study'], ['공부 반', '/classes'], ['관심회사·브리핑·알림', '/#my-interests']]],
+  ['finance', '내 금융', [['내 금융', '/finance']]],
+]
+
+export function activeMenu(path, search = '') {
+  const tab = new URLSearchParams(search).get('tab')
+  const find = (key, href) => { const menu = MAIN_MENUS.find(m => m[0] === key); return { menu, item: href ? menu[2].find(i => i[1] === href) ?? null : null } }
+  if (path === '/market') return find('market', tab ? `/market?tab=${tab}` : '/market')
+  if (path === '/screen') return find('find', '/screen')
+  if (path === '/explore') return find('find', '/explore')
+  if (path.startsWith('/stock/')) return find('find')
+  if (path === '/check') return find('check', '/check')
+  if (path === '/study') return find('study', '/study')
+  if (path === '/classes') return find('study', '/classes')
+  if (path === '/finance') return find('finance', '/finance')
+  return { menu: null, item: null }
+}
+
+function MainMenus({ path, onHover }) {
+  const active = activeMenu(path, typeof window === 'undefined' ? '' : window.location.search)
+  return <nav className="header-menus" aria-label="주 메뉴">{MAIN_MENUS.map(([key, label, items]) =>
+    <a key={key} href={items[0][1]} aria-current={active.menu?.[0] === key ? 'page' : undefined}
+      onMouseEnter={() => onHover(key)} onFocus={() => onHover(key)}>{label}</a>)}</nav>
+}
+
+function SubMenus({ path, hover, onHover }) {
+  const active = activeMenu(path, typeof window === 'undefined' ? '' : window.location.search)
+  const shown = MAIN_MENUS.find(m => m[0] === hover) ?? active.menu
+  if (!shown) return null
+  return <nav className="header-submenus" aria-label={`${shown[1]} 메뉴`} onMouseLeave={() => onHover(null)}>
+    {shown[2].map(([label, href]) => <a key={href} href={href} aria-current={active.item?.[1] === href ? 'page' : undefined}>{label}</a>)}</nav>
+}
+
 export default function App() {
   const [search, setSearch] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -319,9 +359,11 @@ export default function App() {
   const stockId = /^\/stock\/([0-9a-fA-F-]{36})$/.exec(routePath)?.[1] ?? null
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuHover, setMenuHover] = useState(null)
   const [recentStocks] = useState(readRecentStocks)
   const [demoState, setDemoState] = useState({ loading: false, error: null })
   const isDemo = session.user?.nickname === DEMO_NICKNAME
+  const landing = routePath === '/' && !session.loading && !session.user
   const shouldOfferAlertSettings = interestsState.data.length > 0 && (alertsState.emptyReason === 'NO_ALERT_ENABLED_INTERESTS' || (!alertsState.emptyReason && !interestsState.data.some(item => item.alertEnabled)))
   const [workflowContext, setWorkflowContext] = useState(() => {
     const saved = exploring ? window.history.state?.[EXPLORER_HISTORY_KEY] : null
@@ -585,15 +627,16 @@ export default function App() {
   }
 
   return <>
-    <header className={`site-header ${menuOpen ? 'menu-open' : ''}`}><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={48} /></a>
+    {!landing && <header className={`site-header ${menuOpen ? 'menu-open' : ''}`} onMouseLeave={() => setMenuHover(null)}><a className="brand" href="/" aria-label="AIRA 홈"><Logo height={40} /></a>
+      <MainMenus path={routePath} onHover={setMenuHover} />
       <form role="search" onSubmit={event => { event.preventDefault(); openSearch(search) }}>
         <label htmlFor="company-search">검색</label><input id="company-search" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="기업명·종목명·종목코드 검색" />
       </form>
       <div className="header-actions">
         <nav id="account-menu" className={`account-nav ${menuOpen ? 'open' : ''}`} aria-label="계정 메뉴" onClick={event => { if (event.target.closest('a,button')) setMenuOpen(false) }}>
           {session.loading && <span className="session-label">세션 확인 중…</span>}
-          {!session.loading && !session.user && <><button onClick={() => setAuthMode('login')}>관심회사</button><button onClick={() => setAuthMode('login')}>브리핑</button><button onClick={() => setAuthMode('login')}>알림</button><button type="button" className="nav-demo" onClick={startDemo} disabled={demoState.loading}>데모로 둘러보기</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
-          {!session.loading && session.user && <><a href={routePath === '/' ? '#my-interests' : '/#my-interests'}>관심회사</a><a href={routePath === '/' ? '#my-briefing' : '/#my-briefing'}>브리핑</a><a href={routePath === '/' ? '#my-alerts' : '/#my-alerts'}>알림</a><span className="session-user">{isDemo ? '데모 · 읽기 전용' : `사용자 ${session.user.nickname}`}</span><button type="button" onClick={performLogout}>{isDemo ? '데모 끝내기' : '로그아웃'}</button></>}
+          {!session.loading && !session.user && <><button type="button" className="nav-demo" onClick={startDemo} disabled={demoState.loading}>데모로 둘러보기</button><button type="button" onClick={() => setAuthMode('login')}>로그인</button><button type="button" className="nav-signup" onClick={() => setAuthMode('signup')}>회원가입</button></>}
+          {!session.loading && session.user && <><span className="session-user">{isDemo ? '데모 · 읽기 전용' : `사용자 ${session.user.nickname}`}</span><button className="settings-action" aria-label="설정" onClick={() => setSettingsOpen(true)}>설정</button><button type="button" onClick={performLogout}>{isDemo ? '데모 끝내기' : '로그아웃'}</button></>}
         </nav>
         <ThemeToggle />
         <button type="button" className="nav-menu-toggle" aria-controls="account-menu" aria-expanded={menuOpen}
@@ -602,8 +645,9 @@ export default function App() {
             {menuOpen ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}</svg>
         </button>
       </div>
-    </header>
-    <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
+      <SubMenus path={routePath} hover={menuHover} onHover={setMenuHover} />
+    </header>}
+    {exploring && <aside className={`workflow-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`} aria-label="탐색 단계">
       <button type="button" className="sidebar-toggle" aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
         onClick={() => setSidebarCollapsed(value => !value)}>{sidebarCollapsed ? '›' : '‹'}</button>
       <nav aria-label="AIRA 흐름">
@@ -618,30 +662,14 @@ export default function App() {
               <span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></a>)}
       </nav>
-      <p className="sidebar-group-label" aria-hidden="true">도구</p>
-      <a className="finance-sidebar-entry" href="/study" aria-current={routePath === '/study' ? 'page' : undefined} aria-label="내 공부">
-        <span aria-hidden="true"><i className="side-icon">✎</i>{!sidebarCollapsed && '내 공부'}</span>
-      </a>
-      <a className="finance-sidebar-entry" href="/classes" aria-current={routePath === '/classes' ? 'page' : undefined} aria-label="공부 반">
-        <span aria-hidden="true"><i className="side-icon">◎</i>{!sidebarCollapsed && '공부 반'}</span>
-      </a>
-      <a className="finance-sidebar-entry" href="/market" aria-current={routePath === '/market' ? 'page' : undefined} aria-label="시장 지도">
-        <span aria-hidden="true"><i className="side-icon">▦</i>{!sidebarCollapsed && '시장 지도'}</span>
-      </a>
-      <a className="finance-sidebar-entry" href="/screen" aria-current={routePath === '/screen' ? 'page' : undefined} aria-label="조건 찾기">
-        <span aria-hidden="true"><i className="side-icon">⌕</i>{!sidebarCollapsed && '조건 찾기'}</span>
-      </a>
-      <p className="sidebar-group-label" aria-hidden="true">계정</p>
-      <a className="finance-sidebar-entry" href="/finance" aria-current={finance ? 'page' : undefined} aria-label="내 금융">
-        <span aria-hidden="true"><i className="side-icon">₩</i>{!sidebarCollapsed && '내 금융'}</span>
-      </a>
-      <button className="settings-action" aria-label="설정" onClick={() => { if (session.user) setSettingsOpen(true); else setAuthMode('login') }}>
-        <span aria-hidden="true"><i className="side-icon">⚙</i>{!sidebarCollapsed && '설정'}</span></button>
-    </aside>
+    </aside>}
     {session.notice && <div className="session-notice" role="status">{session.notice}</div>}
     {session.error && <div className="session-notice error" role="alert">계정 요청을 처리하지 못했습니다. <button onClick={session.user ? performLogout : loadSession}>다시 시도</button></div>}
-    <main id="main">
-      {routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/status' ? <DataStatusPage /> : routePath === '/classes' ? <ClassPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} onDemo={startDemo} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
+    <main id="main" className={`${exploring ? '' : 'no-sidebar'}${landing ? ' is-landing' : ''}`}>
+      {routePath === '/check' ? <section className="stock-page check-page" aria-labelledby="check-title"><header className="stock-header"><div><p className="eyebrow">주장 확인</p>
+        <h1 id="check-title">이 말, 사실이야?</h1><p className="stock-hint">기사나 커뮤니티에서 본 문장을 붙여 넣으면 사업보고서 공식 값과 비교해 맞는지 알려 드려요.</p></div></header>
+        <ClaimCheck loggedIn={Boolean(session.user)} onNeedLogin={startDemo} /></section> : landing ? <LandingPage onDemo={startDemo} onLogin={() => setAuthMode('login')} onSignup={() => setAuthMode('signup')} demoState={demoState} />
+      : routePath === '/' && session.loading ? <Status busy>불러오는 중입니다.</Status> : routePath === '/plans' ? <PlansPage loggedIn={Boolean(session.user)} /> : routePath === '/status' ? <DataStatusPage /> : routePath === '/classes' ? <ClassPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} onDemo={startDemo} /> : routePath === '/study' ? <StudyPage user={session.loading ? null : session.user} onLogin={() => setAuthMode('login')} /> : routePath === '/market' ? <MarketPage /> : routePath === '/screen' ? <ScreenerPage loggedIn={Boolean(session.user)} onLogin={() => setAuthMode('login')} /> : stockId ? <StockPage companyId={stockId} loggedIn={Boolean(session.user)} onOpenEvent={openAssessmentInExplorer} interest={{
         user: session.user, saved: interestsState.data.some(item => item.entityId === stockId), busy: interestAction.loading,
         error: interestAction.error, readOnly: isDemo, onLogin: () => setAuthMode('login'),
         onToggle: saved => changeInterest(saved, stockId) }} /> : routePath === '/privacy' ? <PrivacyPage /> : finance ? <PersonalFinance user={session.user} onLogin={() => setAuthMode('login')} /> : exploring ? <CanonicalExplorer embedded interest={{

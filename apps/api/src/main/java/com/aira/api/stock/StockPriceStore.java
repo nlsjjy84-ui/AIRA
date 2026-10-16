@@ -55,4 +55,28 @@ public class StockPriceStore {
                         (Long) rs.getObject(9, Long.class), rs.getBigDecimal(10), rs.getBigDecimal(11),
                         (Long) rs.getObject(12, Long.class)), shortCode, Date.valueOf(from));
     }
+
+    /** 그 종목이 속한 시장의 가장 최근 거래일 기준 시가총액·거래대금 순위. 자료가 없으면 null. */
+    public java.util.Map<String, Object> ranks(String shortCode) {
+        var rows = jdbc.queryForList("""
+                WITH d AS (SELECT market, MAX(trading_date) td FROM stock_price_daily WHERE short_code=? GROUP BY market)
+                SELECT x.trading_date, x.market, x.cap_rank, x.value_rank, x.total FROM (
+                    SELECT s.short_code, s.trading_date, s.market,
+                           RANK() OVER (ORDER BY s.market_cap DESC NULLS LAST) cap_rank,
+                           RANK() OVER (ORDER BY s.trading_value DESC NULLS LAST) value_rank,
+                           COUNT(*) OVER () total
+                    FROM stock_price_daily s JOIN d ON s.market=d.market AND s.trading_date=d.td
+                    WHERE LENGTH(s.short_code)=6 AND s.market_cap IS NOT NULL) x
+                WHERE x.short_code=?
+                """, shortCode, shortCode);
+        if (rows.isEmpty()) return null;
+        var r = rows.get(0);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("date", String.valueOf(r.get("trading_date")));
+        out.put("market", r.get("market"));
+        out.put("marketCapRank", ((Number) r.get("cap_rank")).intValue());
+        out.put("tradingValueRank", ((Number) r.get("value_rank")).intValue());
+        out.put("total", ((Number) r.get("total")).intValue());
+        return out;
+    }
 }

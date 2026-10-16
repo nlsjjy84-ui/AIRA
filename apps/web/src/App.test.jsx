@@ -100,13 +100,12 @@ describe('authenticated interest and return experience', () => {
     global.fetch = server({ user: { userId: 'user-1', nickname: 'ReturnUser' } }).fetch
     const user = userEvent.setup()
     render(<App />)
-    const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
-    expect(within(flow).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['MAIN 메인', 'Ask 묻다', 'Inspect 보다', 'Relate 잇다', 'Assess 가늠하다'])
-    expect(within(flow).getByRole('link', { name: 'MAIN 메인' })).toHaveAttribute('href', '#main')
-    for (const name of ['Ask 묻다', 'Inspect 보다', 'Relate 잇다', 'Assess 가늠하다'])
-      expect(within(flow).getByRole('link', { name })).toHaveAttribute('href', '/explore')
+    const menus = screen.getByRole('navigation', { name: '주 메뉴' })
+    expect(within(menus).getAllByRole('link').map(link => link.textContent)).toEqual(['시장', '종목 찾기', '주장 확인', '내 공부', '내 금융'])
+    expect(within(menus).getByRole('link', { name: '주장 확인' })).toHaveAttribute('href', '/check')
+    expect(screen.queryByRole('navigation', { name: 'AIRA 흐름' })).not.toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Ask — 확인할 관점' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
+    expect(await screen.findByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
     expect(screen.queryByRole('heading', { name: '계정 복구 이메일' })).not.toBeInTheDocument()
     expect(await screen.findByText('사용자 ReturnUser')).toHaveClass('session-user')
     expect(screen.queryByRole('button', { name: '계정 설정 열기' })).not.toBeInTheDocument()
@@ -216,7 +215,7 @@ describe('authenticated interest and return experience', () => {
   it('keeps the privacy footer off ordinary MAIN', async () => {
     global.fetch = server().fetch
     render(<App />)
-    await screen.findByRole('link', { name: '단계별 탐색 시작' })
+    await screen.findByRole('heading', { name: /숫자는 누구에게나/ })
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
   })
 
@@ -242,18 +241,21 @@ describe('authenticated interest and return experience', () => {
     global.fetch = server().fetch
     render(<App />)
     expect(await screen.findByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
-    expect(screen.getByRole('searchbox', { name: '검색' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '시장 먼저 보기' })).toHaveAttribute('href', '/market')
+    // 랜딩은 화면 하나라 일반 머리글·주 메뉴가 없다. 다른 화면에서는 그대로 보인다.
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '기업 선택' })).not.toBeInTheDocument()
   })
 
 
   it('signs up without creating a session and leads naturally to login', async () => {
+    window.history.replaceState({}, '', '/privacy')
     const backend = server()
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
-    await user.click(await screen.findByRole('button', { name: '회원가입' }))
+    await user.click((await screen.findAllByRole('button', { name: '회원가입' }))[0])
     const dialog = screen.getByRole('dialog')
     await user.type(within(dialog).getByLabelText('닉네임'), 'ReturnUser')
     await user.type(within(dialog).getByLabelText('비밀번호'), 'long-secure-password')
@@ -299,7 +301,7 @@ describe('authenticated interest and return experience', () => {
     await user.click(await screen.findByRole('button', { name: '로그아웃' }))
     expect(await screen.findByText(/로그아웃되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
+    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
   })
   it('turns an expired interest session into a safe anonymous state', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
@@ -309,7 +311,7 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     expect(await screen.findByText(/세션이 만료되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '단계별 탐색 시작' })).toHaveAttribute('href', '/explore')
+    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
   })
   it('shows staged interest failure with retry and succeeds without duplicating UI state', async () => {
     window.history.replaceState({ airaCanonicalExplorer12B: {
@@ -563,12 +565,10 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
 
     expect(await screen.findByRole('heading', { name: /내 금융은/ })).toBeInTheDocument()
-    const flow = screen.getByRole('navigation', { name: 'AIRA 흐름' })
-    expect(within(flow).getAllByRole('link').map(link => link.getAttribute('aria-label')))
-      .toEqual(['MAIN 메인', 'Ask 묻다', 'Inspect 보다', 'Relate 잇다', 'Assess 가늠하다'])
-    expect(screen.getByRole('link', { name: '내 금융' })).toHaveAttribute('aria-current', 'page')
-    expect(within(flow).queryByRole('link', { name: '내 금융' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '설정', exact: true })).toBeInTheDocument()
+    const menus = screen.getByRole('navigation', { name: '주 메뉴' })
+    expect(within(menus).getByRole('link', { name: '내 금융' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.queryByRole('navigation', { name: 'AIRA 흐름' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '설정', exact: true })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '오늘 시장, 공식 숫자로 봅니다.' })).not.toBeInTheDocument()
   })
 
@@ -737,7 +737,7 @@ describe('authenticated interest and return experience', () => {
 
 
 it('shows exact ECOS real GDP observations without turning them into an assessment', async () => {
-  const backend = server({ overrides: {
+  const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
     'GET /api/economic-indicators/real-gdp/latest': () => json({
       state: 'AVAILABLE', reason: null, seriesName: '실질 국내총생산',
       unitName: '십억원', sourceName: '한국은행 ECOS',
@@ -768,9 +768,8 @@ describe('one-click read-only demo', () => {
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: '가입 없이 30초 둘러보기' })).toBeInTheDocument()
-    const demoButtons = screen.getAllByRole('button', { name: '데모로 둘러보기' })
-    await user.click(demoButtons.at(-1))
+    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: '가입 없이 둘러보기' })[0])
     expect(await screen.findByRole('heading', { name: '데모 계정으로 둘러보는 중' })).toBeInTheDocument()
     expect(screen.getByText('데모 · 읽기 전용')).toHaveClass('session-user')
     expect(screen.getAllByRole('button', { name: '데모 끝내기' }).length).toBeGreaterThan(0)
@@ -779,6 +778,7 @@ describe('one-click read-only demo', () => {
   })
 
   it('folds account links into one menu button', async () => {
+    window.history.replaceState({}, '', '/privacy')
     global.fetch = server().fetch
     const user = userEvent.setup()
     render(<App />)

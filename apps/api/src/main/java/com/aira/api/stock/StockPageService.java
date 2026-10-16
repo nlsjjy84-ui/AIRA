@@ -71,6 +71,7 @@ public class StockPageService {
             if (profile.get(key) != null && !profile.get(key).isBlank()) info.put(key, profile.get(key).trim());
         out.put("profile", info);
         out.put("profileSource", "OpenDART 기업개황");
+        try { out.put("ranks", shortCode == null ? null : prices.ranks(shortCode)); } catch (RuntimeException e) { out.put("ranks", null); }
         return out;
     }
 
@@ -285,11 +286,66 @@ public class StockPageService {
         if (cached != null && cached.getKey().plus(Duration.ofDays(7)).isAfter(clock.instant())) return cached.getValue().orElse(null);
         byte[] zip = dart.xbrlZip(receiptNumber);
         XbrlResearchReader.Found found = zip == null ? null : XbrlResearchReader.read(zip, fiscalYear);
-        org.slf4j.LoggerFactory.getLogger(StockPageService.class).info("XBRL R&D receipt {} year {}: {}", receiptNumber, fiscalYear,
-                zip == null ? "no XBRL file" : found == null ? "no R&D expense element; " + XbrlResearchReader.diagnose(zip)
-                        : found.element() + "=" + found.amount() + " (" + found.basis() + ")");
+        String how = zip == null ? "no XBRL file" : found == null ? "no XBRL R&D element" : "XBRL " + found.element();
+        if (found == null) {
+            // 대부분 회사는 연구개발비를 XBRL 숫자가 아니라 사업보고서 「연구개발활동」 표에 적는다.
+            byte[] doc = dart.documentZip(receiptNumber);
+            var research = doc == null ? null : DartDocumentReader.research(DartDocumentReader.tables(doc));
+            if (research != null) found = new XbrlResearchReader.Found(research.amount(), research.label(), "REPORT");
+            how += doc == null ? "; no document" : research == null ? "; no R&D table in document" : "; report table " + research.label() + " (" + research.unitText() + ")";
+        }
+        org.slf4j.LoggerFactory.getLogger(StockPageService.class).info("XBRL R&D receipt {} year {}: {} -> {}", receiptNumber, fiscalYear,
+                how, found == null ? "none" : found.amount());
         researchCache.put(key, Map.entry(clock.instant(), java.util.Optional.ofNullable(found)));
         return found;
+    }
+
+    // ---------- 잠정실적 (분기보고서보다 먼저 나오는 공정공시) ----------
+    private final Map<String, Map.Entry<Instant, Map<String, Object>>> preliminaryCache = new ConcurrentHashMap<>();
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> preliminary(StockCompanyLookup.Company company) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "OpenDART 공시서류 원본 · 영업(잠정)실적(공정공시)");
+        List<Map<String, Object>> items;
+        try {
+            items = (List<Map<String, Object>>) filings(company).get("items");
+        } catch (RuntimeException e) {
+            out.put("state", "UNAVAILABLE");
+            return out;
+        }
+        LocalDate since = LocalDate.now(clock.withZone(KST)).minusDays(120);
+        Map<String, Object> latest = items == null ? null : items.stream()
+                .filter(f -> String.valueOf(f.get("title")).contains("잠정") && String.valueOf(f.get("title")).contains("실적"))
+                .filter(f -> f.get("date") != null && !LocalDate.parse(String.valueOf(f.get("date"))).isBefore(since))
+                .max(Comparator.comparing((Map<String, Object> f) -> String.valueOf(f.get("receiptNo")))).orElse(null);
+        if (latest == null) { out.put("state", "NO_DATA"); return out; }
+        String receipt = String.valueOf(latest.get("receiptNo"));
+        var cached = preliminaryCache.get(receipt);
+        if (cached != null && cached.getKey().plus(Duration.ofHours(12)).isAfter(clock.instant())) return cached.getValue();
+        String title = String.valueOf(latest.get("title"));
+        out.put("receiptNo", receipt);
+        out.put("date", latest.get("date"));
+        out.put("title", title);
+        out.put("basis", title.contains("연결") ? "CFS" : "OFS");
+        out.put("dartUrl", "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=" + receipt);
+        try {
+            byte[] doc = dart.documentZip(receipt);
+            var found = doc == null ? null : DartDocumentReader.preliminary(DartDocumentReader.tables(doc));
+            if (found == null) {
+                out.put("state", "NOT_READABLE");
+            } else {
+                out.put("state", "AVAILABLE");
+                out.put("period", found.period());
+                out.put("unit", found.unitText());
+                out.put("values", found.values());
+                out.put("cumulative", found.cumulative());
+            }
+            preliminaryCache.put(receipt, Map.entry(clock.instant(), out));
+        } catch (RuntimeException e) {
+            out.put("state", "UNAVAILABLE");
+        }
+        return out;
     }
 
     // ---------- 분기 실적 ----------
@@ -327,6 +383,10 @@ public class StockPageService {
                 item.put("quarter", q + 1);
                 item.put("label", year + " " + (q + 1) + "분기");
                 item.put("values", values);
+                Map<String, Object> balance = new LinkedHashMap<>();
+                for (String account : List.of("TOTAL_ASSETS", "TOTAL_LIABILITIES", "TOTAL_EQUITY", "CURRENT_ASSETS", "CURRENT_LIABILITIES"))
+                    if (now.get(account) != null) balance.put(account, now.get(account));
+                if (!balance.isEmpty()) item.put("balance", balance);
                 String receipt = q == 3 ? annualReceipt.get(year) : receipts.get(year + "|" + steps[q][0]);
                 item.put("receiptNo", receipt);
                 item.put("derived", q > 0);

@@ -15,6 +15,6 @@ class SpaPageControllerTests {
         var mapping = SpaPageController.class
                 .getMethod("forwardSpaRoute")
                 .getAnnotation(GetMapping.class);
-        assertArrayEquals(new String[]{"/explore", "/finance", "/privacy", "/stock/{companyId}", "/screen", "/market", "/study", "/plans", "/classes", "/status"}, mapping.value());
+        assertArrayEquals(new String[]{"/explore", "/finance", "/privacy", "/stock/{companyId}", "/screen", "/market", "/study", "/plans", "/classes", "/status", "/check"}, mapping.value());
     }
 }

@@ -80,9 +80,11 @@ public class StockReportFactSource implements ReportFactSource {
         try {
             var found = pages.researchAndDevelopment(receiptNumber, year);
             if (found == null) return null;
-            return new Line(year, null, found.amount(), receiptNumber,
-                    " 사업보고서 XBRL 원본 파일의 재무제표 주석(" + found.element() + ")에 적힌 값입니다"
-                            + ("OFS".equals(found.basis()) ? "(별도 기준)." : "."));
+            String note = "REPORT".equals(found.basis())
+                    ? " 사업보고서 「연구개발활동」 표의 " + found.element() + "입니다."
+                    : " 사업보고서 XBRL 원본 파일의 재무제표 주석(" + found.element() + ")에 적힌 값입니다"
+                            + ("OFS".equals(found.basis()) ? "(별도 기준)." : ".");
+            return new Line(year, null, found.amount(), receiptNumber, note);
         } catch (RuntimeException e) {
             return null;
         }

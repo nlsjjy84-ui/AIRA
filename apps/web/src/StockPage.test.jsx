@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import StockPage, { nodeFor, STOCK_TREE } from './StockPage.jsx'
+import StockPage, { nodeFor, STOCK_TREE, STOCK_TABS, tabFor } from './StockPage.jsx'
 
 const ID = '24f7883e-6992-452e-a5e0-099b886a923c'
 const ID2 = '74cbcca4-e68e-4504-b7bd-47e898cf8926'
@@ -43,6 +43,20 @@ describe('StockPage', () => {
     expect(nodeFor(['inspect', 'price', 'daily']).third[0]).toBe('daily')
     expect(nodeFor(['nope']).top[0]).toBe('inspect')
     expect(STOCK_TREE.map(node => node[2])).toEqual(['묻다', '보다', '잇다', '가늠하다'])
+    expect(STOCK_TABS.map(tab => tab[1])).toEqual(['차트', '종목정보', '실적·재무', '뉴스·공시', '확인', '정리·공부'])
+    expect(tabFor(['inspect', 'price', 'daily', '2026-09-10']).item[0]).toBe('일별 시세')
+    expect(tabFor(['inspect', 'ratios', '안정성', 'debtRatio']).item[0]).toBe('비율')
+    expect(tabFor(['inspect', 'ratios', '시장 평가']).item[0]).toBe('투자 지표')
+    expect(tabFor(['inspect', 'filings', 'PERIODIC']).tab[1]).toBe('뉴스·공시')
+    expect(tabFor(['nope']).item[0]).toBe('한눈에')
+  })
+
+  it('every menu path opens an existing screen', () => {
+    for (const tab of STOCK_TABS) for (const [, path] of tab[2]) {
+      const { top, second } = nodeFor(path)
+      expect(top[0]).toBe(path[0])
+      expect(second[0]).toBe(path[1])
+    }
   })
 
   it('shows the header facts, the four stages and drills down through the daily table to one day', async () => {
@@ -50,11 +64,12 @@ describe('StockPage', () => {
     render(<StockPage companyId={ID} />)
     expect(await screen.findByRole('heading', { name: '삼성전자' })).toBeInTheDocument()
     expect(await screen.findByText('134원')).toBeInTheDocument()
-    const stages = screen.getByRole('navigation', { name: 'AIRA 단계' })
-    expect(within(stages).getAllByRole('button').map(b => b.textContent)).toEqual(['Ask묻다', 'Inspect보다', 'Relate잇다', 'Assess가늠하다'])
+    const tabs = screen.getByRole('navigation', { name: '종목 메뉴' })
+    expect(within(tabs).getAllByRole('button').map(b => b.textContent)).toEqual(['차트', '종목정보', '실적·재무', '뉴스·공시', '확인', '정리·공부'])
+    expect(within(tabs).getByRole('button', { name: '종목정보' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { name: '주가 1년' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '주가' }))
-    await user.click(screen.getByRole('button', { name: '일별 시세' }))
+    await user.click(within(tabs).getByRole('button', { name: '차트' }))
+    await user.click(within(screen.getByRole('navigation', { name: '차트 메뉴' })).getByRole('button', { name: '일별 시세' }))
     await user.click(await screen.findByRole('button', { name: '2026-09-10' }))
     expect(window.location.search).toContain('inspect.price.daily.2026-09-10')
     expect(await screen.findByText('이날 접수된 공시 1건')).toBeInTheDocument()
@@ -71,6 +86,7 @@ describe('StockPage', () => {
     render(<StockPage companyId={ID} />)
     expect(await screen.findByText('반기보고서 (2026.06)')).toBeInTheDocument()
     expect(screen.queryByText('주요사항보고서(자기주식취득결정)')).not.toBeInTheDocument()
+    await user.click(within(screen.getByRole('navigation', { name: '종목 메뉴' })).getByRole('button', { name: '실적·재무' }))
     await user.click(screen.getByRole('button', { name: '비율' }))
     await user.click(screen.getByRole('button', { name: '안정성' }))
     expect(await screen.findByRole('button', { name: '부채비율' })).toBeInTheDocument()
@@ -83,7 +99,7 @@ describe('StockPage', () => {
     render(<StockPage companyId={ID} />)
     expect(await screen.findByRole('button', { name: '부채총계' })).toBeInTheDocument()
     expect(screen.getByText(/매수·매도를 권하거나/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Relate 잇다' }))
+    await user.click(within(screen.getByRole('navigation', { name: '종목 메뉴' })).getByRole('button', { name: '종목정보' }))
     await user.click(screen.getByRole('button', { name: '관련 사건' }))
     expect(await screen.findByText('삼양패키징이 2024 회계연도 연간 재무결과를 공식 공시했습니다.')).toBeInTheDocument()
   })

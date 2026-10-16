@@ -43,6 +43,12 @@ public class FinancialHistoryStore {
                 (rs, i) -> rs.getString(1), year, period));
     }
 
+    /** since 이후에 받은 묶음만. 저장 항목이 늘었을 때 예전에 받은 묶음을 한 번 더 받게 한다. */
+    public Set<String> loadedQuarterChunks(int year, String period, Instant since) {
+        return Set.copyOf(jdbc.query("SELECT chunk_start FROM company_quarterly_loaded WHERE fiscal_year=? AND period=? AND loaded_at>=?",
+                (rs, i) -> rs.getString(1), year, period, Timestamp.from(since)));
+    }
+
     @Transactional
     public void saveQuarterChunk(int year, String period, String chunkStart, List<FinancialHistoryRows.Cumulative> values) {
         for (var v : values) {

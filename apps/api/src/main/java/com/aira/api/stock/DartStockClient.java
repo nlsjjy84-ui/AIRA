@@ -119,9 +119,19 @@ public class DartStockClient {
 
     /** XBRL 재무제표 원본 파일(zip). 사업보고서(11011) 기준. 파일이 없거나 zip이 아니면 null. */
     public byte[] xbrlZip(String receiptNumber) {
-        if (apiKey.isBlank()) throw new DartUnavailableException("OpenDART API key is not configured");
         if (receiptNumber == null || !receiptNumber.matches("[0-9]{14}")) return null;
-        URI uri = URI.create(BASE + "fnlttXbrl.xml?crtfc_key=" + enc(apiKey) + "&rcept_no=" + receiptNumber + "&reprt_code=11011");
+        return zip("fnlttXbrl.xml", "&rcept_no=" + receiptNumber + "&reprt_code=11011");
+    }
+
+    /** 공시서류 원본 파일(zip). 사업보고서·공정공시 등 접수번호 하나의 본문 문서. 없거나 zip이 아니면 null. */
+    public byte[] documentZip(String receiptNumber) {
+        if (receiptNumber == null || !receiptNumber.matches("[0-9]{14}")) return null;
+        return zip("document.xml", "&rcept_no=" + receiptNumber);
+    }
+
+    private byte[] zip(String endpoint, String query) {
+        if (apiKey.isBlank()) throw new DartUnavailableException("OpenDART API key is not configured");
+        URI uri = URI.create(BASE + endpoint + "?crtfc_key=" + enc(apiKey) + query);
         try {
             HttpResponse<byte[]> response = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build()
                     .send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(60)).GET().build(), HttpResponse.BodyHandlers.ofByteArray());

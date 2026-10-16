@@ -159,3 +159,36 @@ describe('normalizeMany', () => {
     expect(normalizeMany(a, [[{ date: 'd9', close: 1 }]])).toEqual([])
   })
 })
+
+describe('정보 보강 계산', () => {
+  it('uses intraday lows and highs for the yearly range', async () => {
+    const { intradayRange } = await import('./stockMath.js')
+    const r = intradayRange([{ date: '2026-10-14', low: 90, high: 120, close: 100 }, { date: '2026-10-15', low: null, high: null, close: 130 }])
+    expect(r.low).toEqual({ value: 90, date: '2026-10-14' })
+    expect(r.high).toEqual({ value: 130, date: '2026-10-15' })
+  })
+
+  it('sums four consecutive quarters and refuses gaps', async () => {
+    const { trailingFour } = await import('./stockMath.js')
+    const q = (year, quarter, v) => ({ year, quarter, label: `${year} ${quarter}분기`, values: { REVENUE: v, OPERATING_INCOME: v / 10, NET_INCOME: v / 20 } })
+    const t = trailingFour([q(2025, 3, 100), q(2025, 4, 100), q(2026, 1, 200), q(2026, 2, 300)])
+    expect(t.REVENUE).toBe(700)
+    expect(t.from).toBe('2025 3분기')
+    expect(trailingFour([q(2025, 2, 1), q(2025, 4, 1), q(2026, 1, 1), q(2026, 2, 1)])).toBeNull()
+  })
+
+  it('reads the common-share cash dividend and the yield', async () => {
+    const { commonDividendPerShare, dividendYield } = await import('./stockMath.js')
+    const rows = [{ se: '주당 현금배당금(원)', stock_knd: '보통주', thstrm: '1,668' }, { se: '주당 현금배당금(원)', stock_knd: '우선주', thstrm: '1,669' }]
+    expect(commonDividendPerShare(rows)).toBe(1668)
+    expect(dividendYield(1668, 217000)).toBe(0.77)
+    expect(commonDividendPerShare([{ se: '주당 현금배당금(원)', stock_knd: '보통주', thstrm: '-' }])).toBeNull()
+  })
+
+  it('writes one sentence about the latest quarter', async () => {
+    const { quarterSentence } = await import('./stockMath.js')
+    const items = [{ year: 2026, quarter: 1, values: { OPERATING_INCOME: 57.2e12 } }, { year: 2026, quarter: 2, values: { OPERATING_INCOME: 89.49e12 } }]
+    expect(quarterSentence(items, 'OPERATING_INCOME', '영업이익')).toBe('2026년 2분기 영업이익은 89.49조 원으로 직전 분기보다 56.45% 늘었어요.')
+    expect(quarterSentence([{ year: 2026, quarter: 1, values: { REVENUE: 1e12 } }], 'REVENUE', '매출')).toBe('2026년 1분기 매출은 1조 원이에요.')
+  })
+})

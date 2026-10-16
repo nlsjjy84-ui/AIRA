@@ -538,3 +538,63 @@ export function normalizeMany(base = [], others = []) {
   const starts = [num(first.close), ...maps.map(m => m.get(first.date))]
   return shared.map(p => ({ date: p.date, values: [num(p.close), ...maps.map(m => m.get(p.date))].map((v, i) => round(v / starts[i] * 100, 2)) }))
 }
+
+/** 기간 안 장중 최저·최고(고가·저가가 없는 날은 종가로 대신). 토스·네이버의 52주 범위와 같은 기준. */
+export function intradayRange(points) {
+  let low = null, high = null
+  for (const p of points ?? []) {
+    const lo = num(p.low) ?? num(p.close)
+    const hi = num(p.high) ?? num(p.close)
+    if (lo !== null && (low === null || lo < low.value)) low = { value: lo, date: p.date }
+    if (hi !== null && (high === null || hi > high.value)) high = { value: hi, date: p.date }
+  }
+  return low && high ? { low, high } : null
+}
+
+/** 최근 4개 분기(연속)의 합. 분기가 비거나 끊기면 null. 최근 12개월 기준 PER·PSR에 쓴다. */
+export function trailingFour(items) {
+  const list = (items ?? []).filter(i => i && i.year && i.quarter)
+  if (list.length < 4) return null
+  const last4 = list.slice(-4)
+  for (let i = 1; i < 4; i++) {
+    const a = last4[i - 1], b = last4[i]
+    const next = a.quarter === 4 ? { year: a.year + 1, quarter: 1 } : { year: a.year, quarter: a.quarter + 1 }
+    if (b.year !== next.year || b.quarter !== next.quarter) return null
+  }
+  const sum = key => {
+    let total = 0
+    for (const q of last4) { const v = num(q.values?.[key]); if (v === null) return null; total += v }
+    return total
+  }
+  return { from: last4[0].label, to: last4[3].label, REVENUE: sum('REVENUE'), OPERATING_INCOME: sum('OPERATING_INCOME'), NET_INCOME: sum('NET_INCOME') }
+}
+
+/** 사업보고서 배당 표에서 보통주 주당 현금배당금(원). 없으면 null. */
+export function commonDividendPerShare(rows) {
+  const row = (rows ?? []).find(r => String(r.se ?? '').replace(/\s/g, '').includes('주당현금배당금') && String(r.stock_knd ?? '').includes('보통'))
+  const v = row ? Number(String(row.thstrm ?? '').replace(/,/g, '')) : NaN
+  return Number.isFinite(v) && v > 0 ? v : null
+}
+
+/** 배당수익률(%) = 주당 배당금 ÷ 주가 × 100 */
+export function dividendYield(dps, close) {
+  const c = num(close)
+  if (!dps || !c) return null
+  return round(dps / c * 100, 2)
+}
+
+/** 분기 막대 위에 붙일 한 문장. "2026년 2분기 영업이익은 89.5조원으로 직전 분기보다 56.37% 늘었어요." */
+export function quarterSentence(items, key, label) {
+  const list = items ?? []
+  const last = list[list.length - 1]
+  const prev = list[list.length - 2]
+  const now = num(last?.values?.[key])
+  if (!last || now === null) return null
+  const head = `${last.year}년 ${last.quarter}분기 ${label}${/[가-힣]$/.test(label) && (label.charCodeAt(label.length - 1) - 0xac00) % 28 ? '은' : '는'} ${formatWon(now)}`
+  const before = num(prev?.values?.[key])
+  if (before === null || before === 0) return `${head}이에요.`
+  const rate = round((now - before) / Math.abs(before) * 100, 2)
+  if (before < 0 && now >= 0) return `${head}으로 직전 분기 적자에서 흑자로 돌아섰어요.`
+  if (before > 0 && now < 0) return `${head}으로 직전 분기 흑자에서 적자로 바뀌었어요.`
+  return `${head}으로 직전 분기보다 ${Math.abs(rate)}% ${rate >= 0 ? '늘었어요' : '줄었어요'}.`
+}

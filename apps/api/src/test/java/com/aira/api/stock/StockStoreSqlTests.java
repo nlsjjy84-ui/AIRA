@@ -34,6 +34,25 @@ class StockStoreSqlTests {
     }
 
     @Test
+    void ranksUseTheLatestDayOfTheSameMarket() {
+        var store = new StockPriceStore(jdbc);
+        LocalDate day = LocalDate.of(2026, 10, 15);
+        java.util.function.BiFunction<String, String[], StockPriceStore.Row> row = (code, v) -> new StockPriceStore.Row(code, day, "KOSPI",
+                BigDecimal.ONE, null, null, null, null, null, new BigDecimal(v[1]), new BigDecimal(v[0]), null);
+        store.saveDay("KOSPI", day, List.of(row.apply("005930", new String[]{"300", "10"}), row.apply("000660", new String[]{"200", "50"}),
+                row.apply("035420", new String[]{"100", "5"})));
+        store.saveDay("KOSPI", day.minusDays(1), List.of(new StockPriceStore.Row("035420", day.minusDays(1), "KOSPI", BigDecimal.ONE,
+                null, null, null, null, null, new BigDecimal("999"), new BigDecimal("999"), null)));
+        var ranks = store.ranks("035420");
+        assertEquals(3, ranks.get("marketCapRank"));
+        assertEquals(3, ranks.get("tradingValueRank"));
+        assertEquals(3, ranks.get("total"));
+        assertEquals(2, store.ranks("000660").get("marketCapRank"));
+        assertEquals(1, store.ranks("000660").get("tradingValueRank"));
+        assertEquals(null, store.ranks("999999"));
+    }
+
+    @Test
     void pricesSaveReplaceAndReadBack() {
         var store = new StockPriceStore(jdbc);
         LocalDate day = LocalDate.of(2026, 10, 8);
