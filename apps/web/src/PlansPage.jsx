@@ -213,7 +213,7 @@ export default function PlansPage({ loggedIn = false }) {
     <header><p className="eyebrow">AIRA 요금 안내 · AIRA 플러스 판매 중</p>
       <h1 id="plans-title">숫자는 누구에게나, 이해는 더 깊게</h1>
       <p>AIRA는 「사라·팔라」를 말하지 않고 광고도 싣지 않습니다. 대신 내가 이해하고 쌓아 가는 데 드는 AI와 기록 기능을 유료로 둡니다.
-        <strong>AIRA 플러스 판매 중</strong>이에요(가격은 부가세 포함). 결제는 <strong>토스페이먼츠 테스트 모드</strong>라 실제로 돈이 나가지 않아요.
+        지금 <strong>AIRA 플러스</strong>를 판매하고 있어요(가격은 부가세 포함). 결제는 <strong>토스페이먼츠 테스트 모드</strong>라 실제로 돈이 나가지 않아요.
         무료 한도는 아직 걸지 않아 지금은 모든 기능을 무료로 쓸 수 있어요.</p></header>
     <PaymentPanel loggedIn={loggedIn} returned={returned} onDone={clearReturn} />
     <Usage loggedIn={loggedIn} />
