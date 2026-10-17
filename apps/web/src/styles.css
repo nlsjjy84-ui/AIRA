@@ -3013,71 +3013,8 @@ p.pay-method { margin: 0; color: var(--muted); }
 .account-nav .nav-signup:hover { background: var(--accent-soft); }
 .account-nav .nav-signup:hover::after { transform: rotate(45deg); }
 
-/* ---------------- 랜딩: 화면 하나 · 글은 같은 자리에서 바뀐다 ---------------- */
+/* ---------------- 랜딩: 모양은 landing.css ---------------- */
 main.is-landing { max-width: none !important; margin: 0 !important; padding: 0 !important; min-height: 0; }
-.landing { height: 640svh; position: relative; color: var(--ink); }
-.landing-stage { position: sticky; top: 0; height: 100svh; min-height: 600px; overflow: hidden; isolation: isolate; }
-.landing-backdrop { position: absolute; inset: 0; z-index: -3; background: radial-gradient(ellipse 60% 70% at 70% 48%, color-mix(in srgb, var(--accent) 12%, var(--paper)), transparent 72%), var(--paper); }
-.landing-scene { position: absolute; inset: 0; z-index: -2; opacity: 0; transition: opacity 1.4s ease; }
-.landing-scene.is-ready { opacity: 1; }
-.landing-scene canvas { display: block; width: 100% !important; height: 100% !important; }
-.landing-veil { position: absolute; inset: 0; z-index: -1; pointer-events: none;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--paper) 82%, transparent) 0%, color-mix(in srgb, var(--paper) 30%, transparent) 42%, transparent 70%),
-    linear-gradient(0deg, color-mix(in srgb, var(--paper) 85%, transparent) 0%, transparent 32%); }
-.landing-masthead { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 28px 6%; }
-.landing-brand { display: inline-flex; }
-.landing-top { display: flex; align-items: center; gap: 1.6rem; font-size: .9rem; }
-.landing-top a, .landing-top button { border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; text-decoration: none; padding: .3rem 0; }
-.landing-top a:hover, .landing-top button:hover { color: var(--ink); }
-.landing-top .landing-top-strong { color: var(--ink); font-weight: 700; }
-.landing-top .landing-top-strong span { display: inline-block; color: var(--accent); transition: translate .3s; }
-.landing-top .landing-top-strong:hover span { translate: 3px -3px; }
-.landing-narrative { position: absolute; left: 8%; top: 50%; width: min(620px, 56%); transform: translateY(-46%); }
-.landing-moment { position: absolute; left: 0; top: 0; width: 100%; opacity: 0; visibility: hidden; will-change: opacity, transform; }
-.landing-moment.is-active { position: relative; }
-.landing-moment h1, .landing-moment h2 { margin: 0; font-size: clamp(2.3rem, 4.8vw, 4.6rem); line-height: 1.22; letter-spacing: -.045em; font-weight: 300; text-wrap: balance; }
-.landing-moment h1 { font-weight: 700; letter-spacing: -.05em; }
-.landing-moment h2 em { font-style: normal; font-weight: 700; color: var(--ink); }
-.landing-moment h2 { color: var(--muted); }
-.landing-moment p { margin: 1.4rem 0 2.2rem; font-size: clamp(.98rem, 1.25vw, 1.15rem); line-height: 1.85; color: var(--muted); max-width: 30em; }
-.landing-actions { display: flex; align-items: center; gap: 1.8rem; flex-wrap: wrap; }
-.landing-action { display: inline-flex; align-items: center; gap: 1.1rem; border: 0; background: none; color: var(--ink); font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; padding: 0; }
-.landing-action > span { position: relative; padding: .7rem 0; }
-.landing-action > span::after { content: ""; position: absolute; left: 0; right: 0; bottom: .35rem; height: 1px; background: color-mix(in srgb, var(--accent) 70%, transparent); transform-origin: left; transition: transform .4s; }
-.landing-action i { width: 3rem; height: 3rem; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 1.25rem; background: var(--accent); color: var(--on-accent); transition: transform .4s; }
-.landing-action:hover i { transform: rotate(45deg); }
-.landing-action:hover > span::after { transform: scaleX(.55); }
-.landing-action:disabled { opacity: .6; cursor: progress; }
-.landing-link { border: 0; background: none; color: var(--muted); font: inherit; font-size: .95rem; cursor: pointer; text-decoration: none; padding: .7rem 0; }
-.landing-link:hover { color: var(--ink); }
-.landing-note { margin: 1rem 0 0; color: var(--muted); font-size: .9rem; }
-.landing-notes { position: absolute; inset: 0; pointer-events: none; }
-.landing-chip { position: absolute; opacity: 0; visibility: hidden; padding: .55rem 1rem; border-radius: 999px; font-size: .92rem; font-weight: 600; white-space: nowrap;
-  backdrop-filter: blur(10px); background: color-mix(in srgb, var(--paper) 55%, transparent); box-shadow: inset 0 0 0 1px var(--line); will-change: opacity, transform; }
-.landing-chip.is-heard { color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--up) 60%, transparent); }
-.landing-chip.is-heard::before { content: ""; display: inline-block; width: .45rem; height: .45rem; border-radius: 50%; background: var(--up); margin-right: .55rem; vertical-align: .1em; }
-.landing-chip.is-fact { color: var(--ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent); }
-.landing-chip.is-fact::before { content: "✓"; color: var(--accent); margin-right: .5rem; }
-.chip-0 { right: 12%; top: 24%; } .chip-1 { right: 30%; top: 66%; } .chip-2 { right: 14%; top: 20%; } .chip-3 { right: 16%; top: 18%; } .chip-4 { right: 10%; top: 16%; }
-.landing-progress { position: absolute; left: 8%; bottom: 34px; display: flex; gap: .45rem; }
-.landing-progress i { width: 1.6rem; height: 2px; background: var(--line); transition: background .4s; }
-.landing-progress i.on { background: var(--accent); }
-.landing-motion { position: absolute; right: 6%; bottom: 28px; width: 2.5rem; height: 2.5rem; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 40%, transparent); color: var(--muted); cursor: pointer; backdrop-filter: blur(8px); }
-.landing-motion svg { width: 1rem; stroke: currentColor; stroke-width: 1.5; fill: currentColor; }
-.landing-foot { position: absolute; left: 50%; bottom: 34px; transform: translateX(-50%); display: flex; gap: 1.2rem; font-size: .78rem; color: var(--muted); white-space: nowrap; }
-.landing-foot a { color: var(--muted); text-decoration: none; } .landing-foot a:hover { color: var(--ink); }
-@media (max-width: 760px) {
-  .landing-masthead { padding: 20px 6%; }
-  .landing-top { gap: 1rem; font-size: .85rem; } .landing-top a { display: none; }
-  .landing-narrative { left: 7%; right: 7%; width: auto; top: auto; bottom: 16%; transform: none; }
-  .landing-moment h1, .landing-moment h2 { font-size: 2.15rem; letter-spacing: -.04em; }
-  .landing-moment p { margin: 1rem 0 1.4rem; font-size: .95rem; }
-  .landing-veil { background: linear-gradient(0deg, var(--paper) 0%, color-mix(in srgb, var(--paper) 75%, transparent) 38%, transparent 70%); }
-  .landing-chip { font-size: .8rem; } .chip-0, .chip-2, .chip-3, .chip-4 { right: 6%; top: 15%; } .chip-1 { right: auto; left: 7%; top: 24%; }
-  .landing-foot { display: none; } .landing-progress { left: 7%; bottom: 20px; } .landing-motion { right: 6%; bottom: 14px; }
-}
-@media (prefers-reduced-motion: reduce) { .landing-action i, .landing-action > span::after { transition: none; } }
 
 /* 화면 머리: 큰 상자 대신 열린 공간(랜딩·메뉴와 같은 결) */
 .stock-header { border: 0; background: transparent; padding-inline: 0; padding-top: .6rem; }

@@ -1,22 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 
-// 랜딩 3D 장면 하나. 진행도(progress.current, 0~1)를 따라 같은 물체들이 이어서 바뀐다. 장면이 툭 끊기지 않는다.
-// AIRA 로고 'A'는 날카로운 조각 세 개로 되어 있다. 그 조각을 삼각형으로 나눠 유리 조각으로 만든다.
-//  0.00 흩어진 유리 조각(들은 말)이 떠다닌다
-//  0.16 조각이 가까이 모인다. 맞지 않는 조각(붉은 빛)이 섞여 있다
-//  0.33 공시와 맞는 조각만 회전하며 제자리로 → 로고 'A' 완성, 맞지 않는 조각은 흐려지며 떨어진다
-//  0.52 A가 바닥으로 눕고, 그 위로 분기 영업이익 막대가 솟는다
-//  0.70 잠정실적 막대가 하나 더 솟고, 막대마다 빛줄기가 공시 문서로 이어진다
-//  0.87 막대가 내려가고 A가 다시 일어서며 빛난다
+// 랜딩 3D 장면: A·I·R·A 네 정거장.
+// 진행도 progress.current(0~6)는 LandingPage가 스크롤로 정한다.
+//  0 첫 화면 — 둥근 입체 글자 A·I·R·A가 한 줄로 떠 있다
+//  1 Ask 묻다 — 들은 말(구슬)이 A 둘레를 돈다. 공시와 맞는 구슬만 A 꼭대기로, 맞지 않는 구슬은 떨어진다
+//  2 Inspect 보다 — I 둘레로 분기 영업이익 막대 다섯 개가 솟는다(마지막은 잠정실적)
+//  3 Relate 잇다 — 주가 흐름 줄과 공시 날짜 점이 실로 이어진다
+//  4 Assess 가늠하다 — 다섯 방향 도형이 돈다(점수·등급 아님)
+//  5 공식 자료 세 곳 — KRX · OpenDART · 한국은행 ECOS 빛줄기가 한 줄로 모인 글자로 흘러든다
+//  6 끝 — 글자가 다시 AIRA로 선다
 // three.js(MIT)는 랜딩에서만 불러온다. WebGL이 없으면 그리지 않고 글만 보인다.
 
-// Logo.jsx와 같은 좌표(viewBox 170 0 500 540의 마크 부분)
-const LOGO = [
-  { tone: 'a', points: [[428, 0], [434, 118], [328, 300], [250, 345], [180, 425]] },
-  { tone: 'b', points: [[428, 0], [660, 425], [575, 392], [505, 292], [548, 228], [434, 118]] },
-  { tone: 'b', points: [[180, 425], [266, 398], [520, 292], [548, 228], [480, 236], [330, 302], [250, 345]] },
-]
-const QUARTERS = [12.17, 20.07, 57.23, 89.49, 107.4] // 조 원 · 2025 3분기 ~ 2026 3분기(잠정)
+const QUARTERS = [12.17, 20.07, 57.23, 89.49, 107.4] // 조 원 · 삼성전자 2025 3분기 ~ 2026 3분기(잠정)
+const STATION_X = [0, 13, 26, 39]
+const ROW_X = 19.5
+// 글자마다 색(테마 변수) — A 연두 · I 청록 · R 보라 · A 금색
+const LETTER_TONES = [['--series-a', '#C9EE6B'], ['--series-b', '#7FD1C0'], ['--series-d', '#B5A8E6'], ['--series-c', '#E8C27A']]
 
 const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n))
 const smooth = n => { n = clamp(n); return n * n * (3 - 2 * n) }
@@ -26,8 +25,6 @@ function cssColor(name, fallback) {
   if (typeof window === 'undefined') return fallback
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback
 }
-
-// 결정적인 의사 난수(새로고침해도 같은 배치)
 function rand(seed) { const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x) }
 
 export default function LandingScene({ progress, paused }) {
@@ -52,218 +49,255 @@ export default function LandingScene({ progress, paused }) {
       renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio || 1))
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
-      renderer.toneMappingExposure = 1.1
+      renderer.toneMappingExposure = 1.05
       el.appendChild(renderer.domElement)
       const scene = new THREE.Scene()
       const pmrem = new THREE.PMREMGenerator(renderer)
-      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-      const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200)
+      scene.environment = keep(pmrem.fromScene(new RoomEnvironment(), 0.04).texture)
+      scene.fog = new THREE.Fog(new THREE.Color(cssColor('--paper', '#2F353B')), 24, 60)
+      const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200)
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x223038, 0.55))
+      const key = new THREE.DirectionalLight(0xffffff, 1.5); key.position.set(6, 9, 8); scene.add(key)
+      const rim = new THREE.DirectionalLight(0xbfe8ff, 0.7); rim.position.set(-8, 3, -6); scene.add(rim)
 
-      const accent = new THREE.Color(cssColor('--accent', '#C9EE6B'))
-      const teal = new THREE.Color(cssColor('--series-b', '#7FD1C0'))
-      const warn = new THREE.Color(cssColor('--up', '#FF9A8F'))
-      const toneA = new THREE.Color('#f3f6f1'), toneB = new THREE.Color('#9fb3ad')
-      scene.add(new THREE.HemisphereLight('#dfe8e3', '#20262a', 1.1))
-      const key = new THREE.DirectionalLight('#ffffff', 2.2); key.position.set(6, 10, 8); scene.add(key)
-      const glow = new THREE.PointLight(accent, 0, 14, 2); glow.position.set(0, 2.2, 2.5); scene.add(glow)
+      const shiny = color => keep(new THREE.MeshPhysicalMaterial({ color, roughness: 0.3, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.16 }))
+      const glow = (color, opacity = 1) => keep(new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55, roughness: 0.4, transparent: opacity < 1, opacity }))
 
-      const world = new THREE.Group(); scene.add(world)
-      const mark = new THREE.Group(); world.add(mark) // 로고 A(조각이 모이는 자리)
-
-      // --- 로고 조각: 다각형을 삼각형으로 나눠 두께 있는 유리 조각으로
-      const toWorld = ([x, y]) => new THREE.Vector2((x - 420) / 100, (430 - y) / 100)
-      const shards = []
-      const makeShard = (tri, tone, seed, fake = false) => {
-        const c = new THREE.Vector2().add(tri[0]).add(tri[1]).add(tri[2]).multiplyScalar(1 / 3)
-        const shape = new THREE.Shape(tri.map(v => v.clone().sub(c)))
-        const geo = keep(new THREE.ExtrudeGeometry(shape, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.025, bevelSegments: 2 }))
-        geo.translate(0, 0, -0.08)
-        const mat = keep(new THREE.MeshPhysicalMaterial({ color: fake ? warn : tone === 'a' ? toneA : toneB, metalness: 0.05, roughness: 0.12,
-          transmission: 0.55, thickness: 0.6, ior: 1.45, clearcoat: 1, clearcoatRoughness: 0.05, transparent: true, opacity: 1, emissive: fake ? warn : accent, emissiveIntensity: 0 }))
-        const mesh = new THREE.Mesh(geo, mat)
-        const edges = new THREE.LineSegments(keep(new THREE.EdgesGeometry(geo, 25)), keep(new THREE.LineBasicMaterial({ color: fake ? warn : accent, transparent: true, opacity: 0 })))
-        mesh.add(edges)
-        const r = (k) => rand(seed * 13 + k)
-        const radius = 4.2 + r(1) * 3.2, theta = r(2) * Math.PI * 2, phi = (r(3) - 0.5) * 1.6
-        mesh.userData = {
-          fake, edges,
-          home: new THREE.Vector3(c.x, c.y, 0),
-          far: new THREE.Vector3(1.2 + Math.cos(theta) * radius * 0.85, 2.3 + Math.sin(phi) * 2.6, -2.2 + Math.sin(theta) * radius * 0.45),
-          near: new THREE.Vector3(Math.cos(theta) * radius * 0.48, 2.2 + Math.sin(phi) * 1.5, Math.sin(theta) * radius * 0.3),
-          fall: new THREE.Vector3(Math.cos(theta) * 6, -4 - r(4) * 3, Math.sin(theta) * 3),
-          spin: new THREE.Euler(r(5) * 6, r(6) * 6, r(7) * 6), speed: 0.35 + r(8) * 0.6, phase: r(9) * 6,
-        }
-        mark.add(mesh); shards.push(mesh)
+      // ── 둥근 입체 글자: 캡슐과 반원 고리로 빚는다(각지지 않게)
+      const RAD = 0.34
+      const capGeo = {}
+      const capsule = (mat, ax, ay, bx, by) => {
+        const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy)
+        const k = len.toFixed(2)
+        const g = capGeo[k] || (capGeo[k] = keep(new THREE.CapsuleGeometry(RAD, len, 8, 24)))
+        const m = new THREE.Mesh(g, mat)
+        m.position.set((ax + bx) / 2, (ay + by) / 2, 0)
+        m.rotation.z = -Math.atan2(dx, dy)
+        return m
       }
-      let seed = 1
-      for (const part of LOGO) {
-        const pts = part.points.map(toWorld)
-        for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(pts, [])) makeShard([pts[a], pts[b], pts[c]], part.tone, seed++)
+      const letterMats = LETTER_TONES.map(([v, f]) => shiny(new THREE.Color(cssColor(v, f))))
+      const build = {
+        A: m => [capsule(m, -1.05, -1.5, 0, 1.5), capsule(m, 1.05, -1.5, 0, 1.5), capsule(m, -0.56, -0.38, 0.56, -0.38)],
+        I: m => [capsule(m, 0, -1.5, 0, 1.5)],
+        R: m => {
+          const bowl = new THREE.Mesh(keep(new THREE.TorusGeometry(0.725, RAD, 16, 40, Math.PI)), m)
+          bowl.position.set(-0.1, 0.775, 0); bowl.rotation.z = -Math.PI / 2
+          return [capsule(m, -0.75, -1.5, -0.75, 1.5), capsule(m, -0.75, 1.5, -0.1, 1.5), capsule(m, -0.75, 0.05, -0.1, 0.05), bowl, capsule(m, -0.1, 0.05, 0.85, -1.5)]
+        },
       }
-      // 맞지 않는 조각(들은 말 가운데 틀린 것)
-      for (let i = 0; i < 9; i++) {
-        const s = 0.35 + rand(i + 90) * 0.5, a = rand(i + 70) * Math.PI * 2
-        const tri = [0, 1, 2].map(k => new THREE.Vector2(Math.cos(a + k * 2.1 + rand(i * 3 + k) * 0.6) * s, Math.sin(a + k * 2.1 + rand(i * 5 + k) * 0.6) * s))
-        makeShard(tri, 'b', 200 + i, true)
-      }
-
-      // --- 분기 막대(누운 A 위로 솟는다)
-      const barGeo = keep(new THREE.BoxGeometry(0.62, 1, 0.62)); barGeo.translate(0, 0.5, 0)
-      const bars = QUARTERS.map((v, i) => {
-        const mat = keep(new THREE.MeshPhysicalMaterial({ color: i === 4 ? teal : accent, roughness: 0.16, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.06,
-          transmission: i === 4 ? 0.35 : 0.15, thickness: 0.5, emissive: i === 4 ? teal : accent, emissiveIntensity: 0.08 }))
-        const m = new THREE.Mesh(barGeo, mat)
-        m.position.set((i - 2) * 0.95, 0.02, 0.9 - Math.abs(i - 2) * 0.12)
-        m.userData.h = Math.max(0.12, v / 107.4 * 3.2)
-        m.scale.y = 0.001; world.add(m); return m
-      })
-      // --- 막대 꼭대기에서 떠오르는 빛 알갱이
-      const SPARKS = 90
-      const sparkGeo = keep(new THREE.BufferGeometry())
-      const sparkPos = new Float32Array(SPARKS * 3)
-      const sparkSeed = Array.from({ length: SPARKS }, (_, i) => ({ bar: i % 5, off: rand(i + 400), dx: (rand(i + 500) - 0.5) * 0.5, dz: (rand(i + 600) - 0.5) * 0.5 }))
-      sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPos, 3))
-      const sparkMat = keep(new THREE.PointsMaterial({ color: accent, size: 0.07, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }))
-      const sparks = new THREE.Points(sparkGeo, sparkMat); world.add(sparks)
-
-      // --- 공시 문서(종이 한 장)와 빛줄기
-      const docTex = (() => {
-        const c = document.createElement('canvas'); c.width = 256; c.height = 320
-        const g = c.getContext('2d')
-        g.fillStyle = '#f4f6f1'; g.fillRect(0, 0, 256, 320)
-        g.fillStyle = '#c9d2cc'; for (let y = 70; y < 300; y += 22) g.fillRect(24, y, 150 + ((y * 7) % 60), 8)
-        g.fillStyle = '#587508'; g.fillRect(24, 26, 90, 14)
-        return keep(new THREE.CanvasTexture(c))
-      })()
-      docTex.colorSpace = THREE.SRGBColorSpace
-      const docGeo = keep(new THREE.PlaneGeometry(0.6, 0.76))
-      const docs = bars.map((bar, i) => {
-        const d = new THREE.Mesh(docGeo, keep(new THREE.MeshBasicMaterial({ map: docTex, transparent: true, opacity: 0, side: THREE.DoubleSide })))
-        d.position.set(bar.position.x * 1.25, 5.1 + (i % 2) * 0.45, -1.4)
-        d.rotation.set(-0.12, (i - 2) * -0.12, (i - 2) * 0.04)
-        world.add(d); return d
-      })
-      const threads = bars.map((bar, i) => {
-        const pts = Array.from({ length: 30 }, (_, k) => new THREE.Vector3())
-        const geo = keep(new THREE.BufferGeometry().setFromPoints(pts))
-        const line = new THREE.Line(geo, keep(new THREE.LineBasicMaterial({ color: i === 4 ? teal : accent, transparent: true, opacity: 0 })))
-        world.add(line); return { line, geo, bar, doc: docs[i] }
+      const letters = ['A', 'I', 'R', 'A'].map((ch, i) => {
+        const g = new THREE.Group()
+        build[ch](letterMats[i]).forEach(p => g.add(p))
+        scene.add(g)
+        return g
       })
 
-      const pointer = { x: 0, y: 0 }
-      const onMove = e => { pointer.x = e.clientX / window.innerWidth - 0.5; pointer.y = e.clientY / window.innerHeight - 0.5 }
-      window.addEventListener('pointermove', onMove, { passive: true })
-      let narrow = false
-      const resize = () => {
-        const w = el.clientWidth || 1, h = el.clientHeight || 1
-        narrow = w / h < 0.9
-        renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = narrow ? 52 : 40
-        // 넓은 화면: 글이 왼쪽에 있으니 장면을 오른쪽으로 민다(투영만 옮겨 돌아도 자리가 흔들리지 않게)
-        if (narrow) camera.clearViewOffset(); else camera.setViewOffset(w, h, -w * 0.2, 0, w, h)
+      // ── 정거장마다의 장면
+      const stations = STATION_X.map(x => { const g = new THREE.Group(); g.position.set(x, 0, 0); scene.add(g); return g })
+      const neutral = shiny(new THREE.Color(cssColor('--series-neutral', '#9AA5A0')))
+      const lime = glow(new THREE.Color(cssColor('--series-a', '#C9EE6B')))
+      const red = glow(new THREE.Color(cssColor('--up', '#FF9A8F')), 0.999)
+      // 1 묻다: 들은 말 구슬
+      const orbGeo = keep(new THREE.SphereGeometry(0.13, 20, 14))
+      const bigOrb = keep(new THREE.SphereGeometry(0.21, 24, 16))
+      const orbs = Array.from({ length: 12 }, (_, k) => { const m = new THREE.Mesh(orbGeo, neutral); stations[0].add(m); return { m, a: (k / 12) * Math.PI * 2, r: 2.0 + rand(k) * 0.35, h: (rand(k + 9) - 0.5) * 0.8 } })
+      const factMat = glow(new THREE.Color(cssColor('--series-a', '#C9EE6B')))
+      const fact = new THREE.Mesh(bigOrb, factMat); stations[0].add(fact)
+      const claim = new THREE.Mesh(bigOrb, red); stations[0].add(claim)
+      // 2 보다: 분기 막대
+      const teal = shiny(new THREE.Color(cssColor('--series-b', '#7FD1C0')))
+      const gold = shiny(new THREE.Color(cssColor('--series-c', '#E8C27A')))
+      const barGeo = keep(new THREE.CylinderGeometry(0.24, 0.24, 1, 28)); barGeo.translate(0, 0.5, 0)
+      const capTop = keep(new THREE.SphereGeometry(0.24, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2))
+      const bars = QUARTERS.map((q, k) => {
+        const ang = -1.05 + (k / (QUARTERS.length - 1)) * 2.1
+        const mat = k === QUARTERS.length - 1 ? gold : teal
+        const g = new THREE.Group(); g.position.set(Math.sin(ang) * 2.7, -1.6, -Math.cos(ang) * 1.3 + 0.1)
+        const body = new THREE.Mesh(barGeo, mat), top = new THREE.Mesh(capTop, mat)
+        g.add(body, top); stations[1].add(g)
+        return { body, top, h: (q / QUARTERS[QUARTERS.length - 1]) * 3.5 }
+      })
+      // 3 잇다: 주가 흐름 줄 · 공시 날짜 점 · 잇는 실
+      const lav = glow(new THREE.Color(cssColor('--series-d', '#B5A8E6')))
+      const inkMat = shiny(new THREE.Color(cssColor('--ink', '#F4F6F2')))
+      const wave = x => 0.75 + 0.42 * Math.sin(1.35 * x + 0.6) + 0.18 * Math.sin(3.2 * x)
+      const curve = new THREE.CatmullRomCurve3(Array.from({ length: 25 }, (_, k) => { const x = -3.2 + (k / 24) * 6.4; return new THREE.Vector3(x, wave(x), 1.1) }))
+      const tubeGeo = keep(new THREE.TubeGeometry(curve, 160, 0.06, 10, false))
+      const tube = new THREE.Mesh(tubeGeo, inkMat); stations[2].add(tube)
+      const tubeCount = tubeGeo.index.count
+      const pulse = new THREE.Mesh(orbGeo, lime); stations[2].add(pulse)
+      const dotGeo = keep(new THREE.SphereGeometry(0.15, 20, 14))
+      const threadGeo = keep(new THREE.CylinderGeometry(0.018, 0.018, 1, 8)); threadGeo.translate(0, 0.5, 0)
+      const DOTS = [-2.7, -1.6, -0.5, 0.8, 1.8, 2.8]
+      const relate = DOTS.map(x => {
+        const d = new THREE.Mesh(dotGeo, lav); d.position.set(x, -1.55, 1.1)
+        const th = new THREE.Mesh(threadGeo, lav); th.position.set(x, -1.55, 1.1)
+        stations[2].add(d, th)
+        return { th, len: wave(x) + 1.55 }
+      })
+      // 4 가늠하다: 다섯 방향 도형(예시 모양 — 점수·등급 아님)
+      const radar = new THREE.Group(); radar.position.set(0, 0.1, 1.7); stations[3].add(radar)
+      const VALS = [0.86, 0.62, 0.74, 0.92, 0.58]
+      const pt = (k, r) => new THREE.Vector3(Math.cos(Math.PI / 2 + (k * 2 * Math.PI) / 5) * r, Math.sin(Math.PI / 2 + (k * 2 * Math.PI) / 5) * r, 0)
+      const faint = keep(new THREE.LineBasicMaterial({ color: new THREE.Color(cssColor('--muted', '#B9C2BD')), transparent: true, opacity: 0.45 }))
+      for (const lv of [0.5, 1]) radar.add(new THREE.LineLoop(keep(new THREE.BufferGeometry().setFromPoints([0, 1, 2, 3, 4].map(k => pt(k, 2 * lv)))), faint))
+      for (let k = 0; k < 5; k++) radar.add(new THREE.Line(keep(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), pt(k, 2)])), faint))
+      const shape = new THREE.Shape(VALS.map((v, k) => { const p = pt(k, 2 * v); return new THREE.Vector2(p.x, p.y) }))
+      const goldColor = new THREE.Color(cssColor('--series-c', '#E8C27A'))
+      const fill = new THREE.Mesh(keep(new THREE.ShapeGeometry(shape)), keep(new THREE.MeshBasicMaterial({ color: goldColor, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false })))
+      const edge = new THREE.LineLoop(keep(new THREE.BufferGeometry().setFromPoints(VALS.map((v, k) => pt(k, 2 * v)))), keep(new THREE.LineBasicMaterial({ color: goldColor })))
+      const valueGroup = new THREE.Group(); valueGroup.add(fill, edge)
+      VALS.forEach((v, k) => { const d = new THREE.Mesh(orbGeo, gold); d.position.copy(pt(k, 2 * v)); valueGroup.add(d) })
+      radar.add(valueGroup)
+      // 5 공식 자료 세 곳: 흘러드는 빛줄기
+      const STREAMS = [
+        [new THREE.Vector3(ROW_X - 21, 8, -10), new THREE.Vector3(ROW_X - 10, 5, -4), new THREE.Vector3(ROW_X - 3, 0.5, 0), '--series-a', '#C9EE6B'],
+        [new THREE.Vector3(ROW_X, 12, -14), new THREE.Vector3(ROW_X, 6, -5), new THREE.Vector3(ROW_X, 1, 0), '--series-b', '#7FD1C0'],
+        [new THREE.Vector3(ROW_X + 21, 8, -10), new THREE.Vector3(ROW_X + 10, 5, -4), new THREE.Vector3(ROW_X + 3, 0.5, 0), '--series-d', '#B5A8E6'],
+      ]
+      const N_STREAM = 90
+      const streams = STREAMS.map(([a, b, c, v, f]) => {
+        const path = new THREE.CatmullRomCurve3([a, b, c])
+        const geo = keep(new THREE.BufferGeometry()); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N_STREAM * 3), 3))
+        const mat = keep(new THREE.PointsMaterial({ color: new THREE.Color(cssColor(v, f)), size: 0.16, transparent: true, opacity: 0, depthWrite: false }))
+        const pts = new THREE.Points(geo, mat); scene.add(pts)
+        return { path, geo, mat }
+      })
+      // 공중의 먼지(깊이감)
+      const dustGeo = keep(new THREE.BufferGeometry())
+      const dustPos = new Float32Array(600 * 3)
+      for (let i = 0; i < 600; i++) { dustPos[i * 3] = -12 + rand(i) * 64; dustPos[i * 3 + 1] = -6 + rand(i + 600) * 14; dustPos[i * 3 + 2] = -18 + rand(i + 1200) * 22 }
+      dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3))
+      const dust = new THREE.Points(dustGeo, keep(new THREE.PointsMaterial({ color: new THREE.Color(cssColor('--muted', '#B9C2BD')), size: 0.05, transparent: true, opacity: 0.4, depthWrite: false })))
+      scene.add(dust)
+
+      // ── 카메라 길: 정거장마다 다른 각도로 들른다
+      const CAM = [
+        [[ROW_X + 0.8, 1.0, 21], [ROW_X, 0.2, 0]],
+        [[2.5, 1.8, 13.5], [0, 0.4, 0]],
+        [[10.5, 3.4, 13.5], [13, 0.6, 0]],
+        [[28.5, 0.6, 13.5], [26, 0.1, 0.5]],
+        [[37.5, 3.2, 13.5], [39, 0.3, 0.7]],
+        [[ROW_X, 5.5, 27], [ROW_X, 1.2, 0]],
+        [[ROW_X - 0.6, 0.6, 21], [ROW_X, 0.2, 0]],
+      ]
+      const camPath = new THREE.CatmullRomCurve3(CAM.map(c => new THREE.Vector3(...c[0])), false, 'centripetal')
+      const lookPath = new THREE.CatmullRomCurve3(CAM.map(c => new THREE.Vector3(...c[1])), false, 'centripetal')
+      let far = 1
+      const look = new THREE.Vector3()
+
+      function resize() {
+        const w = Math.max(1, el.clientWidth), h = Math.max(1, el.clientHeight)
+        renderer.setSize(w, h, false)
+        camera.aspect = w / h
+        // 넓은 화면은 장면을 오른쪽에(왼쪽은 글), 좁은 화면은 위쪽에 둔다. 좁을수록 카메라를 뒤로 뺀다.
+        if (w >= 900) camera.setViewOffset(w, h, -w * 0.22, 0, w, h)
+        else camera.setViewOffset(w, h, 0, h * 0.2, w, h)
+        far = camera.aspect >= 1.2 ? 1 : clamp((1.2 / camera.aspect) * 0.78, 1, 2)
+        scene.fog.near = 24 * far; scene.fog.far = 60 * far
         camera.updateProjectionMatrix()
       }
-      resize()
-      const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null
-      ro?.observe(el)
+      const ro = new ResizeObserver(resize); ro.observe(el); resize()
 
-      const v = new THREE.Vector3(), q = new THREE.Quaternion(), qa = new THREE.Quaternion(), e = new THREE.Euler()
-      let raf = 0, t = 0, last = performance.now()
-      const tick = now => {
-        raf = requestAnimationFrame(tick)
-        const dt = Math.min(0.05, (now - last) / 1000); last = now
-        if (!pausedRef.current && !reduced && !document.hidden) t += dt
-        const p = progress.current ?? 0
-        const near = span(p, 0.08, 0.26)        // 흩어진 → 가까이
-        const fit = span(p, 0.34, 0.5)          // 제자리로
-        const lie = span(p, 0.53, 0.62) * (1 - span(p, 0.87, 0.96)) // 눕기 → 다시 서기
-        const rise = span(p, 0.56, 0.68) * (1 - span(p, 0.86, 0.93))
-        const pre = span(p, 0.7, 0.77) * (1 - span(p, 0.86, 0.93))
-        const link = span(p, 0.73, 0.83) * (1 - span(p, 0.85, 0.9))
-        const shine = span(p, 0.47, 0.52) * (1 - lie) + span(p, 0.9, 0.98)
-
-        shards.forEach(m => {
-          const d = m.userData
-          const bob = Math.sin(t * d.speed + d.phase)
-          if (d.fake) {
-            v.copy(d.far).lerp(d.near, near).lerp(d.fall, fit)
-          } else {
-            v.copy(d.far).lerp(d.near, near).lerp(d.home, fit)
-          }
-          v.y += bob * (0.22 * (1 - fit) + 0.025 * fit)
-          v.z += Math.sin(t * d.speed * 0.7 + d.phase) * 0.04 * fit * (1 - lie)
-          m.position.copy(v)
-          e.set(d.spin.x + t * 0.3 * d.speed, d.spin.y + t * 0.25 * d.speed, d.spin.z); qa.setFromEuler(e)
-          q.identity(); m.quaternion.copy(qa).slerp(q, d.fake ? 0 : fit)
-          const fade = d.fake ? 1 - fit : 1
-          m.material.opacity = fade; m.visible = fade > 0.02
-          m.material.emissiveIntensity = d.fake ? 0.25 * near * (1 - fit) : 0.35 * shine
-          d.edges.material.opacity = d.fake ? 0.6 * near * fade : 0.15 * near + 0.75 * shine
-        })
-        // A: 서 있다가 바닥으로 눕고, 끝에 다시 선다
-        mark.rotation.x = -Math.PI / 2 * lie
-        mark.rotation.y = Math.sin(t * 0.35) * 0.12 * fit * (1 - lie)
-        mark.position.set(0, 0.03 * lie, -1.2 * lie)
-        mark.scale.setScalar(1 + 0.12 * lie)
-        glow.intensity = 18 * shine
-
-        bars.forEach((m, i) => {
-          // 왼쪽부터 차례로 솟고, 다 선 뒤에도 조금씩 숨쉰다
-          const own = i === 4 ? pre : smooth(clamp(rise * 1.6 - i * 0.15))
-          const breathe = 1 + Math.sin(t * 1.3 + i * 0.8) * 0.035 * own
-          const h = own * m.userData.h * breathe
-          m.scale.y = Math.max(0.001, h); m.visible = h > 0.02
-          m.scale.x = m.scale.z = 1 + (1 - own) * 0.25
-          m.rotation.y = Math.sin(t * 0.5 + i) * 0.06 * own
-          // 표면 빛이 막대에서 막대로 흘러간다
-          const wave = Math.pow(Math.max(0, Math.sin(t * 1.8 - i * 0.9)), 6)
-          m.material.emissiveIntensity = (i === 4 ? 0.18 : 0.06) + 0.45 * wave * own
-        })
-        {
-          const pos = sparkGeo.attributes.position
-          sparkSeed.forEach((sd, k) => {
-            const bar = bars[sd.bar]
-            const life = (t * 0.35 + sd.off) % 1
-            pos.setXYZ(k, bar.position.x + sd.dx * (1 + life), bar.scale.y + 0.1 + life * 1.8, bar.position.z + sd.dz * (1 + life))
-          })
-          pos.needsUpdate = true
-          sparkMat.opacity = 0.75 * Math.max(rise, pre) * (1 - link * 0.5)
-          sparks.visible = sparkMat.opacity > 0.02
-        }
-        docs.forEach((d, i) => { d.material.opacity = link; d.visible = link > 0.02; d.position.y = 5.1 + (i % 2) * 0.45 + Math.sin(t * 0.6 + i) * 0.06 })
-        threads.forEach(({ geo, bar, doc }, i) => {
-          const a = new THREE.Vector3(bar.position.x, bar.scale.y + 0.05, bar.position.z), b = doc.position.clone().add(new THREE.Vector3(0, -0.5, 0))
-          const pos = geo.attributes.position
-          const n = pos.count, drawn = Math.round(n * link)
-          for (let k = 0; k < n; k++) {
-            const s = k / (n - 1)
-            v.copy(a).lerp(b, s); v.z += Math.sin(s * Math.PI) * 0.6; v.x += Math.sin(s * Math.PI * 2 + i) * 0.08
-            pos.setXYZ(k, v.x, v.y, v.z)
-          }
-          pos.needsUpdate = true
-          geo.setDrawRange(0, Math.max(0, drawn))
-          threads[i].line.material.opacity = 0.9 * link; threads[i].line.visible = link > 0.02
-        })
-
-        // 카메라: 진행에 따라 천천히 돌며 다가간다(끊기지 않게 하나의 길)
-        const ang = -0.35 + p * 0.9 + pointer.x * 0.25
-        const dist = (narrow ? 15 : 12.5) - 1.5 * fit + 1.8 * rise
-        const height = 3.2 + 2.2 * rise + pointer.y * -0.6 - 0.6 * span(p, 0.9, 1)
-        camera.position.set(Math.sin(ang) * dist, height, Math.cos(ang) * dist)
-        camera.lookAt(0, (narrow ? 3.2 : 2) + 1.2 * rise - 0.5 * lie, 0)
-        renderer.render(scene, camera)
+      // 테마가 바뀌면 색도 바꾼다
+      const recolor = () => {
+        LETTER_TONES.forEach(([v, f], i) => letterMats[i].color.set(cssColor(v, f)))
+        neutral.color.set(cssColor('--series-neutral', '#9AA5A0'))
+        for (const [m, v, f] of [[lime, '--series-a', '#C9EE6B'], [factMat, '--series-a', '#C9EE6B'], [red, '--up', '#FF9A8F'], [lav, '--series-d', '#B5A8E6']]) { m.color.set(cssColor(v, f)); m.emissive.set(cssColor(v, f)) }
+        teal.color.set(cssColor('--series-b', '#7FD1C0')); gold.color.set(cssColor('--series-c', '#E8C27A'))
+        inkMat.color.set(cssColor('--ink', '#F4F6F2')); faint.color.set(cssColor('--muted', '#B9C2BD'))
+        goldColor.set(cssColor('--series-c', '#E8C27A')); fill.material.color.copy(goldColor); edge.material.color.copy(goldColor)
+        streams.forEach((s, i) => s.mat.color.set(cssColor(STREAMS[i][3], STREAMS[i][4])))
+        scene.fog.color.set(cssColor('--paper', '#2F353B'))
       }
-      raf = requestAnimationFrame(tick)
-      setReady(true)
+      const mo = new MutationObserver(recolor)
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
+
+      let t = 0, last = performance.now(), raf = 0, first = true
+      const tmp = new THREE.Vector3()
+      function frame(now) {
+        raf = requestAnimationFrame(frame)
+        if (document.hidden) { last = now; return }
+        const dt = clamp((now - last) / 1000, 0, 0.05); last = now
+        if (!pausedRef.current && !reduced) t += dt
+        const s = clamp(progress.current ?? 0, 0, 6)
+        // 글자: 한 줄(처음 · 공식 자료 · 끝) ↔ 네 정거장
+        const row = clamp(1 - span(s, 0.25, 0.95) + span(s, 4.35, 5.0))
+        letters.forEach((g, i) => {
+          const rx = ROW_X + (i - 1.5) * 2.7, sx = STATION_X[i]
+          g.position.set(sx + (rx - sx) * row, Math.sin(t * 0.9 + i * 1.1) * 0.12 * (0.4 + row), Math.sin(Math.PI * row) * -2.5)
+          const lp = clamp(s - (i + 1) + 0.5)
+          g.rotation.y = Math.sin(t * 0.55 + i * 0.9) * (0.28 + 0.3 * (1 - row)) + (1 - row) * (lp - 0.5) * 0.9
+          g.rotation.x = Math.sin(t * 0.4 + i) * 0.06
+          const sc = 1 + 0.12 * (1 - row) * (1 - Math.abs(lp - 0.5) * 2)
+          g.scale.setScalar(sc)
+        })
+        // 정거장 장면은 그 정거장 가까이에서만 보인다
+        stations.forEach((g, i) => { const w = 1 - span(Math.abs(s - (i + 1)), 0.45, 0.9); g.visible = w > 0.01; g.scale.setScalar(Math.max(0.001, w)) })
+        // 1 묻다
+        const lp0 = clamp(s - 0.5)
+        orbs.forEach(o => { const a = o.a + t * 0.35; o.m.position.set(Math.cos(a) * o.r, o.h + Math.sin(a * 2 + o.r) * 0.25, Math.sin(a) * o.r * 0.75) })
+        const fa = t * 0.35 + 0.4, fe = span(lp0, 0.22, 0.5)
+        tmp.set(Math.cos(fa) * 2.1, 0.2, Math.sin(fa) * 1.6)
+        fact.position.set(tmp.x * (1 - fe), tmp.y + (2.3 - tmp.y) * fe + Math.sin(t * 2) * 0.05 * fe, tmp.z * (1 - fe))
+        fact.material.emissiveIntensity = 0.4 + 0.8 * fe
+        fact.scale.setScalar(1 + 0.5 * fe)
+        const ce = span(lp0, 0.32, 0.6), ca = t * 0.35 + 3.4
+        claim.position.set(Math.cos(ca) * 2.1, 0.1 - ce * 2.2, Math.sin(ca) * 1.6)
+        claim.material.opacity = 1 - ce
+        claim.visible = ce < 0.99
+        // 2 보다
+        const lp1 = clamp(s - 1.5)
+        bars.forEach((b, k) => {
+          const g = span(lp1, 0.1 + k * 0.06, 0.4 + k * 0.06)
+          const h = Math.max(0.001, b.h * g)
+          b.body.scale.y = h; b.top.position.y = h
+          b.top.scale.setScalar(Math.max(0.001, g))
+        })
+        stations[1].rotation.y = Math.sin(t * 0.3) * 0.25
+        // 3 잇다
+        const lp2 = clamp(s - 2.5)
+        tubeGeo.setDrawRange(0, Math.floor(tubeCount * span(lp2, 0.05, 0.4) / 3) * 3)
+        relate.forEach((r, k) => { const e = span(lp2, 0.3 + k * 0.045, 0.5 + k * 0.045); r.th.scale.y = Math.max(0.001, r.len * e); r.th.visible = e > 0.01 })
+        curve.getPointAt((t * 0.12) % 1, tmp); pulse.position.copy(tmp)
+        pulse.visible = lp2 > 0.3
+        stations[2].rotation.y = Math.sin(t * 0.25) * 0.18
+        // 4 가늠하다
+        const lp3 = clamp(s - 3.5)
+        valueGroup.scale.setScalar(Math.max(0.001, span(lp3, 0.15, 0.5)))
+        radar.rotation.z = t * 0.12
+        radar.rotation.y = Math.sin(t * 0.4) * 0.35
+        // 5 공식 자료 세 곳
+        const w5 = 1 - span(Math.abs(s - 5), 0.5, 1.0)
+        streams.forEach((st, i) => {
+          st.mat.opacity = w5 * 0.9
+          const arr = st.geo.attributes.position.array
+          for (let k = 0; k < N_STREAM; k++) {
+            st.path.getPointAt((k / N_STREAM + t * 0.07 + i * 0.13) % 1, tmp)
+            arr[k * 3] = tmp.x + Math.sin(k * 1.7 + t) * 0.12; arr[k * 3 + 1] = tmp.y + Math.cos(k * 2.3 + t) * 0.12; arr[k * 3 + 2] = tmp.z
+          }
+          st.geo.attributes.position.needsUpdate = true
+        })
+        dust.rotation.y = Math.sin(t * 0.05) * 0.05
+        dust.position.y = Math.sin(t * 0.2) * 0.2
+        // 카메라
+        const u = s / 6
+        camPath.getPoint(u, camera.position); lookPath.getPoint(u, look)
+        camera.position.sub(look).multiplyScalar(far).add(look)
+        camera.position.x += Math.sin(t * 0.21) * 0.25; camera.position.y += Math.sin(t * 0.27) * 0.14
+        camera.lookAt(look)
+        renderer.render(scene, camera)
+        if (first) { first = false; setReady(true) }
+      }
+      raf = requestAnimationFrame(frame)
       cleanup = () => {
-        cancelAnimationFrame(raf)
-        window.removeEventListener('pointermove', onMove)
-        ro?.disconnect()
-        own.forEach(r => r.dispose?.())
-        pmrem.dispose(); renderer.dispose(); renderer.domElement.remove()
+        cancelAnimationFrame(raf); ro.disconnect(); mo.disconnect()
+        own.forEach(r => r.dispose?.()); pmrem.dispose(); renderer.dispose()
+        renderer.domElement.remove()
       }
     }).catch(() => {})
     return () => { disposed = true; cleanup() }
   }, [progress])
 
-  return <div ref={mount} className={`landing-scene${ready ? ' is-ready' : ''}`} aria-hidden="true" />
+  return <div className={`landing-scene${ready ? ' is-ready' : ''}`} ref={mount} aria-hidden="true" />
 }
