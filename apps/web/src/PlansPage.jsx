@@ -30,7 +30,7 @@ function Usage({ loggedIn }) {
   if (!plan) return null
   const rows = [['오늘 AI 설명', plan.ai], ['공부 노트', plan.notes], ['가격 알림', plan.alerts]]
   return <section className="plan-usage" aria-label="내 사용량">
-    <h2 className="stock-h3">내 사용량 <small className="muted">{plan.demo ? '공용 데모 계정은 한도를 걸지 않아요' : plan.enforced ? '무료 한도 적용 중' : '출시 전이라 한도 없이 세기만 해요'}</small></h2>
+    <h2 className="stock-h3">내 사용량 <small className="muted">{plan.demo ? '공용 데모 계정은 한도를 걸지 않아요' : plan.enforced ? '무료 한도 적용 중' : '무료 한도는 아직 걸지 않고 세기만 해요'}</small></h2>
     <ul>{rows.map(([label, v]) => <li key={label}><span>{label}</span>
       <div className="usage-bar" aria-hidden="true"><span style={{ width: `${Math.min(100, v.used / v.freeLimit * 100)}%` }} /></div>
       <strong>{v.used} / 무료 {v.freeLimit}</strong></li>)}</ul>
@@ -210,11 +210,11 @@ export default function PlansPage({ loggedIn = false }) {
   }, [])
   const pick = key => { setPlan(key); if (typeof window !== 'undefined') window.scrollTo?.(0, 0) }
   return <section className="plans-page" aria-labelledby="plans-title">
-    <header><p className="eyebrow">AIRA 요금 안내 · 출시 계획</p>
+    <header><p className="eyebrow">AIRA 요금 안내 · AIRA 플러스 판매 중</p>
       <h1 id="plans-title">숫자는 누구에게나, 이해는 더 깊게</h1>
       <p>AIRA는 「사라·팔라」를 말하지 않고 광고도 싣지 않습니다. 대신 내가 이해하고 쌓아 가는 데 드는 AI와 기록 기능을 유료로 둡니다.
-        지금은 출시 전이라 <strong>모든 기능을 무료로 열어 두었습니다.</strong> 가격은 출시 전 가정값이에요(부가세 포함).
-        결제는 <strong>토스페이먼츠 테스트 모드</strong>로 끝까지 해 볼 수 있어요. 실제로 돈이 나가지 않아요.</p></header>
+        <strong>AIRA 플러스 판매 중</strong>이에요(가격은 부가세 포함). 결제는 <strong>토스페이먼츠 테스트 모드</strong>라 실제로 돈이 나가지 않아요.
+        무료 한도는 아직 걸지 않아 지금은 모든 기능을 무료로 쓸 수 있어요.</p></header>
     <PaymentPanel loggedIn={loggedIn} returned={returned} onDone={clearReturn} />
     <Usage loggedIn={loggedIn} />
     {plan ? <Checkout plan={plan} cycle={cycle} setCycle={setCycle} onBack={() => setPlan(null)} loggedIn={loggedIn} payment={payment} /> : <Choose cycle={cycle} setCycle={setCycle} onPick={pick} />}

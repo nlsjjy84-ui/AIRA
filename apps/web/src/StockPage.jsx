@@ -68,7 +68,7 @@ export const STOCK_TREE = [
     ['industry', '업종 중간값 대비', '이 회사의 비율을 같은 업종 회사들의 중간값과 나란히 놓았습니다.'],
     ['check', '확인 체크리스트', '많이 확인하는 기본 질문에 자료로 예·아니오를 답합니다. 좋다·나쁘다를 정하지 않습니다.'],
     ['quiz', '이해 확인 퀴즈', '이 회사의 실제 숫자로 낸 짧은 문제예요. 답을 고르면 왜 그런지 계산과 함께 알려 드리고, 맞힌 용어는 「내 공부」에 쌓여요.'],
-    ['report', '공부 리포트', '공식 숫자와 내가 쌓은 노트를 한 장으로 묶어 PDF로 저장합니다(AIRA 플러스 기능 · 출시 전이라 지금은 무료).'],
+    ['report', '공부 리포트', '공식 숫자와 내가 쌓은 노트를 한 장으로 묶어 PDF로 저장합니다(AIRA 플러스 기능 · 무료 한도를 걸기 전이라 지금은 무료).'],
     ['unknown', '아직 모르는 것', '이 화면만으로는 알 수 없는 것과 자료의 한계입니다.'],
   ]],
 ]
@@ -1747,7 +1747,7 @@ function CourseView({ ctx }) {
   </>
 }
 
-// ---------------- 회사 공부 리포트 (AIRA 플러스 기능 · 출시 전 무료) ----------------
+// ---------------- 회사 공부 리포트 (AIRA 플러스 기능 · 무료 한도 전이라 지금은 무료) ----------------
 function ReportView({ ctx }) {
   const [notes, setNotes] = useState({ loading: ctx.loggedIn, items: [] })
   useEffect(() => {
@@ -1775,7 +1775,7 @@ function ReportView({ ctx }) {
   }
   return <>
     <div className="stock-actions"><button type="button" className="primary-action" onClick={print}>PDF로 저장 · 인쇄</button>
-      <a className="secondary-action" href="/plans">AIRA 플러스 기능 · 출시 전이라 지금은 무료</a></div>
+      <a className="secondary-action" href="/plans">AIRA 플러스 기능 · 무료 한도를 걸기 전이라 지금은 무료</a></div>
     <article className="study-report" aria-label={`${ctx.name} 회사 공부 리포트`}>
       <header><p className="eyebrow">AIRA 회사 공부 리포트 · {today}</p><h2>{ctx.name}</h2>
         <p className="muted">{ctx.overview.data?.market ?? ''}{ctx.overview.data?.shortCode ? ` · ${ctx.overview.data.shortCode}` : ''} · 공식 자료(KRX·OpenDART)와 내가 쌓은 공부를 한 장으로 묶었습니다.</p></header>
