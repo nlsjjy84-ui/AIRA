@@ -108,8 +108,9 @@ export default function LandingPage({ onDemo, onLogin, onSignup, demoState = { l
       <section className="ld-sec ld-hero" data-sec aria-labelledby="landing-title">
         <div className="ld-copy">
           <p className="ld-kick">공식 숫자로 보는 시장 정보</p>
-          <h1 id="landing-title">숫자는 누구에게나,<br />이해는 더 깊게</h1>
-          <p className="ld-lead">AIRA는 공시로 확인된 숫자만 이어 붙입니다. 이름은 네 가지 일, <b>A</b>sk · <b>I</b>nspect · <b>R</b>elate · <b>A</b>ssess의 첫 글자예요.</p>
+          <h1 id="landing-title">아, 이래서였구나</h1>
+          <p className="ld-tag">AI가 쉽게 풀고, 근거는 공시 원문으로</p>
+          <p className="ld-lead">AIRA(아이라)는 공시로 확인된 숫자만 이어 붙입니다. 이름은 네 가지 일, <b>A</b>sk · <b>I</b>nspect · <b>R</b>elate · <b>A</b>ssess의 첫 글자예요.</p>
           {actions(false)}
         </div>
         <p className="ld-cue" aria-hidden="true">스크롤<i /></p>

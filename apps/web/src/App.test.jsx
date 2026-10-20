@@ -215,7 +215,7 @@ describe('authenticated interest and return experience', () => {
   it('keeps the privacy footer off ordinary MAIN', async () => {
     global.fetch = server().fetch
     render(<App />)
-    await screen.findByRole('heading', { name: /숫자는 누구에게나/ })
+    await screen.findByRole('heading', { name: /아, 이래서였구나/ })
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
   })
 
@@ -241,7 +241,7 @@ describe('authenticated interest and return experience', () => {
     global.fetch = server().fetch
     render(<App />)
     expect(await screen.findByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /아, 이래서였구나/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '시장 먼저 보기' })).toHaveAttribute('href', '/market')
     // 랜딩은 화면 하나라 일반 머리글·주 메뉴가 없다. 다른 화면에서는 그대로 보인다.
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).not.toBeInTheDocument()
@@ -301,7 +301,7 @@ describe('authenticated interest and return experience', () => {
     await user.click(await screen.findByRole('button', { name: '로그아웃' }))
     expect(await screen.findByText(/로그아웃되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /아, 이래서였구나/ })).toBeInTheDocument()
   })
   it('turns an expired interest session into a safe anonymous state', async () => {
     const backend = server({ user: { userId: 'user-1', nickname: 'ReturnUser' }, overrides: {
@@ -311,7 +311,7 @@ describe('authenticated interest and return experience', () => {
     render(<App />)
     expect(await screen.findByText(/세션이 만료되었습니다/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /아, 이래서였구나/ })).toBeInTheDocument()
   })
   it('shows staged interest failure with retry and succeeds without duplicating UI state', async () => {
     window.history.replaceState({ airaCanonicalExplorer12B: {
@@ -768,7 +768,7 @@ describe('one-click read-only demo', () => {
     global.fetch = backend.fetch
     const user = userEvent.setup()
     render(<App />)
-    expect(await screen.findByRole('heading', { name: /숫자는 누구에게나/ })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /아, 이래서였구나/ })).toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: '가입 없이 둘러보기' })[0])
     expect(await screen.findByRole('heading', { name: '데모 계정으로 둘러보는 중' })).toBeInTheDocument()
     expect(screen.getByText('데모 · 읽기 전용')).toHaveClass('session-user')
