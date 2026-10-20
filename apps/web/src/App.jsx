@@ -383,7 +383,14 @@ export default function App() {
   const loadSession = useCallback(() => {
     const current = beginRequest('session')
     setSession(current => ({ ...current, loading: true, error: null }))
-    getCurrentUser().then(user => current() && setSession({ loading: false, user, error: null, notice: null }))
+    // 서버가 잠깐 502·연결 오류를 내도 로그인(데모 포함)이 풀린 것처럼 보이지 않도록 두 번 더 확인한다.
+    const fetchUser = (left) => getCurrentUser().catch(error => {
+      if (left > 0 && !(error.status === 401 || error.status === 403)) {
+        return new Promise(resolve => setTimeout(resolve, left === 2 ? 600 : 1500)).then(() => fetchUser(left - 1))
+      }
+      throw error
+    })
+    fetchUser(2).then(user => current() && setSession({ loading: false, user, error: null, notice: null }))
       .catch(error => current() && (error.status === 401 || error.status === 403
         ? becomeAnonymous()
         : setSession({ loading: false, user: null, error, notice: null })))
