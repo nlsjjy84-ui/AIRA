@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { getGold, getMarketIndicators } from './api/stockApi.js'
 import { LineChart } from './StockCharts.jsx'
 
-const GROUPS = ['환율', '금리', '원자재']
+const GROUPS = ['환율', '금리', '예금·대출 금리', '원자재']
 
 function formatValue(item, value) {
   const n = Number(value)
@@ -19,7 +19,7 @@ function formatChange(item) {
   return { text: n === 0 ? '변동 없음' : `${n > 0 ? '▲' : '▼'} ${text}`, cls: n > 0 ? 'up' : n < 0 ? 'down' : '' }
 }
 
-/** 환율·금리·원자재(한국은행 ECOS)와 국내 금 시세(KRX). ECOS는 시세가 아니라 공식 통계라서 기준일을 함께 적는다. */
+/** 환율·금리·예금·대출 금리·원자재(한국은행 ECOS)와 국내 금 시세(KRX). ECOS는 시세가 아니라 공식 통계라서 기준일을 함께 적는다. */
 export default function MarketIndicators() {
   const [state, setState] = useState({ loading: true, data: null, error: null })
   const [picked, setPicked] = useState('USD')
@@ -42,7 +42,7 @@ export default function MarketIndicators() {
     {GROUPS.map(group => {
       const list = items.filter(i => i.group === group)
       if (!list.length) return null
-      return <section key={group} className="macro-group" aria-label={group}><h3 className="stock-h3">{group}{group === '원자재' ? ' · 월평균' : ''}</h3>
+      return <section key={group} className="macro-group" aria-label={group}><h3 className="stock-h3">{group}{group === '원자재' ? ' · 월평균' : group === '예금·대출 금리' ? ' · 매월 · 신규 취급 기준' : ''}</h3>
         <div className="macro-tiles">{list.map(item => { const ch = formatChange(item)
           return <button key={item.key} type="button" className="macro-tile" aria-pressed={chosen.key === item.key} onClick={() => setPicked(item.key)}>
             <span className="macro-label">{item.label}</span><strong>{formatValue(item, item.value)}</strong>
@@ -57,6 +57,7 @@ export default function MarketIndicators() {
       <div><dt>매매기준율</dt><dd>은행이 외화를 사고팔 때 기준으로 삼는 환율입니다. 실제로 바꿀 때는 수수료가 붙습니다.</dd></div>
       <div><dt>bp(베이시스 포인트)</dt><dd>금리 변화를 말할 때 쓰는 단위로, 1bp는 0.01%포인트입니다.</dd></div>
       <div><dt>국고채·회사채 금리</dt><dd>나라와 회사가 돈을 빌릴 때의 이자율입니다. 금리가 오르면 회사의 이자 부담이 커지고, 주식보다 채권이 매력적으로 보일 수 있습니다.</dd></div>
+      <div><dt>예금·대출 금리 (신규 취급 기준)</dt><dd>그달 새로 가입하거나 빌린 돈에 적용된 금리를 한국은행이 금액 가중으로 평균 낸 값입니다. 저축은행 정기예금은 1년 만기 기준입니다. 특정 상품의 금리가 아니라 업권 평균이며, 이미 가입한 예금의 금리와는 다릅니다.</dd></div>
       <div><dt>월평균</dt><dd>원유·금·구리는 한국은행이 국제 가격을 달마다 평균 내어 올립니다. 하루하루 시세가 아닙니다.</dd></div>
       <div><dt>국내 금 시세</dt><dd>한국거래소 금시장에서 실제로 거래된 1g당 가격(원)입니다. 위의 국제 금값(달러/트로이온스, 월평균)과 단위가 달라 바로 비교하지 않습니다.</dd></div></dl></div></details>
     <p className="stock-source">출처 · {state.data?.source}{goldItems.length > 0 ? ` · ${gold.source}` : ''}</p>

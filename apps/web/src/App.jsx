@@ -690,6 +690,8 @@ export default function App() {
         <p className="intro-more">회사를 골라 <b>A</b>sk 묻다 · <b>I</b>nspect 보다 · <b>R</b>elate 잇다 · <b>A</b>ssess 가늠하다로 주가·실적·재무·공시를 펼쳐 보세요. 종목 추천과 광고는 하지 않습니다.</p>
         <div className="quick-stocks" aria-label="바로 보기">{['삼성전자', 'SK하이닉스', 'NAVER', '현대자동차', '카카오', 'LG에너지솔루션'].map(name =>
           <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
+        <div className="quick-stocks recent" aria-label="금융사 바로 보기"><span>금융사</span>{['KB금융', '신한지주', '하나금융지주', '우리금융지주', 'NH투자증권', '카카오뱅크', '삼성생명', '삼성카드'].map(name =>
+          <button key={name} type="button" onClick={() => openSearch(name)}>{name}</button>)}</div>
         {recentStocks.length > 0 && <div className="quick-stocks recent" aria-label="최근 본 종목"><span>최근 본 종목</span>{recentStocks.map(item =>
           <a key={item.id} href={`/stock/${item.id}`}>{item.name}</a>)}</div>}
         <div className="intro-actions"><a className="secondary-action" href="/screen">조건으로 종목 찾기</a><a className="secondary-action" href="/explore">단계별 탐색 시작</a>

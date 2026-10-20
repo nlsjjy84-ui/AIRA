@@ -30,7 +30,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class DemoLoginService implements ApplicationRunner {
     public static final String DEMO_NICKNAME = "데모계정";
-    private static final List<String> PREFERRED_COMPANIES = List.of("삼성전자", "SK하이닉스", "NAVER", "현대자동차");
+    /**
+     * 데모 계정 관심회사. 맨 앞이 화면 맨 위에 온다. 금융사(은행·증권·보험·카드)는 손익계산서 구조가 달라
+     * 화면이 비기 쉬운 회사들이라, 면접관이 그런 회사도 바로 열어 볼 수 있게 함께 넣는다.
+     */
+    static final List<String> PREFERRED_COMPANIES = List.of(
+            "NH투자증권", "KB금융", "신한지주", "하나금융지주", "우리금융지주", "기업은행",
+            "BNK금융지주", "JB금융지주", "iM금융지주", "카카오뱅크", "삼성생명", "한화생명",
+            "삼성화재해상보험", "DB손해보험", "현대해상", "미래에셋증권", "삼성증권", "키움증권", "한국금융지주",
+            "메리츠금융지주", "삼성카드", "카카오페이",
+            "삼성전자", "SK하이닉스", "NAVER", "현대자동차");
     private static final Logger log = LoggerFactory.getLogger(DemoLoginService.class);
 
     private final boolean enabled;
@@ -137,19 +146,43 @@ public class DemoLoginService implements ApplicationRunner {
         }
     }
 
-    /** Gives the demo a few saved companies so briefing/alerts have something to show. Never fails the login. */
+    /**
+     * Gives the demo saved companies so briefing/alerts have something to show. Adds only the preferred
+     * companies it does not have yet, so a demo account made before the list grew gets the new ones too.
+     * Never fails the login.
+     */
     private void seedInterests(UUID userId) {
         try {
-            if (!interests.findAll(userId).isEmpty()) return;
+            var existing = interests.findAll(userId).stream().map(i -> i.entityId()).collect(java.util.stream.Collectors.toSet());
             var companies = entities.findPubliclyAvailableCompanies();
-            var picked = companies.stream().filter(c -> PREFERRED_COMPANIES.contains(c.getCanonicalName())).limit(3).toList();
-            if (picked.isEmpty()) picked = companies.stream().limit(3).toList();
-            for (var company : picked) {
-                interests.add(userId, company.getId());
-                interests.setAlertEnabled(userId, company.getId(), true);
+            var byName = new java.util.HashMap<String, UUID>();
+            companies.forEach(c -> byName.putIfAbsent(c.getCanonicalName(), c.getId()));
+            var toAdd = companiesToAdd(PREFERRED_COMPANIES, byName, existing);
+            if (toAdd.isEmpty() && existing.isEmpty()) toAdd = companies.stream().limit(3).map(c -> c.getId()).toList();
+            for (UUID companyId : toAdd) {
+                try {
+                    interests.add(userId, companyId);
+                    interests.setAlertEnabled(userId, companyId, true);
+                } catch (RuntimeException oneFailed) {
+                    log.warn("Demo interest skipped: {}", oneFailed.getClass().getSimpleName());
+                }
             }
         } catch (RuntimeException seedFailure) {
             log.warn("Demo interest seeding skipped: {}", seedFailure.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * Preferred companies that exist and are not saved yet, in the order to add them. The list screen shows
+     * the newest first, so the first preferred company is added last.
+     */
+    static List<UUID> companiesToAdd(List<String> preferred, java.util.Map<String, UUID> available,
+            java.util.Set<UUID> existing) {
+        var ids = new java.util.ArrayList<UUID>();
+        for (int i = preferred.size() - 1; i >= 0; i--) {
+            UUID id = available.get(preferred.get(i));
+            if (id != null && !existing.contains(id) && !ids.contains(id)) ids.add(id);
+        }
+        return List.copyOf(ids);
     }
 }

@@ -624,11 +624,41 @@ const goBtn = (ctx, path, label) => <button key={label} type="button" className=
 const topic = name => { const c = String(name).trim().slice(-1).charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3 ? `${name}${(c - 0xAC00) % 28 ? '은' : '는'}` : `${name}은(는)` }
 const isFinancial = ctx => /^6[4-6]/.test(String(ctx.overview?.data?.profile?.induty_code ?? ''))
 
+const plainAccount = name => String(name ?? '').replace(/^[\s(]*([IVX]+|[0-9]+|[가-하])[.)]\s*/, '').replace(/\s/g, '')
+const REVENUE_LINES = ['매출액', '매출', '수익(매출액)', '매출액(영업수익)', '영업수익']
+const FINANCIAL_LINES = [['영업수익'], ['이자수익'], ['순이자손익', '순이자이익'], ['수수료수익'], ['보험수익']]
+
+/** 주요계정(다중회사 API)에 매출이 비어 있을 때, 같은 사업보고서의 손익계산서 원문 줄을 그대로 꺼낸다. 이름을 바꾸거나 더하지 않는다. */
+export function revenueFromStatements(statements) {
+  const rows = statements?.groups?.CIS ?? statements?.groups?.IS ?? []
+  if (!Array.isArray(rows) || !rows.length) return null
+  const pick = names => rows.find(r => names.includes(plainAccount(r.account)) && r.current !== null && r.current !== undefined)
+  const revenue = pick(REVENUE_LINES)
+  if (revenue) return { kind: 'revenue', rows: [revenue] }
+  const seen = new Set(); const lines = []
+  for (const names of FINANCIAL_LINES) { const r = pick(names); if (r && !seen.has(plainAccount(r.account))) { seen.add(plainAccount(r.account)); lines.push(r) } }
+  return lines.length ? { kind: 'financial', rows: lines } : null
+}
+
 function NoRevenue({ ctx }) {
   const fin = isFinancial(ctx)
-  return <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'statements', 'IS'], fin ? '손익계산서 원문에서 영업수익 보기' : '손익계산서 원문 보기')}{goBtn(ctx, ['inspect', 'earnings', 'OPERATING_INCOME'], '영업이익 보기')}</div>}>
-    {fin ? `${topic(ctx.name)} 은행·보험·증권 같은 금융회사라서 사업보고서에 「매출액」 항목이 없습니다. 금융회사는 이자·수수료·보험료 수익을 합친 「영업수익」을 씁니다. 영업수익은 손익계산서 원문에서, 영업이익과 당기순이익은 옆 항목에서 확인할 수 있습니다.`
-      : `${ctx.name}의 사업보고서 주요계정에는 「매출액」이라는 이름의 값이 없습니다. 매출을 「영업수익」·「수익」 같은 다른 이름으로 적었거나, 아직 매출이 없는 회사일 수 있습니다. 손익계산서 원문에서 회사가 적은 그대로 확인할 수 있습니다.`}</Empty>
+  const state = useLazy(() => getStockStatements(ctx.companyId), ctx.companyId)
+  const found = state.data ? revenueFromStatements(state.data) : null
+  const y = Number(state.data?.year)
+  const years = Number.isFinite(y) ? [y - 2, y - 1, y] : []
+  const buttons = <div className="stock-actions">{goBtn(ctx, ['inspect', 'statements', 'IS'], '손익계산서 원문 전체 보기')}{goBtn(ctx, ['inspect', 'earnings', 'OPERATING_INCOME'], '영업이익 보기')}</div>
+  const intro = fin ? `${topic(ctx.name)} 은행·보험·증권 같은 금융회사라서 사업보고서에 「매출액」 항목이 없습니다. 금융회사는 이자·수수료·보험료 수익을 따로 적습니다.`
+    : `${ctx.name}의 사업보고서 주요계정에는 「매출액」 값이 비어 있습니다.`
+  if (!found) return <Empty action={buttons}>{intro} {state.loading ? '손익계산서 원문에서 찾는 중입니다.' : '손익계산서 원문에서 회사가 적은 그대로 확인할 수 있습니다.'}</Empty>
+  const fs = state.data?.fsDiv === 'OFS' ? '별도' : '연결'
+  return <>
+    <p className="stock-hint">{intro} 그래서 같은 사업보고서({years[2]} 사업연도 · {fs})의 손익계산서 원문에서 {found.kind === 'revenue' ? `「${found.rows[0].account}」 줄을` : '수익 줄을'} 이름 그대로 가져왔습니다.</p>
+    <BarChart ariaLabel="손익계산서 원문의 수익" categories={years.map(String)} series={found.rows.map((r, k) => ({ key: `r${k}`, label: plainAccount(r.account), color: [COLORS.a, COLORS.b, COLORS.c, COLORS.d, COLORS.n][k], values: [r.beforePrevious ?? null, r.previous ?? null, r.current ?? null] }))} format={formatWon} />
+    <div className="table-scroll"><table className="stock-table"><thead><tr><th>손익계산서 원문 줄</th>{years.map(v => <th key={v}>{v}</th>)}</tr></thead>
+      <tbody>{found.rows.map(r => <tr key={r.account}><th scope="row">{r.account}</th><td>{formatWon(r.beforePrevious)}</td><td>{formatWon(r.previous)}</td><td>{formatWon(r.current)}</td></tr>)}</tbody></table></div>
+    {state.data?.dartUrl && <p className="stock-hint"><a href={state.data.dartUrl} target="_blank" rel="noopener noreferrer">사업보고서 원문 ↗</a> · 접수번호 {state.data.receiptNo}</p>}
+    {buttons}
+  </>
 }
 
 function EarningsView({ ctx, view }) {

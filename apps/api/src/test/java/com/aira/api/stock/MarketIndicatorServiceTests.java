@@ -30,6 +30,17 @@ class MarketIndicatorServiceTests {
     }
 
     @Test
+    void savingsBankAndBankRatesComeFromEcosMonthlyTables() {
+        var keys = MarketIndicatorService.SERIES.stream().map(MarketIndicatorService.Series::key).toList();
+        assertEquals(true, keys.containsAll(List.of("SB_DEPOSIT", "BANK_DEPOSIT", "BANK_LOAN")));
+        var sb = MarketIndicatorService.SERIES.stream().filter(s -> s.key().equals("SB_DEPOSIT")).findFirst().orElseThrow();
+        assertEquals("121Y004", sb.statCode());
+        assertEquals("BEBBBE01", sb.itemCode());
+        assertEquals("M", sb.cycle());
+        assertEquals("2026-08", MarketIndicatorService.label("202608"));
+    }
+
+    @Test
     void noKeyMeansUnavailable() {
         var service = new MarketIndicatorService(uri -> "", JsonMapper.builder().build(), "", Clock.systemUTC());
         assertEquals("UNAVAILABLE", service.board().get("state"));

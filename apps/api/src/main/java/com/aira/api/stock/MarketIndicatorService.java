@@ -47,7 +47,11 @@ public class MarketIndicatorService {
             new Series("WTI", "원자재", "원유(WTI)", "902Y003", "010101", "M", "달러/배럴"),
             new Series("DUBAI", "원자재", "원유(두바이)", "902Y003", "010102", "M", "달러/배럴"),
             new Series("GOLD", "원자재", "금", "902Y003", "040101", "M", "달러/트로이온스"),
-            new Series("COPPER", "원자재", "구리", "902Y003", "040202", "M", "달러/톤"));
+            new Series("COPPER", "원자재", "구리", "902Y003", "040202", "M", "달러/톤"),
+            // 예금·대출 금리: 한국은행이 금융기관 보고를 모아 매달 올리는 신규취급액 기준 가중평균 금리
+            new Series("SB_DEPOSIT", "예금·대출 금리", "저축은행 정기예금(1년)", "121Y004", "BEBBBE01", "M", "%"),
+            new Series("BANK_DEPOSIT", "예금·대출 금리", "은행 정기예금", "121Y002", "BEABAA211", "M", "%"),
+            new Series("BANK_LOAN", "예금·대출 금리", "은행 대출(평균)", "121Y006", "BECBLA01", "M", "%"));
 
     public interface Sender { String get(URI uri) throws IOException, InterruptedException; }
 
@@ -73,7 +77,7 @@ public class MarketIndicatorService {
         var current = cache;
         if (current != null && current.getKey().plus(KEEP).isAfter(clock.instant())) return current.getValue();
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("source", "한국은행 경제통계시스템(ECOS) · 환율·금리는 매일, 원자재는 월평균");
+        out.put("source", "한국은행 경제통계시스템(ECOS) · 환율·시장금리는 매일, 원자재는 월평균, 예금·대출 금리는 매월(신규취급액 기준)");
         if (apiKey.isBlank()) { out.put("state", "UNAVAILABLE"); out.put("items", List.of()); return out; }
         LocalDate today = LocalDate.now(clock.withZone(KST));
         List<Map<String, Object>> items = new ArrayList<>();
