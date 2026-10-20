@@ -213,6 +213,8 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
   const latestYear = years[years.length - 1]
   const ranks = overview.data?.ranks ?? null
   const yearRange = intradayRange(lastDays(points, 365))
+  const lastIndexDate = indexPoints[indexPoints.length - 1]?.date
+  const stale = last && lastIndexDate && (Date.parse(lastIndexDate) - Date.parse(last.date)) / 86400000 > 20
   const activeTab = tabFor(path)
   const summaryAssist = last && latestYear && <AiAssist kind="INSPECT" save={{ companyId, companyName: name }} subject={`${name} · 한눈에`} loggedIn={loggedIn} facts={[
       { label: '종가', value: formatPrice(last.close), period: last.date },
@@ -227,7 +229,7 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
   return <section className="stock-page" aria-labelledby="stock-title">
     <header className="stock-header">
       <div className="stock-title-row">
-        <div><p className="eyebrow">{overview.data?.market ?? '상장 정보 확인 중'}{overview.data?.shortCode ? ` · ${overview.data.shortCode}` : ''}</p>
+        <div><p className="eyebrow">{overview.data?.market ?? (stale ? `${last.date} 이후 거래 기록 없음` : '상장 정보 확인 중')}{overview.data?.shortCode ? ` · ${overview.data.shortCode}` : ''}</p>
           <h1 id="stock-title">{overview.loading ? '불러오는 중…' : name}</h1></div>
         {interest && <InterestButton interest={interest} />}
         {last && <div className="stock-price-now"><strong>{formatPrice(last.close)}</strong>
@@ -242,12 +244,13 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
         <div><dt>{spanName(yearStats).range} 범위(장중)</dt><dd>{yearRange ? `${formatPrice(yearRange.low.value)} ~ ${formatPrice(yearRange.high.value)}` : '—'}</dd></div>
         <div><dt>{spanName(yearStats).change} 주가 변화</dt><dd>{yearStats ? formatPercent(yearStats.change) : '—'}</dd></div>
         {latestYear && latestYear.values.REVENUE == null && latestYear.values.OPERATING_INCOME != null ? <>
-          <div title="금융회사는 매출액 대신 영업수익을 씁니다"><dt>{latestYear.year} 영업이익</dt><dd>{formatWon(latestYear.values.OPERATING_INCOME)}</dd></div>
+          <div><dt>{latestYear.year} 영업이익</dt><dd>{formatWon(latestYear.values.OPERATING_INCOME)}</dd></div>
           <div><dt>ROE</dt><dd>{formatPercent(latestYear.ratios.roe, { sign: false })}</dd></div></> : <>
           <div><dt>{latestYear ? `${latestYear.year} 매출` : '최근 매출'}</dt><dd>{latestYear ? formatWon(latestYear.values.REVENUE) : '—'}</dd></div>
           <div><dt>영업이익률</dt><dd>{latestYear ? formatPercent(latestYear.ratios.operatingMargin, { sign: false }) : '—'}</dd></div></>}
         <div><dt>PER · PBR</dt><dd>{(() => { const v = valuation(last, latestYear); return v ? `${v.per ?? '—'}배 · ${v.pbr ?? '—'}배` : '—' })()}</dd></div>
       </dl>
+      {stale && <p className="stock-hint" role="status">{last.date} 이후 한국거래소 시세가 없습니다. 상장폐지되었거나 거래가 정지된 회사일 수 있어, 위 가격과 순위는 {last.date} 기준입니다.</p>}
       {(finState.error || pricesState.error || filingState.error) && <p className="stock-hint" role="status">일부 자료를 불러오지 못했어요(서버가 잠깐 다시 켜지는 중일 수 있어요).{' '}
         <button type="button" className="link-button" onClick={() => { if (finState.error) reloadFin(); if (pricesState.error) reloadPrices(); if (filingState.error) reloadFilings() }}>다시 불러오기</button></p>}
     </header>
@@ -617,9 +620,15 @@ function YearTable({ ctx, accounts }) {
 
 const goBtn = (ctx, path, label) => <button key={label} type="button" className="secondary-action" onClick={() => ctx.go(path)}>{label}</button>
 
+// 표준산업분류 64·65·66 = 금융업·보험업·금융 관련 서비스업 (OpenDART 기업개황 induty_code)
+const topic = name => { const c = String(name).trim().slice(-1).charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3 ? `${name}${(c - 0xAC00) % 28 ? '은' : '는'}` : `${name}은(는)` }
+const isFinancial = ctx => /^6[4-6]/.test(String(ctx.overview?.data?.profile?.induty_code ?? ''))
+
 function NoRevenue({ ctx }) {
-  return <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'statements', 'IS'], '손익계산서 원문에서 영업수익 보기')}{goBtn(ctx, ['inspect', 'earnings', 'OPERATING_INCOME'], '영업이익 보기')}</div>}>
-    {ctx.name}은(는) 은행·보험·증권 같은 금융회사라서 사업보고서에 「매출액」 항목이 없습니다. 금융회사는 이자·수수료·보험료 수익을 합친 「영업수익」을 씁니다. 영업수익은 손익계산서 원문에서, 영업이익과 당기순이익은 이 화면 옆 항목에서 확인할 수 있습니다.</Empty>
+  const fin = isFinancial(ctx)
+  return <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'statements', 'IS'], fin ? '손익계산서 원문에서 영업수익 보기' : '손익계산서 원문 보기')}{goBtn(ctx, ['inspect', 'earnings', 'OPERATING_INCOME'], '영업이익 보기')}</div>}>
+    {fin ? `${topic(ctx.name)} 은행·보험·증권 같은 금융회사라서 사업보고서에 「매출액」 항목이 없습니다. 금융회사는 이자·수수료·보험료 수익을 합친 「영업수익」을 씁니다. 영업수익은 손익계산서 원문에서, 영업이익과 당기순이익은 옆 항목에서 확인할 수 있습니다.`
+      : `${ctx.name}의 사업보고서 주요계정에는 「매출액」이라는 이름의 값이 없습니다. 매출을 「영업수익」·「수익」 같은 다른 이름으로 적었거나, 아직 매출이 없는 회사일 수 있습니다. 손익계산서 원문에서 회사가 적은 그대로 확인할 수 있습니다.`}</Empty>
 }
 
 function EarningsView({ ctx, view }) {
@@ -655,7 +664,8 @@ function BalanceView({ ctx, view }) {
   const labels = ctx.years.map(y => String(y.year))
   if (view === 'liquidity' && ctx.years.length && ctx.years.every(y => y.values.CURRENT_ASSETS == null && y.values.CURRENT_LIABILITIES == null)) return <FinGate ctx={ctx}>
     <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'balance', 'structure'], '자산·부채·자본 보기')}{goBtn(ctx, ['inspect', 'statements', 'BS'], '재무상태표 원문 보기')}</div>}>
-      {ctx.name}은(는) 은행·보험·증권 같은 금융회사라서 재무상태표를 유동·비유동으로 나누지 않고 유동성 순서대로 적습니다. 그래서 유동자산·유동부채 값이 없습니다. 자산·부채·자본 규모와 재무상태표 원문에서 확인할 수 있습니다.</Empty>
+      {isFinancial(ctx) ? `${topic(ctx.name)} 은행·보험·증권 같은 금융회사라서 재무상태표를 유동·비유동으로 나누지 않고 유동성 순서대로 적습니다. 그래서 유동자산·유동부채 값이 없습니다.`
+        : `${ctx.name}의 사업보고서 주요계정에는 유동자산·유동부채 값이 없습니다. 재무상태표를 유동·비유동으로 나누지 않고 적은 회사일 수 있습니다.`} 자산·부채·자본 규모와 재무상태표 원문에서 확인할 수 있습니다.</Empty>
     <Source>{ctx.finState.data?.source} · 연말 기준</Source></FinGate>
   return <FinGate ctx={ctx}>
     {view === 'structure' ? <>
@@ -1184,7 +1194,7 @@ function QuarterView({ ctx }) {
   const noRevenue = !choices.some(([k]) => k === 'REVENUE')
   const sameQuarterLastYear = item => items.find(other => other.year === item.year - 1 && other.quarter === item.quarter)
   return <>
-    {noRevenue && <p className="stock-hint">금융회사는 「매출액」 대신 「영업수익」을 쓰기 때문에 분기 매출은 없습니다. 영업이익과 당기순이익으로 분기 흐름을 봅니다.</p>}
+    {noRevenue && <p className="stock-hint">{isFinancial(ctx) ? '금융회사는 「매출액」 대신 「영업수익」을 쓰기 때문에 분기 매출은 없습니다.' : '이 회사의 분기 보고서 주요계정에는 「매출액」 값이 없습니다.'} 영업이익과 당기순이익으로 분기 흐름을 봅니다.</p>}
     <div className="stock-range" role="group" aria-label="항목">{choices.map(([k, l]) =>
       <button key={k} type="button" aria-pressed={account === k} onClick={() => setAccount(k)}>{l}</button>)}</div>
     {quarterSentence(items, account, ACCOUNT_LABEL[account]) && <p className="quarter-sentence">{quarterSentence(items, account, ACCOUNT_LABEL[account])}</p>}

@@ -168,6 +168,12 @@ describe('정보 보강 계산', () => {
     expect(r.high).toEqual({ value: 130, date: '2026-10-15' })
   })
 
+  it('ignores zero prices from trading-halt days in the range', async () => {
+    const { intradayRange } = await import('./stockMath.js')
+    const r = intradayRange([{ date: '2025-11-20', low: 0, high: 0, close: 0 }, { date: '2025-11-25', low: 1790, high: 3790, close: 2950 }])
+    expect(r.low).toEqual({ value: 1790, date: '2025-11-25' })
+  })
+
   it('sums four consecutive quarters and refuses gaps', async () => {
     const { trailingFour } = await import('./stockMath.js')
     const q = (year, quarter, v) => ({ year, quarter, label: `${year} ${quarter}분기`, values: { REVENUE: v, OPERATING_INCOME: v / 10, NET_INCOME: v / 20 } })

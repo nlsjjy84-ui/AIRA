@@ -543,8 +543,9 @@ export function normalizeMany(base = [], others = []) {
 export function intradayRange(points) {
   let low = null, high = null
   for (const p of points ?? []) {
-    const lo = num(p.low) ?? num(p.close)
-    const hi = num(p.high) ?? num(p.close)
+    const pos = v => (v !== null && v > 0 ? v : null) // 거래정지일은 고가·저가가 0으로 옴
+    const lo = pos(num(p.low)) ?? pos(num(p.close))
+    const hi = pos(num(p.high)) ?? pos(num(p.close))
     if (lo !== null && (low === null || lo < low.value)) low = { value: lo, date: p.date }
     if (hi !== null && (high === null || hi > high.value)) high = { value: hi, date: p.date }
   }
