@@ -241,8 +241,11 @@ export default function StockPage({ companyId, loggedIn = false, onOpenEvent, in
         <div><dt>1일 범위(저가~고가)</dt><dd>{last && last.low !== null && last.low !== undefined && last.high !== null && last.high !== undefined ? `${formatPrice(last.low)} ~ ${formatPrice(last.high)}` : '—'}</dd></div>
         <div><dt>{spanName(yearStats).range} 범위(장중)</dt><dd>{yearRange ? `${formatPrice(yearRange.low.value)} ~ ${formatPrice(yearRange.high.value)}` : '—'}</dd></div>
         <div><dt>{spanName(yearStats).change} 주가 변화</dt><dd>{yearStats ? formatPercent(yearStats.change) : '—'}</dd></div>
-        <div><dt>{latestYear ? `${latestYear.year} 매출` : '최근 매출'}</dt><dd>{latestYear ? formatWon(latestYear.values.REVENUE) : '—'}</dd></div>
-        <div><dt>영업이익률</dt><dd>{latestYear ? formatPercent(latestYear.ratios.operatingMargin, { sign: false }) : '—'}</dd></div>
+        {latestYear && latestYear.values.REVENUE == null && latestYear.values.OPERATING_INCOME != null ? <>
+          <div title="금융회사는 매출액 대신 영업수익을 씁니다"><dt>{latestYear.year} 영업이익</dt><dd>{formatWon(latestYear.values.OPERATING_INCOME)}</dd></div>
+          <div><dt>ROE</dt><dd>{formatPercent(latestYear.ratios.roe, { sign: false })}</dd></div></> : <>
+          <div><dt>{latestYear ? `${latestYear.year} 매출` : '최근 매출'}</dt><dd>{latestYear ? formatWon(latestYear.values.REVENUE) : '—'}</dd></div>
+          <div><dt>영업이익률</dt><dd>{latestYear ? formatPercent(latestYear.ratios.operatingMargin, { sign: false }) : '—'}</dd></div></>}
         <div><dt>PER · PBR</dt><dd>{(() => { const v = valuation(last, latestYear); return v ? `${v.per ?? '—'}배 · ${v.pbr ?? '—'}배` : '—' })()}</dd></div>
       </dl>
       {(finState.error || pricesState.error || filingState.error) && <p className="stock-hint" role="status">일부 자료를 불러오지 못했어요(서버가 잠깐 다시 켜지는 중일 수 있어요).{' '}
@@ -612,7 +615,15 @@ function YearTable({ ctx, accounts }) {
   </table></div>
 }
 
+const goBtn = (ctx, path, label) => <button key={label} type="button" className="secondary-action" onClick={() => ctx.go(path)}>{label}</button>
+
+function NoRevenue({ ctx }) {
+  return <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'statements', 'IS'], '손익계산서 원문에서 영업수익 보기')}{goBtn(ctx, ['inspect', 'earnings', 'OPERATING_INCOME'], '영업이익 보기')}</div>}>
+    {ctx.name}은(는) 은행·보험·증권 같은 금융회사라서 사업보고서에 「매출액」 항목이 없습니다. 금융회사는 이자·수수료·보험료 수익을 합친 「영업수익」을 씁니다. 영업수익은 손익계산서 원문에서, 영업이익과 당기순이익은 이 화면 옆 항목에서 확인할 수 있습니다.</Empty>
+}
+
 function EarningsView({ ctx, view }) {
+  if (view === 'REVENUE' && ctx.years.length && ctx.years.every(y => y.values.REVENUE === undefined || y.values.REVENUE === null)) return <FinGate ctx={ctx}><NoRevenue ctx={ctx} /><Source>{ctx.finState.data?.source}</Source></FinGate>
   const labels = ctx.years.map(y => String(y.year))
   const finLearn = <Learn terms={[['매출', '물건·서비스를 팔아 들어온 돈 전체'], ['영업이익', '매출에서 원가·판매비·관리비를 뺀 본업의 이익'],
     ['당기순이익', '영업이익에 이자·투자손익·세금까지 반영한 최종 이익'], ['연결', '자회사까지 합친 재무제표. AIRA는 연결을 우선 씁니다.']]}>연도를 누르면 그해의 모든 항목과 비율을 봅니다.</Learn>
@@ -642,6 +653,10 @@ function EarningsView({ ctx, view }) {
 
 function BalanceView({ ctx, view }) {
   const labels = ctx.years.map(y => String(y.year))
+  if (view === 'liquidity' && ctx.years.length && ctx.years.every(y => y.values.CURRENT_ASSETS == null && y.values.CURRENT_LIABILITIES == null)) return <FinGate ctx={ctx}>
+    <Empty action={<div className="stock-actions">{goBtn(ctx, ['inspect', 'balance', 'structure'], '자산·부채·자본 보기')}{goBtn(ctx, ['inspect', 'statements', 'BS'], '재무상태표 원문 보기')}</div>}>
+      {ctx.name}은(는) 은행·보험·증권 같은 금융회사라서 재무상태표를 유동·비유동으로 나누지 않고 유동성 순서대로 적습니다. 그래서 유동자산·유동부채 값이 없습니다. 자산·부채·자본 규모와 재무상태표 원문에서 확인할 수 있습니다.</Empty>
+    <Source>{ctx.finState.data?.source} · 연말 기준</Source></FinGate>
   return <FinGate ctx={ctx}>
     {view === 'structure' ? <>
       <BarChart ariaLabel="부채와 자본" stacked categories={labels} series={[{ key: 'L', label: '부채', color: COLORS.c, values: ctx.years.map(y => y.values.TOTAL_LIABILITIES ?? null) },
@@ -1158,14 +1173,19 @@ function useLazy(loader, key) {
 
 function QuarterView({ ctx }) {
   const state = useLazy(() => getStockQuarters(ctx.companyId), ctx.companyId)
-  const [account, setAccount] = useState('REVENUE')
+  let [account, setAccount] = useState('REVENUE')
   if (state.loading) return <p className="status">분기 실적을 불러오는 중입니다.</p>
   const items = state.data?.items ?? []
   if (state.error || !items.length) return <Empty>분기 보고서 값을 DART에서 받아 채우는 중이거나 아직 없습니다. 연간 실적은 「매출」「영업이익」에서 볼 수 있습니다.</Empty>
   const value = (item, key) => (item.values?.[key] === undefined ? null : Number(item.values[key]))
+  const choices = [['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익']].filter(([k]) => items.some(i => value(i, k) !== null))
+  if (!choices.length) return <Empty>분기 보고서 값을 DART에서 받아 채우는 중이거나 아직 없습니다. 연간 실적은 「매출」「영업이익」에서 볼 수 있습니다.</Empty>
+  if (!choices.some(([k]) => k === account)) account = choices[0][0]
+  const noRevenue = !choices.some(([k]) => k === 'REVENUE')
   const sameQuarterLastYear = item => items.find(other => other.year === item.year - 1 && other.quarter === item.quarter)
   return <>
-    <div className="stock-range" role="group" aria-label="항목">{[['REVENUE', '매출'], ['OPERATING_INCOME', '영업이익'], ['NET_INCOME', '당기순이익']].map(([k, l]) =>
+    {noRevenue && <p className="stock-hint">금융회사는 「매출액」 대신 「영업수익」을 쓰기 때문에 분기 매출은 없습니다. 영업이익과 당기순이익으로 분기 흐름을 봅니다.</p>}
+    <div className="stock-range" role="group" aria-label="항목">{choices.map(([k, l]) =>
       <button key={k} type="button" aria-pressed={account === k} onClick={() => setAccount(k)}>{l}</button>)}</div>
     {quarterSentence(items, account, ACCOUNT_LABEL[account]) && <p className="quarter-sentence">{quarterSentence(items, account, ACCOUNT_LABEL[account])}</p>}
     <BarChart ariaLabel={`분기 ${ACCOUNT_LABEL[account]}`} categories={items.map(i => `${String(i.year).slice(2)}.${i.quarter}Q`)}
