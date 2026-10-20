@@ -24,6 +24,11 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
             Resolved resolved = resolveExact(candidate);
             if (!resolved.status().equals("NONE")) return resolved;
         }
+        // 거래소 약칭과 공시 회사명이 다른 경우(KT ↔ 케이티, KT&G ↔ 케이티앤지): 종목코드로 공시 회사를 찾는다.
+        for (String candidate : CompanyNameVariants.of(name)) {
+            Resolved resolved = resolveBySymbol(candidate);
+            if (!resolved.status().equals("NONE")) return resolved;
+        }
         // 회사(재무 자료)로는 없지만 거래소 종목으로는 있는 경우: 아직 공식 재무를 받지 못한 회사다.
         for (String candidate : CompanyNameVariants.of(name)) {
             if (listedOnly(candidate)) return new Resolved("LISTED", null);
@@ -38,6 +43,24 @@ public class JdbcOfficialFactReader implements OfficialFactReader {
                 WHERE e.active = true AND e.entity_type = 'SECURITY' AND lower(e.canonical_name) = lower(?)
                 """, Integer.class, name.strip());
         return count != null && count > 0;
+    }
+
+    /** 거래소 종목 이름 → 종목코드 → 기업개황의 고유번호(corp_code) → 공시 회사. 기업개황을 받아 둔 회사만 찾는다. */
+    private Resolved resolveBySymbol(String name) {
+        if (name == null || name.isBlank() || name.length() > 100) return new Resolved("NONE", null);
+        List<Company> found = jdbc.query("""
+                SELECT DISTINCT c.id, c.canonical_name FROM entity s
+                JOIN company_profile_cache p ON p.stock_code = s.symbol
+                JOIN entity_external_identifier x ON x.identifier_value = p.corp_code
+                     AND x.namespace = 'OPENDART' AND x.identifier_type = 'CORP_CODE'
+                JOIN entity c ON c.id = x.entity_id AND c.entity_type = 'COMPANY' AND c.active = true
+                WHERE s.active = true AND s.entity_type = 'SECURITY' AND s.symbol IS NOT NULL
+                  AND lower(s.canonical_name) = lower(?)
+                LIMIT 3
+                """, (rs, n) -> new Company(rs.getObject(1, UUID.class), rs.getString(2)), name.strip());
+        if (found.isEmpty()) return new Resolved("NONE", null);
+        if (found.size() > 1) return new Resolved("MANY", null);
+        return new Resolved("ONE", found.get(0));
     }
 
     private Resolved resolveExact(String name) {
