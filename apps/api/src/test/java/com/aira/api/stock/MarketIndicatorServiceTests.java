@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -44,5 +45,19 @@ class MarketIndicatorServiceTests {
     void noKeyMeansUnavailable() {
         var service = new MarketIndicatorService(uri -> "", JsonMapper.builder().build(), "", Clock.systemUTC());
         assertEquals("UNAVAILABLE", service.board().get("state"));
+    }
+
+    @Test
+    void whenEcosIsUnreachableTheFailureIsRememberedSoPagesDoNotWaitAgain() {
+        var calls = new AtomicInteger();
+        var service = new MarketIndicatorService(uri -> { calls.incrementAndGet(); throw new java.io.IOException("connect timed out"); },
+                JsonMapper.builder().build(), "key", Clock.fixed(Instant.parse("2026-10-21T00:00:00Z"), ZoneOffset.UTC));
+        var first = service.board();
+        assertEquals("UNAVAILABLE", first.get("state"));
+        assertEquals("ECOS_UNREACHABLE", first.get("reason"));
+        int afterFirst = calls.get();
+        assertEquals(MarketIndicatorService.SERIES.size(), afterFirst);
+        assertEquals("UNAVAILABLE", service.board().get("state"));
+        assertEquals(afterFirst, calls.get());
     }
 }

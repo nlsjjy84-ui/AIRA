@@ -18,6 +18,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +36,10 @@ public class MarketIndicatorService {
     private static final Logger log = LoggerFactory.getLogger(MarketIndicatorService.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Duration KEEP = Duration.ofHours(3);
+    /** ECOS에 닿지 않을 때 화면마다 오래 기다리지 않도록, 실패를 잠시 기억해 두는 시간. */
+    static final Duration RETRY_AFTER_FAILURE = Duration.ofMinutes(10);
+    /** 지표 15개를 한꺼번에 부르고, 이 시간 안에 온 것만 쓴다. */
+    private static final Duration WAIT_ALL = Duration.ofSeconds(15);
 
     record Series(String key, String group, String label, String statCode, String itemCode, String cycle, String unit) {}
 
@@ -60,6 +68,7 @@ public class MarketIndicatorService {
     private final String apiKey;
     private final Clock clock;
     private volatile Map.Entry<Instant, Map<String, Object>> cache;
+    private volatile Instant failedAt;
 
     @Autowired
     public MarketIndicatorService(ObjectMapper json, @Value("${aira.ecos.api-key:}") String apiKey) {
@@ -76,43 +85,88 @@ public class MarketIndicatorService {
     public Map<String, Object> board() {
         var current = cache;
         if (current != null && current.getKey().plus(KEEP).isAfter(clock.instant())) return current.getValue();
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("source", "한국은행 경제통계시스템(ECOS) · 환율·시장금리는 매일, 원자재는 월평균, 예금·대출 금리는 매월(신규취급액 기준)");
-        if (apiKey.isBlank()) { out.put("state", "UNAVAILABLE"); out.put("items", List.of()); return out; }
+        if (apiKey.isBlank()) return unavailable("NO_KEY");
+        var failed = failedAt;
+        if (failed != null && failed.plus(RETRY_AFTER_FAILURE).isAfter(clock.instant()))
+            return current != null ? current.getValue() : unavailable("ECOS_UNREACHABLE");
+        return refresh();
+    }
+
+    /** 한 번에 한 요청만 ECOS를 부른다. 기다리던 요청은 방금 받은 결과를 그대로 쓴다. */
+    private synchronized Map<String, Object> refresh() {
+        var current = cache;
+        if (current != null && current.getKey().plus(KEEP).isAfter(clock.instant())) return current.getValue();
+        var failed = failedAt;
+        if (failed != null && failed.plus(RETRY_AFTER_FAILURE).isAfter(clock.instant()))
+            return current != null ? current.getValue() : unavailable("ECOS_UNREACHABLE");
         LocalDate today = LocalDate.now(clock.withZone(KST));
         List<Map<String, Object>> items = new ArrayList<>();
-        for (Series s : SERIES) {
-            try {
-                var points = fetch(s, today);
-                if (points.isEmpty()) continue;
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("key", s.key());
-                item.put("group", s.group());
-                item.put("label", s.label());
-                item.put("unit", s.unit());
-                item.put("cycle", "D".equals(s.cycle()) ? "일별" : "월평균");
-                var last = points.get(points.size() - 1);
-                item.put("time", last.getKey());
-                item.put("value", last.getValue());
-                if (points.size() > 1) {
-                    var prev = points.get(points.size() - 2);
-                    item.put("previousTime", prev.getKey());
-                    item.put("previousValue", prev.getValue());
-                    item.put("change", last.getValue().subtract(prev.getValue()));
+        try (ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<List<Map.Entry<String, BigDecimal>>>> jobs = new ArrayList<>();
+            for (Series s : SERIES) jobs.add(pool.submit(() -> fetch(s, today)));
+            long deadline = System.nanoTime() + WAIT_ALL.toNanos();
+            for (int i = 0; i < SERIES.size(); i++) {
+                Series s = SERIES.get(i);
+                try {
+                    long left = Math.max(0, deadline - System.nanoTime());
+                    var points = jobs.get(i).get(left, TimeUnit.NANOSECONDS);
+                    if (!points.isEmpty()) items.add(item(s, points));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    jobs.get(i).cancel(true);
+                    log.warn("ECOS indicator {} failed: {}", s.key(), e.getClass().getSimpleName());
                 }
-                List<Map<String, Object>> series = new ArrayList<>();
-                for (var p : points) series.add(Map.of("time", p.getKey(), "value", p.getValue()));
-                item.put("series", series);
-                items.add(item);
-            } catch (RuntimeException e) {
-                log.warn("ECOS indicator {} failed: {}", s.key(), e.getMessage());
             }
+            pool.shutdownNow();
         }
-        out.put("state", items.isEmpty() ? "UNAVAILABLE" : "AVAILABLE");
+        if (items.isEmpty()) {
+            failedAt = clock.instant();
+            return current != null ? current.getValue() : unavailable("ECOS_UNREACHABLE");
+        }
+        failedAt = null;
+        Map<String, Object> out = base();
+        out.put("state", "AVAILABLE");
         out.put("items", items);
-        if (!items.isEmpty()) cache = Map.entry(clock.instant(), out);
-        else if (current != null) return current.getValue();
+        cache = Map.entry(clock.instant(), out);
         return out;
+    }
+
+    private Map<String, Object> base() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("source", "한국은행 경제통계시스템(ECOS) · 환율·시장금리는 매일, 원자재는 월평균, 예금·대출 금리는 매월(신규취급액 기준)");
+        return out;
+    }
+
+    private Map<String, Object> unavailable(String reason) {
+        Map<String, Object> out = base();
+        out.put("state", "UNAVAILABLE");
+        out.put("reason", reason);
+        out.put("items", List.of());
+        return out;
+    }
+
+    private static Map<String, Object> item(Series s, List<Map.Entry<String, BigDecimal>> points) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("key", s.key());
+        item.put("group", s.group());
+        item.put("label", s.label());
+        item.put("unit", s.unit());
+        item.put("cycle", "D".equals(s.cycle()) ? "일별" : "월평균");
+        var last = points.get(points.size() - 1);
+        item.put("time", last.getKey());
+        item.put("value", last.getValue());
+        if (points.size() > 1) {
+            var prev = points.get(points.size() - 2);
+            item.put("previousTime", prev.getKey());
+            item.put("previousValue", prev.getValue());
+            item.put("change", last.getValue().subtract(prev.getValue()));
+        }
+        List<Map<String, Object>> series = new ArrayList<>();
+        for (var p : points) series.add(Map.of("time", p.getKey(), "value", p.getValue()));
+        item.put("series", series);
+        return item;
     }
 
     /** 일별은 최근 60일, 월별은 최근 14개월. 값이 빈 날은 건너뛴다. 시간 순서. */
@@ -156,9 +210,9 @@ public class MarketIndicatorService {
     }
 
     static Sender defaultSender() {
-        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
         return uri -> {
-            HttpResponse<String> response = client.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(20)).GET().build(),
+            HttpResponse<String> response = client.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(12)).GET().build(),
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() != 200) throw new IOException("HTTP " + response.statusCode());
             return response.body();
