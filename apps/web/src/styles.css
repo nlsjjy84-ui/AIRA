@@ -3043,3 +3043,133 @@ main.is-landing { max-width: none !important; margin: 0 !important; padding: 0 !
 .index-bar.up { background: var(--up); }
 .index-bar.down { background: var(--down); }
 .macro-tile.is-static { cursor: default; }
+
+/* ── 풍이와 결이의 길 안내 ─────────────────────────────────────────
+   불빛(등불)이 다음에 누를 곳으로 앞서가고, 말풍선은 한두 줄만. 버튼은 네모 대신 은은하게 빛나는 빛 버튼. */
+:root[data-theme="light"] .guide-root { --guide-dim: rgb(20 28 24 / .3); }
+.guide-root { --guide-dim: rgb(4 7 6 / .5); --guide-glow: color-mix(in srgb, var(--accent) 55%, transparent); --guide-haze: color-mix(in srgb, var(--accent) 22%, transparent); }
+.guide-launcher { position: fixed; right: 1rem; bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem); z-index: 42; display: flex; align-items: center; gap: .5rem;
+  padding: .3rem .95rem .3rem .3rem; border: 0; border-radius: 999px; color: var(--ink); font: inherit; font-size: .86rem; font-weight: 800; cursor: pointer;
+  background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(10px);
+  box-shadow: 0 0 0 1px var(--guide-haze), 0 0 22px var(--guide-haze), 0 8px 24px rgb(0 0 0 / .22); animation: guide-breathe 3.2s ease-in-out infinite; }
+.guide-launcher:hover, .guide-launcher:focus-visible { box-shadow: 0 0 0 1px var(--guide-glow), 0 0 30px var(--guide-glow), 0 8px 24px rgb(0 0 0 / .22); outline: none; }
+.guide-launcher.is-waiting::after { content: ''; position: absolute; top: .2rem; left: 2.15rem; width: .55rem; height: .55rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px 3px var(--guide-glow); animation: guide-flicker 1.4s ease-in-out infinite; }
+.guide-root.on-landing .guide-launcher { bottom: calc(env(safe-area-inset-bottom, 0px) + 18px + 3.3rem); right: clamp(14px, 2.4vw, 36px); }
+.guide-face { width: 44px; height: 44px; flex: none; border-radius: 50%; object-fit: cover; background: #f4ede0; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+.guide-face.is-small { width: 30px; height: 30px; }
+.guide-faces { display: flex; }
+.guide-faces .guide-face + .guide-face { margin-left: -12px; }
+
+.guide-bubble { position: fixed; right: 1rem; bottom: calc(env(safe-area-inset-bottom, 0px) + 4.6rem); z-index: 43; width: min(23rem, calc(100vw - 2rem));
+  display: grid; gap: .65rem; padding: 1rem 1.1rem 1.05rem; border-radius: 1.4rem; color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px);
+  box-shadow: 0 0 0 1px var(--guide-haze), 0 0 40px var(--guide-haze), 0 18px 44px rgb(0 0 0 / .3); animation: guide-rise .35s ease-out both; }
+.guide-bubble.is-left { right: auto; left: 1rem; }
+.guide-bubble.is-top { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 4.5rem); }
+.guide-root.on-landing .guide-bubble { bottom: calc(env(safe-area-inset-bottom, 0px) + 18px + 6.8rem); right: clamp(14px, 2.4vw, 36px); }
+.guide-who { display: flex; align-items: center; gap: .65rem; }
+.guide-who > div { display: grid; min-width: 0; flex: 1; line-height: 1.3; }
+.guide-who strong { font-size: .98rem; }
+.guide-who small { color: var(--muted); font-size: .76rem; }
+.guide-x { align-self: flex-start; width: 2rem; height: 2rem; border: 0; border-radius: 50%; background: transparent; color: var(--muted); font-size: 1.2rem; cursor: pointer; }
+.guide-x:hover { color: var(--ink); background: var(--accent-soft); }
+.guide-say { margin: 0; font-size: .95rem; line-height: 1.6; text-wrap: pretty; }
+.guide-note { margin: -.2rem 0 0; color: var(--muted); font-size: .8rem; }
+.guide-hint { color: var(--accent); font-size: .84rem; font-weight: 700; }
+.guide-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
+.guide-actions.is-choice { display: grid; grid-template-columns: 1fr 1fr; }
+.guide-links { display: flex; flex-wrap: wrap; gap: .2rem .9rem; }
+.guide-link { padding: .15rem 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; cursor: pointer; }
+.guide-link:hover { color: var(--accent); text-shadow: 0 0 12px var(--guide-glow); }
+
+/* 빛 버튼: 테두리 없는 둥근 빛. 빛줄기가 천천히 지나간다. */
+.guide-glow { position: relative; overflow: hidden; display: grid; justify-items: center; gap: .05rem; padding: .62rem 1.15rem; border: 0; border-radius: 999px; cursor: pointer;
+  color: var(--on-accent); font: inherit; font-size: .9rem; font-weight: 800; line-height: 1.25;
+  background: radial-gradient(130% 160% at 28% 18%, color-mix(in srgb, var(--accent) 62%, white) 0%, var(--accent) 52%, color-mix(in srgb, var(--accent) 82%, black) 100%);
+  box-shadow: 0 0 16px var(--guide-glow), 0 0 34px var(--guide-haze); animation: guide-breathe 2.6s ease-in-out infinite; }
+.guide-glow small { font-size: .72rem; font-weight: 600; opacity: .85; }
+.guide-glow::after { content: ''; position: absolute; top: -40%; bottom: -40%; left: -60%; width: 38%; transform: skewX(-20deg); pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / .6), transparent); animation: guide-shine 3.2s ease-in-out infinite; }
+.guide-glow:hover, .guide-glow:focus-visible { outline: none; box-shadow: 0 0 22px var(--guide-glow), 0 0 48px var(--guide-glow); }
+.guide-glow.is-soft { color: var(--accent); background: radial-gradient(130% 160% at 28% 18%, color-mix(in srgb, var(--accent) 30%, transparent), var(--accent-soft) 70%); box-shadow: 0 0 14px var(--guide-haze); }
+
+/* 등불 줄 */
+.guide-lanterns { display: flex; flex-wrap: wrap; gap: .55rem; }
+.guide-zone { display: flex; gap: .3rem; }
+.guide-lanterns i { width: .62rem; height: .62rem; border-radius: 50%; background: color-mix(in srgb, var(--muted) 35%, transparent); }
+.guide-lanterns i.is-lit { background: var(--accent); box-shadow: 0 0 8px 1px var(--guide-glow); }
+.guide-lanterns i.is-now { background: color-mix(in srgb, var(--accent) 55%, white); box-shadow: 0 0 10px 3px var(--guide-glow); animation: guide-flicker 1.4s ease-in-out infinite; }
+
+/* 목적지를 감싸는 빛 무리와, 앞서가는 불빛 */
+.guide-halo { position: absolute; z-index: 40; pointer-events: none; border-radius: 1.1rem; background: color-mix(in srgb, var(--accent) 6%, transparent);
+  box-shadow: 0 0 0 1px var(--guide-haze), 0 0 26px 6px var(--guide-haze); transition: top .5s ease, left .5s ease, width .5s ease, height .5s ease; animation: guide-halo 2s ease-in-out infinite; }
+.guide-orb { position: absolute; z-index: 41; width: 18px; height: 18px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 22%, var(--accent) 48%, transparent 74%);
+  box-shadow: 0 0 16px 5px var(--guide-glow), 0 0 42px 14px var(--guide-haze);
+  transition: top .9s cubic-bezier(.3, .7, .2, 1), left .9s cubic-bezier(.3, .7, .2, 1); animation: guide-flicker 1.8s ease-in-out infinite; }
+
+@keyframes guide-breathe { 50% { filter: brightness(1.08); } }
+@keyframes guide-shine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+@keyframes guide-flicker { 50% { opacity: .72; transform: scale(.88); } }
+@keyframes guide-halo { 50% { box-shadow: 0 0 0 1px var(--guide-glow), 0 0 34px 10px var(--guide-haze); } }
+@keyframes guide-rise { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) {
+  .guide-launcher, .guide-glow, .guide-glow::after, .guide-orb, .guide-halo, .guide-spot, .guide-ask-field, .guide-bubble, .guide-lanterns i.is-now, .guide-launcher.is-waiting::after { animation: none; transition: none; }
+  .guide-glow::after { display: none; }
+}
+@media (max-width: 30rem) {
+  .guide-bubble { right: .75rem; width: calc(100vw - 1.5rem); }
+  .guide-launcher { right: .75rem; }
+}
+.guide-ask { display: grid; gap: .3rem; padding-top: .55rem; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.guide-ask label { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.guide-ask > div { display: flex; align-items: center; gap: .4rem; }
+/* AI 입력칸: 테두리를 빛이 천천히 돈다(2026 AI 디자인 도구들의 입력칸처럼). */
+@property --guide-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.guide-ask-field { flex: 1; min-width: 0; display: flex; padding: 1.5px; border-radius: 999px;
+  background: conic-gradient(from var(--guide-angle), var(--accent), var(--series-b), var(--series-d), var(--accent)); animation: guide-spin 5s linear infinite;
+  box-shadow: 0 0 14px var(--guide-haze); }
+.guide-ask input { flex: 1; min-width: 0; padding: .55rem .9rem; border: 0; border-radius: 999px; color: var(--ink); font: inherit; font-size: .86rem; background: var(--surface); }
+.guide-ask input:focus { outline: none; }
+.guide-ask-field:focus-within { box-shadow: 0 0 20px var(--guide-glow); }
+@keyframes guide-spin { to { --guide-angle: 360deg; } }
+/* 등불이 비추는 자리: 나머지 화면을 살짝 어둡게 해 목적지만 밝힌다. */
+.guide-spot { position: absolute; z-index: 39; pointer-events: none; border-radius: 1.1rem; box-shadow: 0 0 0 200vmax var(--guide-dim);
+  transition: top .5s ease, left .5s ease, width .5s ease, height .5s ease; animation: guide-fade .5s ease-out both; }
+@keyframes guide-fade { from { opacity: 0; } }
+.guide-ask-go { width: 2.3rem; height: 2.3rem; flex: none; border: 0; border-radius: 50%; color: var(--on-accent); font: inherit; font-weight: 800; cursor: pointer;
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--accent) 60%, white), var(--accent) 60%); box-shadow: 0 0 14px var(--guide-glow); }
+.guide-ask-go:disabled { opacity: .45; box-shadow: none; cursor: default; }
+.guide-ask-ideas { display: flex; flex-wrap: wrap; gap: .3rem; }
+.guide-ask-ideas button { padding: .22rem .65rem; border: 0; border-radius: 999px; color: var(--accent); font: inherit; font-size: .74rem; font-weight: 700; cursor: pointer;
+  background: var(--accent-soft); transition: box-shadow .2s ease; }
+.guide-ask-ideas button:hover, .guide-ask-ideas button:focus-visible { outline: none; box-shadow: 0 0 12px var(--guide-glow); }
+.guide-asked { margin: 0; color: var(--muted); font-size: .82rem; }
+
+/* 등불 커서: 화살표 뒤를 따라오는 작은 빛. 누를 수 있는 곳 위에서는 동그랗게 커진다. */
+.lantern-cursor { position: fixed; top: 0; left: 0; z-index: 60; pointer-events: none; opacity: 0; transition: opacity .3s ease; }
+.lantern-cursor.is-on { opacity: 1; }
+.lantern-cursor i { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 70%, white) 0 25%, color-mix(in srgb, var(--accent) 55%, transparent) 55%, transparent 75%);
+  box-shadow: 0 0 14px 4px color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: width .25s ease, height .25s ease, margin .25s ease, background .25s ease, box-shadow .25s ease; }
+.lantern-cursor.is-over i { width: 42px; height: 42px; margin: -21px 0 0 -21px;
+  background: radial-gradient(circle, transparent 52%, color-mix(in srgb, var(--accent) 35%, transparent) 62%, transparent 74%);
+  box-shadow: 0 0 22px 6px color-mix(in srgb, var(--accent) 22%, transparent); }
+.lantern-cursor.is-press i { transform: scale(.75); }
+.lantern-cursor b { position: absolute; top: 14px; left: 16px; display: flex; align-items: center; gap: .3rem; padding: .18rem .6rem .18rem .2rem; border-radius: 999px; white-space: nowrap;
+  color: var(--on-accent); font-size: .74rem; font-weight: 800; background: var(--accent); box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 50%, transparent);
+  opacity: 0; transform: scale(.6) translateY(-4px); transform-origin: top left; transition: opacity .2s ease, transform .25s cubic-bezier(.3, 1.4, .5, 1); }
+.lantern-cursor b img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: #f4ede0; }
+.lantern-cursor.is-guide b { opacity: 1; transform: none; }
+@media (pointer: coarse), (prefers-reduced-motion: reduce) { .lantern-cursor { display: none; } }
+
+/* 완주 결산: 큰 글씨 한 줄씩(연말결산 카드처럼). */
+.guide-recap { display: grid; gap: .35rem; padding: .8rem .9rem; border-radius: 1rem;
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%), color-mix(in srgb, var(--paper) 60%, transparent); }
+.guide-recap-title { margin: 0 0 .2rem; color: var(--accent); font-size: .74rem; font-weight: 800; letter-spacing: .12em; }
+.guide-recap div { display: flex; align-items: baseline; gap: .6rem; animation: guide-rise .5s ease-out both; }
+.guide-recap div:nth-child(3) { animation-delay: .12s; } .guide-recap div:nth-child(4) { animation-delay: .24s; } .guide-recap div:nth-child(5) { animation-delay: .36s; }
+.guide-recap b { min-width: 4.2rem; font-size: 1.45rem; line-height: 1.15; letter-spacing: -.02em; color: var(--ink); text-shadow: 0 0 18px var(--guide-haze); }
+.guide-recap span { color: var(--muted); font-size: .8rem; }
+@media (prefers-reduced-motion: reduce) { .guide-recap div { animation: none; } }

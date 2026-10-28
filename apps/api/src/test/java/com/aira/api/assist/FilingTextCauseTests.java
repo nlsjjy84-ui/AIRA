@@ -29,4 +29,16 @@ class FilingTextCauseTests {
         assertEquals(false, top.contains(0), "accounting policy is not a reason");
         assertEquals(false, top.contains(1), "currency risk shares only the word 변동");
     }
+
+    @Test
+    void spokenWhyQuestionFindsTheReasonNotTheNewAccountingStandard() {
+        var passages = List.of(
+                "연결회사는 연결손익계산서에서 모든 수익과 비용을 영업활동, 투자활동, 재무활동, 중단영업 및 법인세의 다섯 개 범주로 분류해야 하며, 영업이익 중간합계를 표시해야 합니다.",
+                "연결회사는 새로운 회계기준이 연결회사의 연결손익계산서 구조 및 영업이익에 미치는 영향을 평가하고 있습니다.",
+                "2025년 영업이익은 메모리 판매 가격 상승과 HBM 판매 확대 영향으로 전년 대비 33.2% 증가하였습니다.");
+        var top = FilingText.rank(passages, "영업이익이 왜 늘었어?", 3);
+        assertEquals(2, top.get(0));
+        assertEquals(false, top.contains(0), "accounting standard text is not a reason");
+        assertEquals(false, top.contains(1), "accounting standard impact review is not a reason");
+    }
 }

@@ -18,6 +18,8 @@ import DataStatusPage from './DataStatusPage.jsx'
 import HomeMarketSummary from './HomeMarketSummary.jsx'
 import ClaimCheck from './ClaimCheck.jsx'
 import LandingPage from './LandingPage.jsx'
+import GuideOrb from './GuideOrb.jsx'
+import LanternCursor from './LanternCursor.jsx'
 import { HomePriceAlerts } from './PriceAlerts.jsx'
 import InterestFilings from './InterestFilings.jsx'
 import { searchEntities } from './api/canonicalApi.js'
@@ -855,6 +857,8 @@ export default function App() {
     </main>
     {session.user && settingsOpen && <RecoveryEmailSettings close={() => setSettingsOpen(false)} />}
     {routePath === '/privacy' && <footer><span>AIRA</span><p>개인정보와 이용자 보호 원칙</p></footer>}
+    <GuideOrb greet={!session.loading && (!session.user || isDemo)} />
+    <LanternCursor />
     {(authMode === 'login' || authMode === 'signup') && <AuthPanel mode={authMode} setMode={setAuthMode} close={() => setAuthMode(null)} authenticated={user => { setSession({ loading: false, user, error: null, notice: null }); setAuthMode(null) }} onDemo={startDemo} />}
     {(authMode === 'forgot' || authMode === 'reset' || authMode === 'recovery-confirm') && <RecoveryPanel mode={authMode} token={recoveryEntry.token} setMode={setAuthMode} close={() => setAuthMode(null)} completeLink={() => { setRecoveryEntry({ mode: null, token: '' }); window.history.replaceState({}, '', '/') }} />}
   </>

@@ -131,7 +131,11 @@ final class FilingText {
     static final List<String> GENERIC_WORDS = List.of("증가", "감소", "변동", "상승", "하락", "개선", "악화", "시장", "환경", "요인", "정책", "주요", "내용", "결정", "기준");
     /** 회계 처리 방법을 설명하는 문단(원인 설명이 아니다). */
     static final List<String> POLICY_MARKERS = List.of("회계정책", "인식하고", "인식합니다", "인식하며", "측정합니다", "측정하고", "기대값", "공정가치",
-            "손상검사", "추정치", "할인율", "기업회계기준서", "적용하고");
+            "손상검사", "추정치", "할인율", "기업회계기준서", "적용하고", "회계기준", "기준서", "범주로 분류", "공시 요건", "중간합계");
+    /** 말하듯 쓴 변화 표현을 공시에 쓰이는 낱말로 바꿔 함께 찾는다(「늘었어」 → 증가). */
+    static final List<String[]> SPOKEN_CHANGE = List.of(
+            new String[] {"늘", "증가"}, new String[] {"줄", "감소"}, new String[] {"올랐", "상승"}, new String[] {"오른", "상승"},
+            new String[] {"떨어", "하락"}, new String[] {"내렸", "하락"}, new String[] {"좋아", "개선"}, new String[] {"나빠", "악화"});
     static final List<String> COMPARE_MARKERS = List.of("전년", "전기 대비", "전년 동기", "대비");
 
     static List<Integer> rank(List<String> passages, String question, int top) {
@@ -139,6 +143,11 @@ final class FilingText {
         boolean causal = CAUSE_WORDS.stream().anyMatch(word -> question != null && question.contains(word));
         // 원인을 묻는 질문: "원인·이유" 같은 낱말은 원문에 잘 안 쓰이므로 빼고, 대신 원인을 말하는 표현이 있는 문단에 점수를 더 준다.
         if (causal) tokens.removeIf(token -> CAUSE_WORDS.stream().anyMatch(token::startsWith) || token.matches("\\d{4}년?|대비"));
+        if (causal) {
+            for (String[] pair : SPOKEN_CHANGE) {
+                if (tokens.removeIf(token -> token.startsWith(pair[0]))) tokens.add(pair[1]);
+            }
+        }
         if (tokens.isEmpty()) return List.of();
         List<String> subjects = tokens.stream().filter(t -> SUBJECT_WORDS.stream().anyMatch(t::contains)).toList();
         int need = causal ? 1 : tokens.size() >= 3 ? 2 : 1;
