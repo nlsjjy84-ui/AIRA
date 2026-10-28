@@ -186,6 +186,13 @@ export function placeName(path) {
   return '다른 화면'
 }
 
+/** 받침에 맞춰 '예요/이에요'를 붙인다(「조건 검색」이에요, 「시장 지도」예요). */
+export function iyeyo(word) {
+  const last = [...String(word)].reverse().find(ch => ch >= '가' && ch <= '힣')
+  if (!last) return `${word}예요`
+  return (last.charCodeAt(0) - 0xAC00) % 28 === 0 ? `${word}예요` : `${word}이에요`
+}
+
 export function hrefFor(step) {
   return step.v ? `${step.path}?v=${step.v}` : step.path
 }
@@ -207,7 +214,7 @@ export function fillInput(selector, value) {
   const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
   if (setter) setter.call(input, value); else input.value = value
   input.dispatchEvent(new Event('input', { bubbles: true }))
-  input.focus?.()
+  input.focus?.({ preventScroll: true })
   return true
 }
 
@@ -246,8 +253,10 @@ export function bubbleSide(target, box, vw, vh) {
 const EMPTY = { course: null, index: 0, open: false, done: [], log: {} }
 
 /** 완주 결산(Spotify Wrapped처럼 오늘 한 일을 큰 글씨로). */
-export function recap(done, log = {}) {
-  const lines = [{ big: `${done.filter(id => id !== 'entry').length}곳`, small: '불빛을 따라 들른 곳' }]
+export function recap(done, log = {}, course = null) {
+  // 코스 안의 걸음만 센다(평가자용 걸음이 같은 화면의 일반 걸음까지 본 것으로 쳐서 두 번 세지 않게).
+  const inCourse = course ? COURSES[course].zones.flatMap(zone => zone.ids) : done.filter(id => id !== 'entry')
+  const lines = [{ big: `${inCourse.filter(id => done.includes(id)).length}곳`, small: '불빛을 따라 들른 곳' }]
   if (log.verdict) lines.push({ big: `‘${log.verdict}’`, small: '들은 말을 공시로 확인한 판정' })
   if (log.quiz) lines.push({ big: log.quiz === 'right' ? '정답!' : '한 번 더', small: '이 회사 실제 숫자로 푼 퀴즈' })
   lines.push({ big: `${log.asks ?? 0}번`, small: '풍이에게 직접 물어본 질문' })
@@ -442,7 +451,7 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
         <div><strong>풍이와 결이</strong><small>{COURSES[state.course].name} 완주</small></div></header>
       <Lanterns course={state.course} current={null} done={state.done} />
       <div className="guide-recap" aria-label="오늘의 AIRA 길 결산"><p className="guide-recap-title">오늘의 AIRA 길 결산</p>
-        {recap(state.done, state.log).map(line => <div key={line.small}><b>{line.big}</b><span>{line.small}</span></div>)}</div>
+        {recap(state.done, state.log, state.course).map(line => <div key={line.small}><b>{line.big}</b><span>{line.small}</span></div>)}</div>
       <p className="guide-say">{judge ? '평가자용 코스 끝! 설계 원칙 114개와 자동 테스트 기록은 GitHub와 포트폴리오 PDF에 정리해 두었어요.'
         : short ? '3분 길 안내 끝! 핵심 네 곳을 다 들렀어요. 10분 자세히 코스가 열렸어요.' : '4구역을 모두 돌았어요! 이제 자유롭게 둘러보세요. 오른쪽 아래 풍이를 누르면 언제든 다시 안내해요.'}</p>
       <div className="guide-actions">
@@ -456,7 +465,7 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
     const speaker = SPEAKERS[step.who]
     const offRoute = !view.at
     const text = offRoute
-      ? `지금은 ${step.landing ? '다른 화면' : placeName(view.path)}에 계세요. 다음 목적지는 「${step.place}」예요.`
+      ? `지금은 ${step.landing ? '다른 화면' : placeName(view.path)}에 계세요. 다음 목적지는 ${iyeyo(`「${step.place}」`)}.`
       : view.reaction ?? (tried && step.after ? step.after : step.say)
     body = <>
       <header className="guide-who"><Face who={step.who} />

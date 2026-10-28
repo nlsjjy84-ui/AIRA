@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import GuideOrb, { bubbleSide, recap, COURSES, STEPS, courseIds, fillInput, isAt, placeName, SAMSUNG } from './GuideOrb.jsx'
+import GuideOrb, { bubbleSide, recap, COURSES, STEPS, courseIds, fillInput, isAt, iyeyo, placeName, SAMSUNG } from './GuideOrb.jsx'
 import { answerQuestion, findTerm, shorten } from './guideAsk.js'
 
 function page(html, path = '/') {
@@ -146,6 +146,10 @@ describe('완주 결산', () => {
     const lines = recap(['entry', 'claim', 'quiz'], { verdict: '다름', quiz: 'right', asks: 2 })
     expect(lines.map(l => l.big)).toEqual(['2곳', '‘다름’', '정답!', '2번'])
   })
+  it('평가자용 코스는 같은 화면으로 함께 체크된 일반 걸음을 두 번 세지 않는다', () => {
+    const done = ['entry', 'jClaim', 'claim', 'jQuote', 'quote', 'jAskAi', 'askAi', 'jScreen', 'screen', 'jStatus']
+    expect(recap(done, {}, 'judge')[0].big).toBe('5곳')
+  })
 })
 
 describe('말풍선 자리', () => {
@@ -191,5 +195,14 @@ describe('풍이에게 묻기 — 답 고르기', () => {
     expect((await answerQuestion('배당 얼마나 줘?', { route: noRoute, path: `/stock/${id}` })).href).toMatch(new RegExp(`^/stock/${id}`))
     expect((await answerQuestion('ㅎㅎㅎ', { route: noRoute, path: '/' })).href).toMatch(/v=ask\.find$/)
     expect(shorten('가'.repeat(200)).length).toBeLessThanOrEqual(121)
+  })
+})
+
+describe('받침에 맞춘 안내 말', () => {
+  it('받침이 있으면 이에요, 없으면 예요를 붙인다', () => {
+    expect(iyeyo('「조건 검색」')).toBe('「조건 검색」이에요')
+    expect(iyeyo('「분기 실적」')).toBe('「분기 실적」이에요')
+    expect(iyeyo('「시장 지도」')).toBe('「시장 지도」예요')
+    expect(iyeyo('「삼성전자 › 종목정보 › 한눈에」')).toBe('「삼성전자 › 종목정보 › 한눈에」예요')
   })
 })
