@@ -44,6 +44,14 @@ const ASSESSMENT_METHOD_LABELS = { RULE: '규칙 기반', AI: 'AI 기반', HYBRI
 
 export const DEMO_NICKNAME = '데모계정'
 const DEMO_READ_ONLY_NOTICE = '데모 계정은 읽기 전용이라 저장·변경은 되지 않습니다. 둘러보기와 AI 읽기 도움은 그대로 쓸 수 있어요.'
+/**
+ * 출시 전 정책: 랜딩을 지나 앱 화면에 들어온 방문자는 자동으로 공용 데모 계정(읽기 전용)에 들어간다.
+ * 서류·면접 평가자가 「시장 먼저 보기」나 바로가기 링크로 들어와도 주장 확인·AI 기능을 잠김 없이 다 써 보게 하려는 것.
+ * 방문자가 늘면 false로 바꾸면 원래대로(로그인 안내) 돌아간다. 운영 빌드에서만 켜지고, 테스트·개발 실행에서는 꺼져 있다.
+ */
+export const AUTO_DEMO_FOR_VISITORS = true
+/** 「데모 끝내기」·로그아웃을 누른 사람은 같은 탭에서 다시 자동 입장시키지 않는다. */
+const AUTO_DEMO_OPT_OUT_KEY = 'aira-auto-demo-off'
 
 function messageFor(error, subject) {
   if (error?.status === 423) return DEMO_READ_ONLY_NOTICE
@@ -398,6 +406,18 @@ export default function App() {
 
   useEffect(loadSession, [loadSession])
 
+  // 익명 방문자가 랜딩(/)이 아닌 앱 화면에 있으면 한 번만 데모로 자동 입장시킨다(AUTO_DEMO_FOR_VISITORS 참고).
+  const autoDemoTried = useRef(false)
+  useEffect(() => {
+    if (!AUTO_DEMO_FOR_VISITORS || !import.meta.env.PROD || autoDemoTried.current) return
+    if (session.loading || session.user || session.error || routePath === '/') return
+    let optedOut = false
+    try { optedOut = window.sessionStorage.getItem(AUTO_DEMO_OPT_OUT_KEY) === '1' } catch { optedOut = false }
+    if (optedOut) return
+    autoDemoTried.current = true
+    startDemo()
+  }, [session.loading, session.user, session.error, routePath]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadMarketIndices = useCallback(() => {
     const current = beginRequest('marketIndices')
     const controller = new AbortController()
@@ -579,6 +599,7 @@ export default function App() {
   }, [])
 
   async function performLogout() {
+    try { window.sessionStorage.setItem(AUTO_DEMO_OPT_OUT_KEY, '1') } catch { /* 저장소를 못 쓰면 자동 입장만 다시 될 뿐이다 */ }
     setSession(current => ({ ...current, loading: true, error: null }))
     try { await logout(); becomeAnonymous('로그아웃되었습니다. 공개 정보는 계속 볼 수 있습니다.') }
     catch (error) { setSession(current => ({ ...current, loading: false, error })) }

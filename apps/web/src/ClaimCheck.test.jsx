@@ -87,6 +87,20 @@ describe('claim check', () => {
     expect(screen.getByRole('button', { name: /맞는 말.*43\.6조/ })).toBeInTheDocument()
   })
 
+  it('check page before login: a guest can try it right away through the read-only demo account', async () => {
+    const order = []
+    const onNeedLogin = vi.fn(async () => { order.push('login'); return true })
+    vi.stubGlobal('fetch', vi.fn(async () => { order.push('check'); return ok({ method: 'AI', limitations: [], results: [
+      { claim: '매출 400조', verdict: 'MISMATCH', company: '삼성전자', item: '매출액', stated: '400조원', official: '333.61조 원' }] }) }))
+    render(<ClaimCheck loggedIn={false} onNeedLogin={onNeedLogin} />)
+    expect(screen.queryByText(/로그인하면/)).toBeNull()
+    expect(screen.getByText('로그인 없이 바로 써보기')).toBeInTheDocument()
+    expect(screen.getByText(/읽기 전용 데모 계정으로 바로 확인/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /매출이 400조/ }))
+    expect(await screen.findByText('다름')).toBeInTheDocument()
+    expect(order).toEqual(['login', 'check'])
+  })
+
   it('home hero says so when the demo account cannot be entered, and does not call the check', async () => {
     const fetchMock = vi.fn(async () => ok({ total: 0, mismatches: 0, byItem: [] }))
     vi.stubGlobal('fetch', fetchMock)

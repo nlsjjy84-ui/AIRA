@@ -53,7 +53,10 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
     return () => { alive = false }
   }, [hero])
 
-  if (!loggedIn && !hero) {
+  // 출시 전에는 로그인 없이도 "읽기 전용 데모 계정"으로 전체 기능을 체험하게 연다(광고 효과).
+  // 데모 진입 경로(onNeedLogin)가 주어진 화면(/check)에서만 열고, 그 경로가 없는 화면
+  // (종목 상세의 ask/claim, 회사 탐색)에서는 기존처럼 로그인 안내만 보여 준다.
+  if (!loggedIn && !hero && !onNeedLogin) {
     return <section className="claim-check claim-check-locked" aria-label="이 말, 사실이야?">
       <p className="eyebrow">이 말, 사실이야? · 선택 기능</p>
       <p className="ai-assist-lead">로그인하면 기사·리포트·커뮤니티 글을 붙여 넣고, 숫자로 확인할 수 있는 말이 공식 공시 값과 맞는지 볼 수 있습니다.</p>
@@ -79,9 +82,12 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
     }
   }
 
+  // 로그인은 안 했지만 데모로 바로 써볼 수 있는 상태(=/check 게스트). 이 경우 예시·안내를
+  // 보여 주고, 입력하거나 예시를 누르면 데모 계정으로 들어가 전체 기능을 그대로 쓴다.
+  const canDemo = !loggedIn && Boolean(onNeedLogin)
   const response = state.response
   return <section className={hero ? 'claim-check claim-check-hero' : 'claim-check'} aria-label="이 말, 사실이야?">
-    <p className="eyebrow">{hero ? '이 말, 사실이야?' : '이 말, 사실이야? · 선택 기능'}</p>
+    <p className="eyebrow">{hero ? '이 말, 사실이야?' : canDemo ? '로그인 없이 바로 써보기' : '이 말, 사실이야? · 선택 기능'}</p>
     <h2>{hero ? '들은 숫자, 공시와 맞을까요?' : '들은 말, 공식 숫자와 맞는지 확인해 보세요.'}</h2>
     {hero && stats && stats.total >= 10 && <p className="claim-stats" aria-label="최근 30일 사실 확인 통계">
       최근 30일 확인한 말 <b>{stats.total.toLocaleString('ko-KR')}</b>건 · 공식 값과 다름 <b className="down">{stats.mismatches.toLocaleString('ko-KR')}</b>건
@@ -91,7 +97,7 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
       <label htmlFor="claim-check-input">확인하고 싶은 말</label>
       <textarea id="claim-check-input" value={text} maxLength={600} rows={hero ? 2 : 3} onChange={event => setText(event.target.value)}
         placeholder={hero ? '유튜브·기사·단톡방에서 들은 말을 붙여 넣어 보세요.' : '예: 삼성전자는 작년 영업이익이 43.6조 원이라고 한다.'} />
-      {hero && <div className="claim-check-examples" aria-label="예시 문장">
+      {(hero || canDemo) && <div className="claim-check-examples" aria-label="예시 문장">
         <span>눌러서 바로 확인해 보기</span>
         {HERO_EXAMPLES.map(example => <button key={example.text} type="button" disabled={state.status === 'loading'}
           onClick={() => { setText(example.text); run(example.text) }}>
@@ -102,7 +108,7 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
         <span className="claim-check-count">{text.length}/600</span>
       </div>
     </form>
-    {hero && !loggedIn && state.status === 'idle' && <p className="ai-assist-note">가입하지 않아도 됩니다. 누르면 읽기 전용 데모 계정으로 바로 확인합니다.</p>}
+    {(hero || canDemo) && !loggedIn && state.status === 'idle' && <p className="ai-assist-note">가입하지 않아도 됩니다. 누르면 읽기 전용 데모 계정으로 바로 확인합니다.</p>}
     {state.status === 'login-error' && <p className="ai-assist-note" role="status">지금은 데모 계정에 들어갈 수 없습니다. 잠시 뒤 다시 시도해 주세요.</p>}
     {state.status === 'error' && <p className="ai-assist-note" role="status">사실 확인을 지금 사용할 수 없습니다. 잠시 뒤 다시 시도해 주세요.</p>}
     {response && response.results.length === 0 && <p className="ai-assist-note" role="status">{(response.limitations ?? []).slice(-1)[0] ?? '확인할 만한 말을 찾지 못했습니다.'}</p>}
