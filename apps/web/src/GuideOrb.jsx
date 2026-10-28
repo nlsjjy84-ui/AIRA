@@ -114,6 +114,41 @@ export const STEPS = {
   },
 }
 
+/** 평가자(면접관·선생님)용: 화면 기능보다 "AI를 어떻게 믿을 수 있게 만들었는지"를 보여 주는 다섯 곳. */
+const claimVerdictReaction = () => {
+  const verdict = textOf('.claim-check-hero .claim-check-verdict strong')
+  if (!verdict) return null
+  return `‘${verdict}’ 판정이에요. 이 판정은 AI가 아니라 서버가 사업보고서 공식 값·접수번호와 직접 비교해 낸 거예요. AI는 문장만 나눴어요.`
+}
+Object.assign(STEPS, {
+  jClaim: {
+    who: 'pung', place: '홈 · 이 말, 사실이야?', path: '/', target: nth('.claim-check-hero .claim-check-examples button', 1),
+    say: 'AI 판정을 그대로 믿지 않게 만든 곳이에요. 빛나는 「틀린 말」 예시를 눌러 보세요.',
+    after: 'AI는 문장만 나누고, 맞는지는 서버가 공식 값과 직접 비교해서 정해요.', react: claimVerdictReaction,
+  },
+  jQuote: {
+    who: 'pung', place: '삼성전자 › 확인 › 공시 원문에 묻기', path: SAMSUNG, v: 'ask.quote', target: formOf('#filing-quote-question'),
+    fill: { selector: '#filing-quote-question', value: '영업이익은 얼마인가요?' },
+    say: 'AI가 원문을 지어내지 못하게 막았어요. 「대신 적어 드릴게요」 다음 「원문에서 찾기」를 눌러 보세요.',
+    after: '보이는 인용은 서버가 원문과 글자 하나까지 같은지 확인한 것만이에요. 다르면 버리고 원문 문단을 그대로 보여 줘요.',
+  },
+  jAskAi: {
+    who: 'gyeol', place: '삼성전자 › 확인 › AI에게 묻기', path: SAMSUNG, v: 'ask.ai', target: withText('.stock-find .stock-range button', '매출은 늘고 있어?'),
+    say: 'AI 답 속 숫자를 서버가 검사해요. 「매출은 늘고 있어?」를 눌러 보세요.',
+    after: '답의 숫자가 아래 ‘참고한 자료’에 없으면 서버가 AI 답을 버리고 규칙 정리로 바꿔요. 사라·팔라는 말도 막아요.',
+  },
+  jScreen: {
+    who: 'pung', place: '조건 검색', path: '/screen', target: formOf('#screen-ai-q'),
+    fill: { selector: '#screen-ai-q', value: '영업이익률 10% 이상이고 부채비율 100% 이하인 회사' },
+    say: 'AI에게 일을 좁게 맡긴 예예요. 「대신 적어 드릴게요」 다음 「조건으로 바꾸기」를 눌러 보세요.',
+    after: 'AI는 정해진 조건으로 바꾸기만 하고, 회사를 고르는 계산은 서버가 공식 숫자로 해요.',
+  },
+  jStatus: {
+    who: 'gyeol', place: '자료 상태', path: '/status', target: one('#data-status-title'), look: true,
+    say: '공식 자료 세 곳(KRX·OpenDART·ECOS)을 하루 네 번 자동으로 모아요. 자료마다 기준일과 가져온 시각을 따로 보여 줘요.',
+  },
+})
+
 export const COURSES = {
   short: { name: '3분 간략', zones: [{ name: '핵심 네 곳', ids: ['claim', 'easy', 'quote', 'course'] }] },
   long: { name: '10분 자세히', zones: [
@@ -122,6 +157,7 @@ export const COURSES = {
     { name: '③ 회사 읽기', ids: ['easy', 'filingsChart', 'quarters', 'radar'] },
     { name: '④ 공부', ids: ['quiz', 'course', 'study', 'plans'] },
   ] },
+  judge: { name: '평가자용 빠른 코스', zones: [{ name: '기술 검증 다섯 곳', ids: ['jClaim', 'jQuote', 'jAskAi', 'jScreen', 'jStatus'] }] },
 }
 
 /** 코스의 걸음 순서. 맨 앞은 늘 입구(로그인돼 있으면 저절로 지나간다). */
@@ -144,6 +180,7 @@ export function placeName(path) {
   if (path === '/check') return '사실 확인'
   if (path === '/explore') return '길 찾기'
   if (path === '/classes') return '공부 반'
+  if (path === '/status') return '자료 상태'
   return '다른 화면'
 }
 
@@ -286,7 +323,7 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
       targetRef.current = el
       const rect = el ? docRect(el) : null
       const reaction = at && step.react ? step.react() : null
-      if (reaction && stepId === 'claim') { const verdict = textOf('.claim-check-hero .claim-check-verdict strong'); if (verdict) update(current => current.log?.verdict === verdict ? {} : { log: { ...current.log, verdict } }) }
+      if (reaction && (stepId === 'claim' || stepId === 'jClaim')) { const verdict = textOf('.claim-check-hero .claim-check-verdict strong'); if (verdict) update(current => current.log?.verdict === verdict ? {} : { log: { ...current.log, verdict } }) }
       if (reaction && stepId === 'quiz') { const quiz = textOf('.quiz-why strong').startsWith('⭕') ? 'right' : 'wrong'; update(current => current.log?.quiz === quiz ? {} : { log: { ...current.log, quiz } }) }
       // 말풍선이 목적지를 가리면 반대편(넓은 화면은 왼쪽, 좁은 화면은 위쪽)으로 비켜선다.
       const box = bubbleRef.current?.getBoundingClientRect?.()
@@ -379,26 +416,30 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
     body = <>
       <header className="guide-who"><span className="guide-faces"><Face who="pung" /><Face who="gyeol" /></span>
         <div><strong>풍이와 결이</strong><small>AIRA 길 안내</small></div></header>
-      <p className="guide-say">처음이세요? 저는 망원경으로 길을 내다보는 풍이, 이쪽은 배운 걸 보따리에 담는 결이예요. 불빛만 따라오세요.</p>
+      <p className="guide-say">처음이세요? 불빛을 따라 AIRA를 둘러보세요.</p>
       <div className="guide-actions is-choice">
         <button type="button" className="guide-glow" onClick={() => start('short')}>3분 간략<small>핵심 네 곳</small></button>
         <button type="button" className="guide-glow is-soft" onClick={() => start('long')}>10분 자세히<small>4구역 열세 곳</small></button>
+        <button type="button" className="guide-glow is-soft is-wide" onClick={() => start('judge')}>평가자용 빠른 코스<small>면접관·선생님께 · AI를 믿을 수 있게 만든 다섯 곳</small></button>
       </div>
       <button type="button" className="guide-link" onClick={() => update({ open: false })}>나중에 볼게요</button>
       <AskForm busy={asked.status === 'loading'} onAsk={onAsk} />
     </>
   } else if (state.open && finished) {
     const short = state.course === 'short'
+    const judge = state.course === 'judge'
     body = <>
       <header className="guide-who"><span className="guide-faces"><Face who="pung" /><Face who="gyeol" /></span>
         <div><strong>풍이와 결이</strong><small>{COURSES[state.course].name} 완주</small></div></header>
       <Lanterns course={state.course} current={null} done={state.done} />
       <div className="guide-recap" aria-label="오늘의 AIRA 길 결산"><p className="guide-recap-title">오늘의 AIRA 길 결산</p>
         {recap(state.done, state.log).map(line => <div key={line.small}><b>{line.big}</b><span>{line.small}</span></div>)}</div>
-      <p className="guide-say">{short ? '3분 길 안내 끝! 핵심 네 곳을 다 들렀어요. 10분 자세히 코스가 열렸어요.' : '4구역을 모두 돌았어요! 이제 자유롭게 둘러보세요. 오른쪽 아래 풍이를 누르면 언제든 다시 안내해요.'}</p>
+      <p className="guide-say">{judge ? '평가자용 코스 끝! 설계 원칙 114개와 자동 테스트 기록은 GitHub와 포트폴리오 PDF에 정리해 두었어요.'
+        : short ? '3분 길 안내 끝! 핵심 네 곳을 다 들렀어요. 10분 자세히 코스가 열렸어요.' : '4구역을 모두 돌았어요! 이제 자유롭게 둘러보세요. 오른쪽 아래 풍이를 누르면 언제든 다시 안내해요.'}</p>
       <div className="guide-actions">
-        {short && <button type="button" className="guide-glow" onClick={() => start('long')}>10분 자세히 이어 가기</button>}
-        <button type="button" className="guide-link" onClick={finish}>{short ? '여기까지 볼게요' : '안내 닫기'}</button>
+        {judge && <a className="guide-glow" href="https://github.com/nlsjjy84-ui/AIRA" target="_blank" rel="noreferrer">GitHub 열기</a>}
+        {(short || judge) && <button type="button" className={judge ? 'guide-glow is-soft' : 'guide-glow'} onClick={() => start(judge ? 'short' : 'long')}>{judge ? '화면 둘러보기(3분)' : '10분 자세히 이어 가기'}</button>}
+        <button type="button" className="guide-link" onClick={finish}>{short || judge ? '여기까지 볼게요' : '안내 닫기'}</button>
       </div>
       <AskForm busy={asked.status === 'loading'} onAsk={onAsk} />
     </>

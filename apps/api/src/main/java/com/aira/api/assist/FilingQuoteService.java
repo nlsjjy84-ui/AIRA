@@ -35,7 +35,8 @@ public class FilingQuoteService {
     private static final Logger log = LoggerFactory.getLogger(FilingQuoteService.class);
     static final int MAX_CALLS_PER_HOUR = 30;
     static final int MAX_QUOTE = 300;
-    static final int CACHE_SIZE = 20;
+    /** 문서 끝까지 읽게 되며 한 건이 커졌으므로(최대 300만 자) 메모리에 두는 문서 수를 줄인다. */
+    static final int CACHE_SIZE = 8;
     static final Duration CACHE_TTL = Duration.ofMinutes(10);
     static final List<String> CAUSAL = List.of("때문", "영향", "인해", "덕분", "탓", "원인", "초래", "비롯", "따라서", "그래서",
             "결과로", "because", "caused", "due to", "led to", "impact");

@@ -3078,6 +3078,8 @@ main.is-landing { max-width: none !important; margin: 0 !important; padding: 0 !
 .guide-hint { color: var(--accent); font-size: .84rem; font-weight: 700; }
 .guide-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; }
 .guide-actions.is-choice { display: grid; grid-template-columns: 1fr 1fr; }
+.guide-actions.is-choice .is-wide { grid-column: 1 / -1; }
+a.guide-glow { text-decoration: none; }
 .guide-links { display: flex; flex-wrap: wrap; gap: .2rem .9rem; }
 .guide-link { padding: .15rem 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: .8rem; cursor: pointer; }
 .guide-link:hover { color: var(--accent); text-shadow: 0 0 12px var(--guide-glow); }

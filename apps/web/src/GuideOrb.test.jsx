@@ -108,6 +108,26 @@ describe('풍이와 결이의 길 안내', () => {
   })
 })
 
+describe('평가자용 빠른 코스', () => {
+  it('면접관·선생님용으로 AI를 믿을 수 있게 만든 다섯 곳을 보여 주고, 끝에 GitHub를 연다', () => {
+    expect(COURSES.judge.zones[0].ids).toEqual(['jClaim', 'jQuote', 'jAskAi', 'jScreen', 'jStatus'])
+    for (const id of courseIds('judge')) {
+      expect(STEPS[id].say.length).toBeLessThanOrEqual(140)
+      if (STEPS[id].after) expect(STEPS[id].after.length).toBeLessThanOrEqual(140)
+    }
+    window.sessionStorage.setItem('aira-guide-v1', JSON.stringify({ course: null, index: 0, open: true, done: [] }))
+    page('<span class="session-user">데모</span>', '/')
+    const { unmount } = render(<GuideOrb tickMs={10_000} />)
+    fireEvent.click(screen.getByRole('button', { name: /평가자용 빠른 코스/ }))
+    expect(JSON.parse(window.sessionStorage.getItem('aira-guide-v1')).course).toBe('judge')
+    unmount()
+    window.sessionStorage.setItem('aira-guide-v1', JSON.stringify({ course: 'judge', index: 6, open: true, done: courseIds('judge') }))
+    render(<GuideOrb tickMs={10_000} />)
+    expect(screen.getByText(/평가자용 코스 끝!/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'GitHub 열기' })).toHaveAttribute('href', 'https://github.com/nlsjjy84-ui/AIRA')
+  })
+})
+
 describe('완주 결산', () => {
   it('들른 곳·판정·퀴즈·질문 수를 큰 글씨 한 줄씩 정리한다', () => {
     const lines = recap(['entry', 'claim', 'quiz'], { verdict: '다름', quiz: 'right', asks: 2 })

@@ -41,4 +41,18 @@ class FilingTextCauseTests {
         assertEquals(false, top.contains(0), "accounting standard text is not a reason");
         assertEquals(false, top.contains(1), "accounting standard impact review is not a reason");
     }
+
+    @Test
+    void readsToTheEndOfLongReportsAndSkipsTableHeadersForWhyQuestions() {
+        var passages = new java.util.ArrayList<String>();
+        passages.add("2025년(제57기) 영업이익은 DX 부문이 12조 8,527억원, DS 부문이 24조 8,581억원입니다.");
+        passages.add("영업이익(손실)");
+        for (int i = 0; i < 7000; i++) passages.add("연결대상 종속기업 현황 표의 " + i + "번째 줄입니다.");
+        passages.add("제57기 당사 매출액은 전년 대비 32조 7,350억원(10.9%) 증가하였으며, 영업이익은 전년 대비 10조 8,751억원(33.2%) 증가한 43조 6,011억원을 기록하였습니다.");
+        var top = FilingText.rank(passages, "영업이익이 왜 늘었어?", 3);
+        assertEquals(passages.size() - 1, top.get(0));
+        assertEquals(false, top.contains(1), "a table header is not a reason");
+        var plain = String.join("\n", passages);
+        assertEquals(passages.size(), FilingText.passages(plain).size(), "a long report is read to the end");
+    }
 }

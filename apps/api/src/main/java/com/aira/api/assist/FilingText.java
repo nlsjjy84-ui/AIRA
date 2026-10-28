@@ -12,7 +12,8 @@ import java.util.regex.Pattern;
 /** Pure text helpers for filing quotes: plain text, passages, ranking, verbatim checks, diff. No I/O. */
 final class FilingText {
     static final int MAX_PASSAGE = 400;
-    static final int MAX_PASSAGES = 6000;
+    /** 사업보고서는 길어서(삼성전자는 「경영진단 및 분석의견」이 문서 뒤쪽 5MB 지점) 문서 끝까지 읽는다. 전체 글자 수는 원문 읽기에서 300만 자로 막는다. */
+    static final int MAX_PASSAGES = 40000;
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
     private static final Pattern ROW_END = Pattern.compile("(?i)</(?:tr|p|div|li|table|title|h[1-6])\\s*>|<br\\s*/?>");
     private static final Pattern CELL_END = Pattern.compile("(?i)</(?:td|th|te|tu)\\s*>");
@@ -160,6 +161,7 @@ final class FilingText {
                 if (score >= need) scored.add(new int[] {i, score});
                 continue;
             }
+            if (passages.get(i).length() < 20) continue; // 「영업이익(손실)」 같은 표 머리글은 원인 설명이 아니다.
             int hits = 0;
             boolean subjectHit = subjects.isEmpty();
             for (String token : tokens) {
