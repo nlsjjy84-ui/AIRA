@@ -184,10 +184,31 @@ final class FilingText {
             if (lower.contains("전년 대비") && CHANGE_WORDS.stream().anyMatch(lower::contains)) score += 3;
             if (score >= 3) scored.add(new int[] {i, score});
         }
-        scored.sort(Comparator.<int[]>comparingInt(item -> -item[1]).thenComparingInt(item -> item[0]));
+        if (causal) {
+            // 점수가 같으면 전년 대비 변화 금액이 큰 문단부터(「왜 늘었어?」에 가장 크게 늘어난 부문이 먼저 오게)
+            scored.sort(Comparator.<int[]>comparingInt(item -> -item[1])
+                    .thenComparingLong(item -> -changeAmount(passages.get(item[0])))
+                    .thenComparingInt(item -> item[0]));
+        } else {
+            scored.sort(Comparator.<int[]>comparingInt(item -> -item[1]).thenComparingInt(item -> item[0]));
+        }
         List<Integer> out = new ArrayList<>();
         for (int i = 0; i < Math.min(top, scored.size()); i++) out.add(scored.get(i)[0]);
         return out;
+    }
+
+    private static final Pattern CHANGE_AMOUNT = Pattern.compile("전년\\s*(?:동기\\s*)?대비\\s*(?:([0-9][0-9,]*)\\s*조)?\\s*(?:([0-9][0-9,]*)\\s*억)?");
+
+    /** 문단에 처음 나오는 「전년 대비 ○조 ○억원」 금액(억 원 단위). 없으면 0. */
+    static long changeAmount(String passage) {
+        if (passage == null) return 0;
+        Matcher m = CHANGE_AMOUNT.matcher(passage);
+        while (m.find()) {
+            long jo = m.group(1) == null ? 0 : Long.parseLong(m.group(1).replace(",", ""));
+            long eok = m.group(2) == null ? 0 : Long.parseLong(m.group(2).replace(",", ""));
+            if (jo > 0 || eok > 0) return jo * 10_000 + eok;
+        }
+        return 0;
     }
 
     static String normalize(String text) {

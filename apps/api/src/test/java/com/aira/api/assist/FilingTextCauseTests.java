@@ -66,4 +66,16 @@ class FilingTextCauseTests {
         assertEquals(false, top.contains(0), "a bonus reason is not why the company earned more");
         assertEquals(true, top.indexOf(1) >= 0 && top.indexOf(2) >= 0);
     }
+
+    @Test
+    void theSegmentThatGrewTheMostComesFirst() {
+        var passages = List.of(
+                "DX 부문의 제57기 매출은 187조 9,673억원으로 전년 대비 13조 0,797억원(7.5%) 증가하였으며, 영업이익은 12조 8,527억원으로 전년 대비 4,128억원(3.3%) 증가하였습니다.",
+                "SDC의 제57기 매출은 29조 8,417억원으로 전년 대비 6,838억원(5.9%) 증가하였으며, 영업이익은 4조 1,163억원으로 전년 대비 3,829억원(10.3%) 증가하였습니다.",
+                "(DS 부문) DS 부문의 제57기 매출은 130조 1,282억원으로 전년 대비 19조 0,622억원(17.2%) 증가하였으며, 영업이익은 24조 8,581억원으로 전년 대비 9조 7,636억원 증가하였습니다.");
+        assertEquals(97_636L, FilingText.changeAmount("영업이익은 전년 대비 9조 7,636억원 증가"));
+        assertEquals(4_128L, FilingText.changeAmount("영업이익은 전년 대비 4,128억원(3.3%) 증가"));
+        var top = FilingText.rank(passages, "영업이익이 왜 늘었어?", 3);
+        assertEquals(2, top.get(0), "DS grew the most");
+    }
 }
