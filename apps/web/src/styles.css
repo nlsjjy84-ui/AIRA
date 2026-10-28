@@ -3066,6 +3066,7 @@ main.is-landing { max-width: none !important; margin: 0 !important; padding: 0 !
   box-shadow: 0 0 0 1px var(--guide-haze), 0 0 40px var(--guide-haze), 0 18px 44px rgb(0 0 0 / .3); animation: guide-rise .35s ease-out both; }
 .guide-bubble.is-left { right: auto; left: 1rem; }
 .guide-bubble.is-top { bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 4.5rem); }
+.guide-bubble.is-top.is-left { right: auto; left: 1rem; }
 .guide-root.on-landing .guide-bubble { bottom: calc(env(safe-area-inset-bottom, 0px) + 18px + 6.8rem); right: clamp(14px, 2.4vw, 36px); }
 .guide-who { display: flex; align-items: center; gap: .65rem; }
 .guide-who > div { display: grid; min-width: 0; flex: 1; line-height: 1.3; }

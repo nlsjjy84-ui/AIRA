@@ -55,4 +55,15 @@ class FilingTextCauseTests {
         var plain = String.join("\n", passages);
         assertEquals(passages.size(), FilingText.passages(plain).size(), "a long report is read to the end");
     }
+
+    @Test
+    void whyQuestionsPreferTheBusinessAnalysisOverExecutiveBonusReasons() {
+        var passages = List.of(
+                "글로벌 브랜드를 공고히 하는 한편 온라인 판매를 확대하였고, 영업이익 증가 등 실적에 기여 중인 점을 고려하여 상여금 산정",
+                "제57기 당사 매출액은 전년 대비 32조 7,350억원(10.9%) 증가하였으며, 영업이익은 전년 대비 10조 8,751억원(33.2%) 증가한 43조 6,011억원을 기록하였습니다.",
+                "(DS 부문) DS 부문의 제57기 매출은 130조 1,282억원으로 전년 대비 19조 0,622억원(17.2%) 증가하였으며, 영업이익은 24조 8,581억원으로 전년 대비 9조 7,636억원 증가하였습니다.");
+        var top = FilingText.rank(passages, "영업이익이 왜 늘었어?", 3);
+        assertEquals(false, top.contains(0), "a bonus reason is not why the company earned more");
+        assertEquals(true, top.indexOf(1) >= 0 && top.indexOf(2) >= 0);
+    }
 }

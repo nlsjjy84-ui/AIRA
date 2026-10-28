@@ -59,9 +59,8 @@ export const STEPS = {
     after: 'AI가 참고한 자료가 아래에 다 나와요. 자료에 없는 숫자가 섞이면 AI 답을 버리고 규칙으로 정리해요.',
   },
   market: {
-    who: 'pung', place: '시장 지도', path: '/market', target: one('svg[aria-label^="업종별 시장 지도"]'),
-    say: '시장 전체를 한 장으로 볼게요. 칸 크기는 시가총액, 색은 등락률이에요. 칸 하나를 눌러 보세요.',
-    after: '큰 칸이 시장을 움직이는 회사예요. 모두 한국거래소 공식 종가로 그렸어요.',
+    who: 'pung', place: '시장 지도', path: '/market', target: one('svg[aria-label^="업종별 시장 지도"]'), look: true,
+    say: '시장 전체를 한 장으로 봐요. 칸 크기는 시가총액, 색은 등락률이에요. 큰 칸이 시장을 움직이는 회사이고, 모두 한국거래소 공식 종가예요.',
   },
   screen: {
     who: 'pung', place: '조건 검색', path: '/screen', target: formOf('#screen-ai-q'),
@@ -149,6 +148,9 @@ Object.assign(STEPS, {
   },
 })
 
+/** 평가자용 걸음을 마치면 같은 화면의 일반 걸음도 본 것으로 친다(10분 코스로 이어 갈 때 같은 화면을 다시 보여 주지 않게). */
+export const SAME_PLACE = { jClaim: 'claim', jQuote: 'quote', jAskAi: 'askAi', jScreen: 'screen' }
+
 export const COURSES = {
   short: { name: '3분 간략', zones: [{ name: '핵심 네 곳', ids: ['claim', 'easy', 'quote', 'course'] }] },
   long: { name: '10분 자세히', zones: [
@@ -232,11 +234,13 @@ function docRect(el) {
 export function bubbleSide(target, box, vw, vh) {
   const hits = r => target.left < r.right && target.right > r.left && target.top < r.bottom && target.bottom > r.top
   const w = box.width, h = box.height
-  const home = { left: vw - 16 - w, right: vw - 16, top: vh - 74 - h, bottom: vh - 74 }
-  if (!hits(home)) return ''
-  const wide = vw > 720
-  const other = wide ? { left: 16, right: 16 + w, top: home.top, bottom: home.bottom } : { left: 12, right: 12 + w, top: 72, bottom: 72 + h }
-  return hits(other) ? '' : (wide ? 'is-left' : 'is-top')
+  const bottom = { top: vh - 74 - h, bottom: vh - 74 }
+  const top = { top: 72, bottom: 72 + h }
+  const right = { left: vw - 16 - w, right: vw - 16 }
+  const left = { left: 16, right: 16 + w }
+  // 기본 자리(오른쪽 아래)부터, 목적지를 가리지 않는 첫 자리를 고른다. 모두 가리면 기본 자리.
+  const spots = [['', { ...right, ...bottom }], ['is-left', { ...left, ...bottom }], ['is-top', { ...right, ...top }], ['is-top is-left', { ...left, ...top }]]
+  return (spots.find(([, spot]) => !hits(spot)) ?? spots[0])[0]
 }
 
 const EMPTY = { course: null, index: 0, open: false, done: [], log: {} }
@@ -338,7 +342,11 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
       const key = `${state.course}:${state.index}`
       if (el && scrolledFor.current !== key) {
         scrolledFor.current = key
-        el.scrollIntoView?.({ block: 'center', behavior: 'smooth' })
+        // 목적지를 화면 위쪽 1/5쯤에 두어, 아래쪽 말풍선이 목적지를 가리지 않게 한다.
+        const r = el.getBoundingClientRect()
+        const y = Math.max(0, window.scrollY + r.top - window.innerHeight * 0.2)
+        if (typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)) el.scrollIntoView?.({ block: 'center' })
+        else window.scrollTo({ top: y, behavior: 'smooth' })
       }
     }
     tick()
@@ -363,7 +371,8 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
   function next() {
     update(current => {
       const list = courseIds(current.course)
-      const done = [...new Set([...current.done, list[current.index]])]
+      const id = list[current.index]
+      const done = [...new Set([...current.done, id, ...(SAME_PLACE[id] ? [SAME_PLACE[id]] : [])])]
       let index = current.index + 1
       while (index < list.length && done.includes(list[index])) index += 1
       return { index, done }
@@ -420,7 +429,7 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
       <div className="guide-actions is-choice">
         <button type="button" className="guide-glow" onClick={() => start('short')}>3분 간략<small>핵심 네 곳</small></button>
         <button type="button" className="guide-glow is-soft" onClick={() => start('long')}>10분 자세히<small>4구역 열세 곳</small></button>
-        <button type="button" className="guide-glow is-soft is-wide" onClick={() => start('judge')}>평가자용 빠른 코스<small>면접관·선생님께 · AI를 믿을 수 있게 만든 다섯 곳</small></button>
+        <button type="button" className="guide-glow is-soft is-wide" onClick={() => start('judge')}>평가자용 빠른 코스<small>5분 · 면접관·선생님께 · AI를 믿을 수 있게 만든 다섯 곳</small></button>
       </div>
       <button type="button" className="guide-link" onClick={() => update({ open: false })}>나중에 볼게요</button>
       <AskForm busy={asked.status === 'loading'} onAsk={onAsk} />
@@ -438,7 +447,7 @@ export default function GuideOrb({ greet = false, navigate = url => window.locat
         : short ? '3분 길 안내 끝! 핵심 네 곳을 다 들렀어요. 10분 자세히 코스가 열렸어요.' : '4구역을 모두 돌았어요! 이제 자유롭게 둘러보세요. 오른쪽 아래 풍이를 누르면 언제든 다시 안내해요.'}</p>
       <div className="guide-actions">
         {judge && <a className="guide-glow" href="https://github.com/nlsjjy84-ui/AIRA" target="_blank" rel="noreferrer">GitHub 열기</a>}
-        {(short || judge) && <button type="button" className={judge ? 'guide-glow is-soft' : 'guide-glow'} onClick={() => start(judge ? 'short' : 'long')}>{judge ? '화면 둘러보기(3분)' : '10분 자세히 이어 가기'}</button>}
+        {(short || judge) && <button type="button" className={judge ? 'guide-glow is-soft' : 'guide-glow'} onClick={() => start('long')}>{judge ? '나머지 기능 이어 보기(10분 코스)' : '10분 자세히 이어 가기'}</button>}
         <button type="button" className="guide-link" onClick={finish}>{short || judge ? '여기까지 볼게요' : '안내 닫기'}</button>
       </div>
       <AskForm busy={asked.status === 'loading'} onAsk={onAsk} />

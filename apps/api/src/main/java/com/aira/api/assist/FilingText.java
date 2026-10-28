@@ -138,6 +138,10 @@ final class FilingText {
             new String[] {"늘", "증가"}, new String[] {"줄", "감소"}, new String[] {"올랐", "상승"}, new String[] {"오른", "상승"},
             new String[] {"떨어", "하락"}, new String[] {"내렸", "하락"}, new String[] {"좋아", "개선"}, new String[] {"나빠", "악화"});
     static final List<String> COMPARE_MARKERS = List.of("전년", "전기 대비", "전년 동기", "대비");
+    /** 임원 보수·상여 산정 이유 문단. 실적을 칭찬하는 말이 많아 원인 설명처럼 보이지만, 회사 실적의 원인 설명이 아니다. */
+    static final List<String> COMPENSATION_MARKERS = List.of("상여금", "상여 ", "성과급", "보수 산정", "급여 산정", "보수총액", "산정하였", "산정 기준");
+    /** 「경영진단 및 분석의견」처럼 실적 변화를 숫자로 설명하는 문장(전년 대비 + 증가/감소). */
+    static final List<String> CHANGE_WORDS = List.of("증가", "감소", "늘어", "줄어");
 
     static List<Integer> rank(List<String> passages, String question, int top) {
         List<String> tokens = new ArrayList<>(questionTokens(question));
@@ -176,6 +180,8 @@ final class FilingText {
             score += (int) Math.min(3, markers) * 2;
             if (COMPARE_MARKERS.stream().anyMatch(lower::contains)) score += 1;
             if (POLICY_MARKERS.stream().anyMatch(lower::contains)) score -= 6;
+            if (COMPENSATION_MARKERS.stream().anyMatch(lower::contains)) score -= 8;
+            if (lower.contains("전년 대비") && CHANGE_WORDS.stream().anyMatch(lower::contains)) score += 3;
             if (score >= 3) scored.add(new int[] {i, score});
         }
         scored.sort(Comparator.<int[]>comparingInt(item -> -item[1]).thenComparingInt(item -> item[0]));

@@ -126,6 +126,19 @@ describe('평가자용 빠른 코스', () => {
     expect(screen.getByText(/평가자용 코스 끝!/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'GitHub 열기' })).toHaveAttribute('href', 'https://github.com/nlsjjy84-ui/AIRA')
   })
+
+  it('평가자용을 마치고 10분 코스로 이어 가면 이미 본 네 곳은 건너뛴다', () => {
+    window.sessionStorage.setItem('aira-guide-v1', JSON.stringify({ course: 'judge', index: 5, open: true, done: ['entry', 'jClaim', 'jQuote', 'jAskAi', 'jScreen', 'claim', 'quote', 'askAi', 'screen'] }))
+    page('<span class="session-user">데모</span><h1 id="data-status-title">AIRA 자료는 지금 어디까지</h1>', '/status')
+    render(<GuideOrb tickMs={10_000} />)
+    fireEvent.click(screen.getByRole('button', { name: '다음' }))
+    fireEvent.click(screen.getByRole('button', { name: '나머지 기능 이어 보기(10분 코스)' }))
+    const saved = JSON.parse(window.sessionStorage.getItem('aira-guide-v1'))
+    expect(saved.course).toBe('long')
+    expect(courseIds('long')[saved.index]).toBe('market')
+    const left = courseIds('long').filter(id => !saved.done.includes(id))
+    expect(left).toHaveLength(9)
+  })
 })
 
 describe('완주 결산', () => {
@@ -141,6 +154,8 @@ describe('말풍선 자리', () => {
     expect(bubbleSide({ left: 100, right: 300, top: 100, bottom: 160 }, box, 1366, 820)).toBe('')
     expect(bubbleSide({ left: 1090, right: 1260, top: 600, bottom: 660 }, box, 1366, 820)).toBe('is-left')
     expect(bubbleSide({ left: 40, right: 300, top: 600, bottom: 660 }, box, 390, 844)).toBe('is-top')
+    // 화면 폭 전체를 차지하는 목적지가 아래쪽에 있으면 위로 비켜선다(조건 검색 입력칸).
+    expect(bubbleSide({ left: 90, right: 1280, top: 500, bottom: 620 }, box, 1366, 820)).toBe('is-top')
   })
 })
 
