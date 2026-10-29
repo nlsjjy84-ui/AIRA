@@ -215,7 +215,12 @@
       for (const e of document.elementsFromPoint(px, py)) {
         if (e.closest && e.closest('.aig,.aig-launch-wrap')) continue;
         if (e === document.body || e === document.documentElement) return 0;
-        if (/^(IMG|CANVAS|SVG|VIDEO|INPUT|TEXTAREA|BUTTON|SELECT|PATH|CIRCLE|RECT|TEXT)$/i.test(e.tagName)) return 1;
+        if (/^(IMG|CANVAS|SVG|VIDEO|INPUT|TEXTAREA|BUTTON|SELECT|PATH|CIRCLE|RECT|TEXT)$/i.test(e.tagName)) {
+          // 화면 전체를 덮는 배경 그림(3D 첫 화면·바탕 무늬)은 빈자리로 본다 — 그 위 글자만 피한다
+          const br = e.getBoundingClientRect();
+          if (/^(CANVAS|IMG|VIDEO|SVG)$/i.test(e.tagName) && br.width * br.height > innerWidth * innerHeight * .45) continue;
+          return 1;
+        }
         for (const n of e.childNodes) if (n.nodeType === 3 && n.textContent.trim()) return 1;
       }
       return 0;
@@ -230,12 +235,22 @@
         { x: r.x + r.w + 18, y: r.cy - h / 2 }, { x: r.x, y: r.y + r.h + 14 }, { x: r.x, y: r.y - 14 - h }, { x: r.x - 18 - w, y: r.cy - h / 2 },
         { x: r.x + r.w - w, y: r.y + r.h + 14 }, { x: r.x + r.w - w, y: r.y - 14 - h }, { x: innerWidth - w - 20, y: dockY },
       ].map(fit);
+      const hits = (p) => p.x < r.x + r.w + 6 && p.x + w > r.x - 6 && p.y < r.y + r.h + 6 && p.y + h > r.y - 34; // 꺾쇠 위 이름표 자리까지 비운다
       let best = null;
       c.forEach((p, i) => {
-        const hitsAnchor = p.x < r.x + r.w + 6 && p.x + w > r.x - 6 && p.y < r.y + r.h + 6 && p.y + h > r.y - 34; // 꺾쇠 위 이름표 자리까지 비운다
-        const score = crowd(p.x, p.y, w, h) * 10 + (hitsAnchor ? 500 : 0) + i; // 같으면 버튼 가까운 자리부터
+        const score = crowd(p.x, p.y, w, h) * 10 + (hits(p) ? 500 : 0) + i; // 같으면 버튼 가까운 자리부터
         if (!best || score < best.score) best = { ...p, score };
       });
+      if (best.score < 10) return best;
+      // 둘레가 다 차 있으면 버튼에서 가까운 순으로 화면을 넓게 훑어 글자가 없는 자리를 찾는다
+      const coarse = (x, y) => { let n = 0; for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) n += contentAt(x + w * (i + .5) / 4, y + h * (j + .5) / 2); return n; };
+      const grid = [];
+      for (let y = 10; y <= innerHeight - h - 50; y += 36) for (let x = 10; x <= innerWidth - w - 10; x += 48) {
+        const d = Math.hypot(x + w / 2 - r.cx, y + h / 2 - r.cy); if (d > 620) continue;
+        const p = { x, y }; if (hits(p)) continue; grid.push({ ...p, d });
+      }
+      grid.sort((a, b) => a.d - b.d);
+      for (const p of grid.slice(0, 260)) { if (coarse(p.x, p.y)) continue; const sc = crowd(p.x, p.y, w, h) * 10 + p.d / 60; if (sc < best.score) best = { x: p.x, y: p.y, score: sc }; if (sc < 4) break; }
       return best;
     }
     const hudEl = $('.hud');
