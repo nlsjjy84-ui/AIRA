@@ -232,7 +232,7 @@
       ].map(fit);
       let best = null;
       c.forEach((p, i) => {
-        const hitsAnchor = p.x < r.x + r.w && p.x + w > r.x && p.y < r.y + r.h && p.y + h > r.y;
+        const hitsAnchor = p.x < r.x + r.w + 6 && p.x + w > r.x - 6 && p.y < r.y + r.h + 6 && p.y + h > r.y - 34; // 꺾쇠 위 이름표 자리까지 비운다
         const score = crowd(p.x, p.y, w, h) * 10 + (hitsAnchor ? 500 : 0) + i; // 같으면 버튼 가까운 자리부터
         if (!best || score < best.score) best = { ...p, score };
       });
