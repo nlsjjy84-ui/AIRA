@@ -236,8 +236,8 @@ export default function AiGuide({ greet = false, menus = [], navigate = url => w
   return createPortal(<div className="aig-launch-wrap">
     {menuOpen && <div className="aig-menu" role="dialog" aria-label="AIRA 길 안내">
       <p className="aig-menu-q">처음이세요? AIRA를 둘러볼까요?</p>
-      <button type="button" className="aig-menu-quiet" onClick={() => { setQuiet(true); setMenuOpen(false); guideRef.current?.speak?.('설명은 끌게요. 마음대로 둘러보세요. 다시 보고 싶으면 오른쪽 위 「✦ 데모 길 안내 켜기」를 누르세요.', { kicker: 'AIRA AI' }) }}>설명 없이 둘러볼게요<small>설명 글은 끄고 바로 써 보기</small></button>
       <button type="button" onClick={() => choose(TOUR)}>데모 둘러보기<small>처음부터 끝까지 같이 걸어요 · 언제든 그만 볼 수 있어요</small></button>
+      <button type="button" className="aig-menu-quiet" onClick={() => { setQuiet(true); setMenuOpen(false); guideRef.current?.speak?.('설명은 끌게요. 마음대로 둘러보세요. 다시 보고 싶으면 오른쪽 위 「✦ 데모 길 안내 켜기」를 누르세요.', { kicker: 'AIRA AI' }) }}>설명 없이 둘러볼게요<small>설명 글은 끄고 바로 써 보기</small></button>
       <form className="aig-ask" onSubmit={onAsk}>
         <label htmlFor="aig-ask-input">AI에게 길 묻기</label>
         <input id="aig-ask-input" value={asking.text} maxLength={120} disabled={asking.busy} onChange={event => setAsking({ text: event.target.value, busy: false })} placeholder="예: 배당은 어디서 봐? · PER이 뭐야?" />

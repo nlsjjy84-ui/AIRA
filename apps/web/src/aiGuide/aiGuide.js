@@ -110,7 +110,8 @@
     const cb = { x: 0, y: 0, w: 30, h: 30, rot: 0 }; let press = 0;
     addEventListener('mousemove', (e) => { mouse = { x: e.clientX, y: e.clientY }; if (CUR) cdot.style.transform = `translate(${e.clientX}px,${e.clientY}px)`; }, { passive: true });
     addEventListener('mousedown', () => { press = 1; }, true); addEventListener('mouseup', () => { press = 0; }, true);
-    const clickable = (el) => el && el.closest && el.closest('a[href],button,[role=button],[role=tab],select,summary,label,input[type=button],input[type=submit],input[type=checkbox],input[type=radio],[onclick]');
+    const CLICK_SEL = 'a[href],button,[role=button],[role=tab],select,summary,label,input[type=button],input[type=submit],input[type=checkbox],input[type=radio],[onclick]' + (opt.clickSel ? ',' + opt.clickSel : '');
+    const clickable = (el) => el && el.closest && el.closest(CLICK_SEL);
     const typeable = (el) => el && el.closest && el.closest('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]),textarea,[contenteditable=true]');
     addEventListener('pointerdown', (e) => { if (!e.target.closest('.aig')) spark(e.clientX, e.clientY); }, true);
     $('.hud .x').onclick = () => (opt.onQuit ? (opt.onQuit(), say.classList.remove('on')) : stop());
@@ -195,11 +196,10 @@
       let x, y;
       if (anchor) {
         const r = R(anchor);
-        // 버튼 오른쪽 → 아래 → 위 → 왼쪽 순으로 빈자리를 찾는다(버튼과 화면을 가리지 않게)
-        if (r.x + r.w + 18 + w < innerWidth - 10) { x = r.x + r.w + 18; y = r.cy - h / 2; }
-        else if (r.y + r.h + 14 + h < innerHeight - 50) { x = r.x; y = r.y + r.h + 14; }
-        else if (r.y - 14 - h > 10) { x = r.x; y = r.y - 14 - h; }
-        else { x = r.x - 18 - w; y = r.cy - h / 2; }
+        // 자리는 버튼이 바뀌거나 화면이 움직일 때만 다시 고른다(매 장면마다 고르면 무겁다)
+        const key = anchor === slot.a && Math.abs(r.x - slot.rx) < 2 && Math.abs(r.y - slot.ry) < 2 && Math.abs(w - slot.w) < 4 && Math.abs(h - slot.h) < 4;
+        if (!key || ++slot.n > 90) { const p = pickSlot(r, w, h); Object.assign(slot, { a: anchor, rx: r.x, ry: r.y, w, h, n: 0, x: p.x, y: p.y }); }
+        x = slot.x; y = slot.y;
       } else { x = pos.x + 22; y = pos.y + 18; }
       x = Math.max(10, Math.min(innerWidth - w - 10, x)); y = Math.max(10, Math.min(innerHeight - h - 50, y));
       if (++inkTick % 20 === 0) { const dark = isLightAt(x + w / 2, y + h / 2); say.classList.toggle('ink-dark', dark); }
@@ -207,6 +207,37 @@
       say.style.transform = `translate(${sx}px,${sy}px)`;
     }
     let sx = null, sy = null, inkTick = 0; const R2 = (a, b) => a + (b - a) * .25;
+    const slot = { a: null, n: 0 };
+    // 그 자리에 화면 글자·그림·입력칸이 있는지(설명 글이 겹치면 안 된다)
+    function contentAt(px, py) {
+      if (px < 4 || py < 4 || px > innerWidth - 4 || py > innerHeight - 4) return 3;
+      if (!document.elementsFromPoint) return 0;
+      for (const e of document.elementsFromPoint(px, py)) {
+        if (e.closest && e.closest('.aig,.aig-launch-wrap')) continue;
+        if (e === document.body || e === document.documentElement) return 0;
+        if (/^(IMG|CANVAS|SVG|VIDEO|INPUT|TEXTAREA|BUTTON|SELECT|PATH|CIRCLE|RECT|TEXT)$/i.test(e.tagName)) return 1;
+        for (const n of e.childNodes) if (n.nodeType === 3 && n.textContent.trim()) return 1;
+      }
+      return 0;
+    }
+    function crowd(x, y, w, h) { let n = 0; for (let i = 0; i < 8; i++) for (let j = 0; j < 4; j++) n += contentAt(x + w * (i + .5) / 8, y + h * (j + .5) / 4); return n; }
+    // 버튼 오른쪽·아래·위·왼쪽·오른쪽 위(위치 표시 아래) 가운데 글자가 가장 적은 빈자리를 고른다
+    function pickSlot(r, w, h) {
+      const hb = hudEl.getBoundingClientRect();
+      const dockY = (hb.height ? hb.bottom : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--aig-top')) || 14) + 40) + 14;
+      const fit = (p) => ({ x: Math.max(10, Math.min(innerWidth - w - 10, p.x)), y: Math.max(10, Math.min(innerHeight - h - 50, p.y)) });
+      const c = [
+        { x: r.x + r.w + 18, y: r.cy - h / 2 }, { x: r.x, y: r.y + r.h + 14 }, { x: r.x, y: r.y - 14 - h }, { x: r.x - 18 - w, y: r.cy - h / 2 },
+        { x: r.x + r.w - w, y: r.y + r.h + 14 }, { x: r.x + r.w - w, y: r.y - 14 - h }, { x: innerWidth - w - 20, y: dockY },
+      ].map(fit);
+      let best = null;
+      c.forEach((p, i) => {
+        const hitsAnchor = p.x < r.x + r.w && p.x + w > r.x && p.y < r.y + r.h && p.y + h > r.y;
+        const score = crowd(p.x, p.y, w, h) * 10 + (hitsAnchor ? 500 : 0) + i; // 같으면 버튼 가까운 자리부터
+        if (!best || score < best.score) best = { ...p, score };
+      });
+      return best;
+    }
     const hudEl = $('.hud');
     // 글씨 뒤 바탕이 밝으면 진한 글씨 + 흰 빛, 어두우면 흰 글씨 + 검은 그림자
     function isLightAt(x, y) {
@@ -234,12 +265,13 @@
     }
 
     let typing = 0;
+    let sayKind = 'info';
     async function speak(text, { kicker = NAME, sub = '', buttons = [] } = {}) {
-      const id = ++typing;
+      const id = ++typing; sayKind = buttons.length ? 'ask' : 'info';
       say.innerHTML = `<span class="k">${kicker}${sub ? `<em>${sub}</em>` : ''}</span><span class="t"><span class="think">생각하는 중…</span></span>` + (buttons.length ? `<div class="bar">${buttons.map((b, i) => `<button data-i="${i}" class="${b.main ? 'main' : ''}">${b.label}</button>`).join('')}</div>` : '');
       say.classList.add('on');
       return new Promise(async (res) => {
-        say.querySelectorAll('button').forEach((b) => b.onclick = (e) => { e.stopPropagation(); typing++; res(buttons[+b.dataset.i].value); });
+        say.querySelectorAll('button').forEach((b) => b.onclick = (e) => { e.stopPropagation(); typing++; sayKind = 'info'; res(buttons[+b.dataset.i].value); });
         await sleep(420); if (id !== typing) return;
         const t = say.querySelector('.t'); const plain = text.replace(/<[^>]+>/g, '');
         for (let i = 1; i <= plain.length; i += 2) { if (id !== typing) return; t.textContent = plain.slice(0, i); await sleep(14); }
@@ -258,19 +290,22 @@
     let hoverTimer = 0, hoverBusy = false, lastHover = null, hideT = 0;
     addEventListener('mouseover', (e) => {
       if (stopped || e.target.closest('.aig')) return;
-      let el = e.target, info = null;
-      while (el && el !== document.body && !(info = explain(el))) el = el.parentElement;
+      // 설명은 누를 수 있는 버튼·링크에만 붙인다(제목·본문 글자에 올렸을 때는 띄우지 않는다)
+      let el = clickable(e.target), info = null;
+      while (el && el !== document.body && !(info = explain(el))) { const up = el.parentElement; el = up ? clickable(up) : null; }
       clearTimeout(hoverTimer);
       if (!info) { hoverEl = null; clearTimeout(hideT); if (!target) hideT = setTimeout(() => { if (!hoverEl && !target && !say.querySelector('button')) say.classList.remove('on'); }, 2200); return; }
-      hoverTimer = setTimeout(async () => {
-        if (hoverBusy || mode !== 'follow' || el === lastHover) { hoverEl = el; return; }
-        hoverEl = el; lastHover = el; markSeen(el);
-        if (el === target) return;
-        hoverBusy = true;
-        await speak(`<b>${info.title}</b> — ${info.text}`, { kicker: '이건 뭐예요?', sub: target ? '빛나는 곳은 아직 그대로예요' : '' });
-        hoverBusy = false;
-      }, 320);
+      hoverTimer = setTimeout(() => sayHover(el, info), 320);
     }, true);
+    // 마우스가 다른 버튼으로 옮겨 가면, 앞 설명이 다 써지기 전이라도 지금 버튼 설명으로 바꾼다(엉뚱한 설명이 남지 않게)
+    // 안내 중 「다음」·「데려다 드릴게요」 같은 버튼이 떠 있으면 그 글은 덮지 않는다(버튼이 사라져 안내가 멈추지 않게)
+    function sayHover(el, info) {
+      hoverEl = el;
+      if (mode !== 'follow' || el === lastHover || el === target) return;
+      if (say.classList.contains('on') && sayKind === 'ask') return;
+      lastHover = el; markSeen(el);
+      speak(`<b>${info.title}</b> — ${info.text}`, { kicker: '이건 뭐예요?', sub: target ? '빛나는 곳은 아직 그대로예요' : '' });
+    }
     function markSeen(el) { const k = (explain(el) || {}).title; if (k && !seen.has(k)) { seen.add(k); refreshDots(); } }
     let dotsFor = null;
     function refreshDots() {
@@ -428,12 +463,12 @@
         ribbons.forEach((rb, i) => {
           const head = rb.pts[0] || { x, y, vx: 0, vy: 0 };
           const nh = { x: head.x + (x - head.x) * rb.k + Math.sin(t * .07 + i) * 1.5, y: head.y + (y - head.y) * rb.k + Math.cos(t * .06 + i) * 1.5 };
-          rb.pts.unshift(nh); if (rb.pts.length > 26) rb.pts.pop();
+          rb.pts.unshift(nh); if (rb.pts.length > (opt.calm ? 15 : 26)) rb.pts.pop();
           if (rb.pts.length < 3) return;
           ctx.beginPath(); ctx.moveTo(rb.pts[0].x, rb.pts[0].y);
           for (let j = 1; j < rb.pts.length - 1; j++) { const m = { x: (rb.pts[j].x + rb.pts[j + 1].x) / 2, y: (rb.pts[j].y + rb.pts[j + 1].y) / 2 }; ctx.quadraticCurveTo(rb.pts[j].x, rb.pts[j].y, m.x, m.y); }
           ctx.strokeStyle = rb.c; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = .9;
-          ctx.lineWidth = 10 - i * 1.3; ctx.shadowColor = rb.c; ctx.shadowBlur = 12; ctx.stroke();
+          ctx.lineWidth = (10 - i * 1.3) * (opt.calm ? .55 : 1); ctx.shadowColor = rb.c; ctx.shadowBlur = opt.calm ? 8 : 12; ctx.stroke();
         });
         ctx.globalAlpha = 1; ctx.shadowBlur = 0;
       } else if (kind === 'text') {
