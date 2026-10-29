@@ -198,7 +198,7 @@
         const r = R(anchor);
         // 자리는 버튼이 바뀌거나 화면이 움직일 때만 다시 고른다(매 장면마다 고르면 무겁다)
         const key = anchor === slot.a && Math.abs(r.x - slot.rx) < 2 && Math.abs(r.y - slot.ry) < 2 && Math.abs(w - slot.w) < 4 && Math.abs(h - slot.h) < 4;
-        if (!key || ++slot.n > 90) { const p = pickSlot(r, w, h); Object.assign(slot, { a: anchor, rx: r.x, ry: r.y, w, h, n: 0, x: p.x, y: p.y }); }
+        if (!key || ++slot.n > 180) { const p = pickSlot(r, w, h); Object.assign(slot, { a: anchor, rx: r.x, ry: r.y, w, h, n: 0, x: p.x, y: p.y }); }
         x = slot.x; y = slot.y;
       } else { x = pos.x + 22; y = pos.y + 18; }
       x = Math.max(10, Math.min(innerWidth - w - 10, x)); y = Math.max(10, Math.min(innerHeight - h - 50, y));
@@ -208,49 +208,58 @@
     }
     let sx = null, sy = null, inkTick = 0; const R2 = (a, b) => a + (b - a) * .25;
     const slot = { a: null, n: 0 };
-    // 그 자리에 화면 글자·그림·입력칸이 있는지(설명 글이 겹치면 안 된다)
-    function contentAt(px, py) {
-      if (px < 4 || py < 4 || px > innerWidth - 4 || py > innerHeight - 4) return 3;
-      if (!document.elementsFromPoint) return 0;
-      for (const e of document.elementsFromPoint(px, py)) {
-        if (e.closest && e.closest('.aig,.aig-launch-wrap')) continue;
-        if (e === document.body || e === document.documentElement) return 0;
-        if (/^(IMG|CANVAS|SVG|VIDEO|INPUT|TEXTAREA|BUTTON|SELECT|PATH|CIRCLE|RECT|TEXT)$/i.test(e.tagName)) {
-          // 화면 전체를 덮는 배경 그림(3D 첫 화면·바탕 무늬)은 빈자리로 본다 — 그 위 글자만 피한다
-          const br = e.getBoundingClientRect();
-          if (/^(CANVAS|IMG|VIDEO|SVG)$/i.test(e.tagName) && br.width * br.height > innerWidth * innerHeight * .45) continue;
-          return 1;
+    // 화면에 실제로 보이는 글자 줄·그림·버튼·입력칸의 자리(사각형)를 모은다 — 설명 글은 이 자리와 겹치면 안 된다
+    function busyRects() {
+      const out = [], W = innerWidth, H = innerHeight, big = W * H * .45;
+      const vis = (r) => r.width >= 2 && r.height >= 2 && r.bottom > 0 && r.top < H && r.right > 0 && r.left < W;
+      try {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const rg = document.createRange(); let n, count = 0;
+        while ((n = walker.nextNode()) && count < 5000) {
+          if (!n.textContent.trim()) continue; const pe = n.parentElement;
+          if (!pe || pe.closest('.aig,.aig-launch-wrap,script,style,noscript,template')) continue;
+          rg.selectNodeContents(n);
+          for (const r of rg.getClientRects()) if (vis(r)) { out.push([r.left, r.top, r.right, r.bottom]); count++; }
         }
-        for (const n of e.childNodes) if (n.nodeType === 3 && n.textContent.trim()) return 1;
+      } catch (e) { /* 글자 자리를 못 읽어도 안내는 계속 */ }
+      for (const e of document.querySelectorAll('img,canvas,video,svg,input,textarea,select,button,[role=button],[tabindex="0"]')) {
+        if (e.closest('.aig,.aig-launch-wrap') || e.closest('svg') !== e && e.closest('svg')) continue;
+        const r = e.getBoundingClientRect();
+        if (!vis(r) || r.width * r.height > big) continue; // 화면 전체를 덮는 배경 그림(3D 첫 화면 등)은 빈자리로 본다
+        out.push([r.left, r.top, r.right, r.bottom]);
       }
-      return 0;
+      return out;
     }
-    function crowd(x, y, w, h) { let n = 0; for (let i = 0; i < 8; i++) for (let j = 0; j < 4; j++) n += contentAt(x + w * (i + .5) / 8, y + h * (j + .5) / 4); return n; }
-    // 버튼 오른쪽·아래·위·왼쪽·오른쪽 위(위치 표시 아래) 가운데 글자가 가장 적은 빈자리를 고른다
+    // (x,y,w,h) 칸 가운데 화면 글자·그림이 덮인 비율(%) — 화면 밖으로 나가면 크게 친다
+    function crowd(x, y, w, h, rects) {
+      const pad = 6, X0 = x - pad, Y0 = y - pad, X1 = x + w + pad, Y1 = y + h + pad;
+      if (x < 4 || y < 4 || x + w > innerWidth - 4 || y + h > innerHeight - 4) return 1000;
+      let a = 0;
+      for (const [l, t, r, b] of rects) { const iw = Math.min(X1, r) - Math.max(X0, l), ih = Math.min(Y1, b) - Math.max(Y0, t); if (iw > 0 && ih > 0) a += iw * ih; }
+      return (a / ((X1 - X0) * (Y1 - Y0))) * 100;
+    }
+    // 버튼 둘레(오른쪽·아래·위·왼쪽·오른쪽 위)부터 보고, 다 차 있으면 버튼 가까운 순으로 화면을 넓게 훑어 글자가 없는 빈자리를 고른다
     function pickSlot(r, w, h) {
+      const rects = busyRects();
       const hb = hudEl.getBoundingClientRect();
       const dockY = (hb.height ? hb.bottom : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--aig-top')) || 14) + 40) + 14;
       const fit = (p) => ({ x: Math.max(10, Math.min(innerWidth - w - 10, p.x)), y: Math.max(10, Math.min(innerHeight - h - 50, p.y)) });
+      const hits = (p) => p.x < r.x + r.w + 6 && p.x + w > r.x - 6 && p.y < r.y + r.h + 6 && p.y + h > r.y - 34; // 꺾쇠 위 이름표 자리까지 비운다
       const c = [
         { x: r.x + r.w + 18, y: r.cy - h / 2 }, { x: r.x, y: r.y + r.h + 14 }, { x: r.x, y: r.y - 14 - h }, { x: r.x - 18 - w, y: r.cy - h / 2 },
         { x: r.x + r.w - w, y: r.y + r.h + 14 }, { x: r.x + r.w - w, y: r.y - 14 - h }, { x: innerWidth - w - 20, y: dockY },
       ].map(fit);
-      const hits = (p) => p.x < r.x + r.w + 6 && p.x + w > r.x - 6 && p.y < r.y + r.h + 6 && p.y + h > r.y - 34; // 꺾쇠 위 이름표 자리까지 비운다
       let best = null;
       c.forEach((p, i) => {
-        const score = crowd(p.x, p.y, w, h) * 10 + (hits(p) ? 500 : 0) + i; // 같으면 버튼 가까운 자리부터
+        const score = crowd(p.x, p.y, w, h, rects) * 10 + (hits(p) ? 5000 : 0) + i; // 같으면 버튼 가까운 자리부터
         if (!best || score < best.score) best = { ...p, score };
       });
       if (best.score < 10) return best;
-      // 둘레가 다 차 있으면 버튼에서 가까운 순으로 화면을 넓게 훑어 글자가 없는 자리를 찾는다
-      const coarse = (x, y) => { let n = 0; for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) n += contentAt(x + w * (i + .5) / 4, y + h * (j + .5) / 2); return n; };
-      const grid = [];
-      for (let y = 10; y <= innerHeight - h - 50; y += 36) for (let x = 10; x <= innerWidth - w - 10; x += 48) {
-        const d = Math.hypot(x + w / 2 - r.cx, y + h / 2 - r.cy); if (d > 620) continue;
-        const p = { x, y }; if (hits(p)) continue; grid.push({ ...p, d });
+      for (let y = 10; y <= innerHeight - h - 50; y += 18) for (let x = 10; x <= innerWidth - w - 10; x += 24) {
+        const p = { x, y }; if (hits(p)) continue;
+        const d = Math.hypot(x + w / 2 - r.cx, y + h / 2 - r.cy);
+        const sc = crowd(x, y, w, h, rects) * 30 + d / 40;
+        if (sc < best.score) best = { x, y, score: sc };
       }
-      grid.sort((a, b) => a.d - b.d);
-      for (const p of grid.slice(0, 260)) { if (coarse(p.x, p.y)) continue; const sc = crowd(p.x, p.y, w, h) * 10 + p.d / 60; if (sc < best.score) best = { x: p.x, y: p.y, score: sc }; if (sc < 4) break; }
       return best;
     }
     const hudEl = $('.hud');
