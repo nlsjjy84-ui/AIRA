@@ -16,9 +16,13 @@ describe('claim check', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('needs some text before the check can run', () => {
+  it('빈칸이어도 막지 않고 첫 예시 문장을 넣어 준다', () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ claims: [] }) })))
     render(<ClaimCheck loggedIn />)
-    expect(screen.getByRole('button', { name: '사실 확인' })).toBeDisabled()
+    const button = screen.getByRole('button', { name: '사실 확인' })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(screen.getByLabelText('확인하고 싶은 말').value.length).toBeGreaterThan(3)
   })
 
   it('shows each verdict with the official value and a DART link', async () => {

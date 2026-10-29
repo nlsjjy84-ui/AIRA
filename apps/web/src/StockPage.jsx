@@ -1023,10 +1023,14 @@ function PeerCompare({ ctx, peerId }) {
   const setIds = next => ctx.go(next.length ? ['relate', 'peer', 'compare', next.join(',')] : ['relate', 'peer', 'compare'])
   async function search(event) {
     event.preventDefault()
-    if (!term.trim()) return
+    if (ids.length >= 3) { setFound({ loading: false, items: [], error: '세 곳까지 나란히 볼 수 있어요. 아래 표에서 하나를 빼면 더할 수 있어요.' }); return }
+    if (!term.trim()) { setTerm('SK하이닉스'); return searchFor('SK하이닉스') }
+    return searchFor(term.trim())
+  }
+  async function searchFor(query) {
     setFound({ loading: true, items: [], error: null })
     try {
-      const data = await searchEntities(term.trim())
+      const data = await searchEntities(query)
       setFound({ loading: false, items: (data?.entities ?? []).filter(item => item.entityType === 'COMPANY' && item.entityId !== ctx.companyId), error: null })
     } catch (error) { setFound({ loading: false, items: [], error }) }
   }
@@ -1046,11 +1050,15 @@ function PeerCompare({ ctx, peerId }) {
   return <>
     <form className="stock-find stock-peer-search" onSubmit={search}>
       <label htmlFor="peer-q">비교할 회사 더하기 <small className="muted">({ids.length}/3)</small></label>
-      <div><input id="peer-q" value={term} onChange={event => setTerm(event.target.value)} placeholder="예: SK하이닉스" disabled={ids.length >= 3} /><button type="submit" className="secondary-action" disabled={ids.length >= 3}>찾기</button></div>
+      <div><input id="peer-q" value={term} onChange={event => setTerm(event.target.value)} placeholder="예: SK하이닉스" /><button type="submit" className="secondary-action">찾기</button></div>
     </form>
     {found.loading && <p className="status">찾는 중입니다.</p>}
+    {found.error && <p className="stock-empty" role="status">{typeof found.error === 'string' ? found.error : '찾지 못했습니다. 다시 눌러 주세요.'}</p>}
     {found.items.length > 0 && <ul className="stock-question-list">{found.items.slice(0, 8).map(item => <li key={item.entityId}>
-      <button type="button" disabled={ids.includes(item.entityId) || ids.length >= 3} onClick={() => { setFound({ loading: false, items: [], error: null }); setTerm(''); setIds([...ids, item.entityId]) }}>
+      <button type="button" onClick={() => {
+        if (ids.includes(item.entityId)) { setFound(f => ({ ...f, error: '이미 아래 표에 있는 회사예요.' })); return }
+        if (ids.length >= 3) { setFound(f => ({ ...f, error: '세 곳까지 나란히 볼 수 있어요. 아래 표에서 하나를 빼면 더할 수 있어요.' })); return }
+        setFound({ loading: false, items: [], error: null }); setTerm(''); setIds([...ids, item.entityId]) }}>
         {item.canonicalName}<span aria-hidden="true">{ids.includes(item.entityId) ? '이미 비교 중' : '＋ 더하기'}</span></button></li>)}</ul>}
     {ids.length > 0 && <div className="peer-chips" aria-label="비교 중인 회사">{companies.slice(1).map((c, i) => <span key={c.id} className="peer-chip" style={{ borderColor: PEER_COLORS[i + 1] }}>
       <a href={`/stock/${c.id}`}>{c.name}</a><button type="button" aria-label={`${c.name} 빼기`} onClick={() => setIds(ids.filter(id => id !== c.id))}>✕</button></span>)}</div>}
@@ -1367,27 +1375,35 @@ function InterestButton({ interest }) {
     {interest.error && <small className="muted">{interest.error.status === 423 || interest.readOnly ? '데모 계정은 저장할 수 없어요.' : '저장하지 못했습니다. 다시 눌러 주세요.'}</small>}</div>
 }
 
+const DEMO_NOTE_KEY = 'aira-demo-note:'
+function readDemoNote(companyId) { try { return window.sessionStorage.getItem(DEMO_NOTE_KEY + companyId) } catch { return null } }
+function writeDemoNote(companyId, body) { try { window.sessionStorage.setItem(DEMO_NOTE_KEY + companyId, body) } catch { /* 저장 공간이 막힌 창 */ } }
+
 // 종목 메모: 로그인한 사람만, 본인만 보는 메모(모든 기기에서 같이 보임).
 function NotePanel({ companyId }) {
   const [state, setState] = useState({ loading: true, body: '', saved: '', updatedAt: null, message: null })
   useEffect(() => {
     let alive = true
-    getStockNote(companyId).then(note => alive && setState({ loading: false, body: note.body ?? '', saved: note.body ?? '', updatedAt: note.updatedAt, message: null }))
+    const demoNote = readDemoNote(companyId)
+    getStockNote(companyId).then(note => alive && setState({ loading: false, body: demoNote ?? note.body ?? '', saved: demoNote ?? note.body ?? '', updatedAt: note.updatedAt, message: null }))
       .catch(() => alive && setState(s => ({ ...s, loading: false })))
     return () => { alive = false }
   }, [companyId])
   async function save() {
+    if (state.body === state.saved) { setState(s => ({ ...s, message: '바뀐 내용이 없어요. 메모를 고친 뒤 눌러 주세요.' })); return }
     try {
       const note = await putStockNote(companyId, state.body)
       setState(s => ({ ...s, saved: note.body, updatedAt: note.updatedAt, message: '저장했어요.' }))
     } catch (error) {
-      setState(s => ({ ...s, message: error.status === 423 ? '데모 계정은 메모를 저장할 수 없어요.' : '저장하지 못했습니다.' }))
+      // 데모 계정은 서버에 쓰지 않는 대신, 이 창을 닫기 전까지 이 브라우저에 잠시 남겨 둔다(막지 않는다).
+      if (error.status === 423) { writeDemoNote(companyId, state.body); setState(s => ({ ...s, saved: s.body, message: '데모라서 이 창에만 잠시 저장했어요. 가입하면 모든 기기에 남아요.' })); return }
+      setState(s => ({ ...s, message: '저장하지 못했습니다.' }))
     }
   }
   return <details className="stock-note" open={Boolean(state.saved)}><summary>📝 내 메모{state.saved ? ' (있음)' : ''}</summary>
     <textarea value={state.body} maxLength={4000} rows={4} disabled={state.loading} placeholder="이 종목에 대해 기억해 둘 것을 적어 두세요. 나만 볼 수 있어요."
       onChange={event => setState(s => ({ ...s, body: event.target.value, message: null }))} />
-    <div className="stock-actions"><button type="button" className="secondary-action" disabled={state.body === state.saved} onClick={save}>저장</button>
+    <div className="stock-actions"><button type="button" className="secondary-action" onClick={save}>저장</button>
       {state.updatedAt && <small className="muted">마지막 저장 {state.updatedAt.slice(0, 16).replace('T', ' ')}</small>}{state.message && <small>{state.message}</small>}</div>
   </details>
 }

@@ -633,6 +633,7 @@ export default function App() {
     return () => window.removeEventListener('aira-workflow-context', syncWorkflow)
   }, [exploring])
 
+  // 막아 두지 않는다: 회사를 고르기 전이면 눌렀을 때 예시 회사로 열어 준다(흐리게만 표시).
   function workflowStepDisabled(step) {
     if (!exploring || step === 'MAIN' || workflowContext.step === step) return false
     if (!workflowContext.hasTarget) return true
@@ -683,7 +684,7 @@ export default function App() {
         {[['MAIN', '메인', 'M'], ['Ask', '묻다', 'A'], ['Inspect', '보다', 'I'],
           ['Relate', '잇다', 'R'], ['Assess', '가늠하다', 'A']].map(([step, korean, code]) => exploring
           ? <button key={step} type="button" className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step} aria-label={`${step} ${korean}`}
-              aria-current={workflowContext.step === step ? 'step' : undefined} disabled={workflowStepDisabled(step)}
+              aria-current={workflowContext.step === step ? 'step' : undefined} data-needs-target={workflowStepDisabled(step) ? 'true' : undefined}
               onClick={() => chooseWorkflowStep(step)}><span className="workflow-code" aria-hidden="true">{sidebarCollapsed ? code : step === 'MAIN' ? step : <><b>{step[0]}</b>{step.slice(1)}</>}</span>
               <span className="workflow-label" aria-hidden="true">{korean}</span></button>
           : <a key={step} className={step === 'MAIN' ? 'workflow-main' : ''} data-workflow-step={step}

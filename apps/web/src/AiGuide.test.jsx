@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, beforeEach } from 'vitest'
 import AiGuide, { SUBMENU_TEXT, advance, guideText, readGuide, startCourse, writeGuide } from './AiGuide.jsx'
 import { courseIds } from './GuideOrb.jsx'
@@ -61,9 +61,32 @@ describe('AI 길 안내 — 코스 진행', () => {
     expect(readGuide()).toMatchObject({ course: 'long', index: 3 })
   })
 
+  it('메뉴는 「데모 둘러보기」 하나와 「설명 없이 둘러볼게요」 — 3분·10분·평가자용으로 나누지 않는다', () => {
+    render(<AiGuide greet />)
+    fireEvent.click(screen.getByRole('button', { name: /길 안내/ }))
+    expect(screen.getByRole('button', { name: /데모 둘러보기/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /설명 없이 둘러볼게요/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /3분|10분|평가자/ })).toBeNull()
+  })
+
   it('예전 「풍이와 결이」 상자 대신 글자 한 줄 「길 안내」만 띄운다', () => {
-    render(<AiGuide />)
+    render(<AiGuide greet />)
     expect(screen.getByRole('button', { name: /길 안내/ })).toBeInTheDocument()
     expect(screen.queryByRole('dialog', { name: '풍이와 결이의 길 안내' })).toBeNull()
+  })
+
+  it('실제 가입 사용자에게는 설명 글을 띄우지 않는다(효과만 남는다)', () => {
+    render(<AiGuide greet={false} />)
+    expect(screen.queryByRole('button', { name: /길 안내/ })).toBeNull()
+  })
+
+  it('처음 메뉴에 「설명 없이 둘러볼게요」가 있고, 고르면 설명만 꺼진다', () => {
+    render(<AiGuide greet />)
+    fireEvent.click(screen.getByRole('button', { name: /길 안내/ }))
+    fireEvent.click(screen.getByRole('button', { name: /설명 없이 둘러볼게요/ }))
+    expect(window.sessionStorage.getItem('aira-guide-quiet')).toBe('1')
+    expect(screen.getByRole('button', { name: /길 안내 켜기/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /길 안내 켜기/ }))
+    expect(window.sessionStorage.getItem('aira-guide-quiet')).toBeNull()
   })
 })

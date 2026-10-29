@@ -52,6 +52,31 @@ class StockHistoryBackfillTests {
     }
 
     @Test
+    void fullDatabaseStillTakesRecentDaysByDroppingTheOldestDay() {
+        KrxClient krx = mock(KrxClient.class);
+        StockPriceStore store = mock(StockPriceStore.class);
+        StockStorage storage = mock(StockStorage.class);
+        when(storage.nearlyFull()).thenReturn(true);
+        when(storage.softLimitMb()).thenReturn(400L);
+        when(store.loadedDays(eq("KOSPI"), any())).thenReturn(Set.of());
+        when(store.dropOldestDay("KOSPI")).thenReturn(LocalDate.of(2025, 10, 1));
+        when(krx.fetch(any(), any())).thenAnswer(call -> {
+            LocalDate date = call.getArgument(1);
+            return KrxSnapshot.validated(KrxDataset.STK_DAILY, date,
+                    List.of(Map.of("BAS_DD", date.toString().replace("-", ""), "ISU_CD", "005930", "TDD_CLSPRC", "262000")));
+        });
+        var backfill = new StockHistoryBackfill(krx, store, mock(DartStockClient.class), mock(FinancialHistoryStore.class),
+                mock(StockCompanyLookup.class), true, "KEY", 30, 0, clock);
+        backfill.setStorage(storage);
+        int loaded = backfill.backfillPrices("KOSPI");
+        // 열흘 안의 평일(10/2~10/12 중 평일 7일: 2·5·6·7·8·9·12)만 받고, 받을 때마다 가장 오래된 하루를 뺀다. 그 앞은 채우지 않는다.
+        assertEquals(7, loaded);
+        verify(store, times(7)).dropOldestDay("KOSPI");
+        verify(store).saveDay(eq("KOSPI"), eq(LocalDate.of(2026, 10, 12)), anyList());
+        verify(store, never()).saveDay(eq("KOSPI"), eq(LocalDate.of(2026, 10, 1)), anyList());
+    }
+
+    @Test
     void financialsAskHundredCompaniesAtATimeForTwoReportYears() {
         DartStockClient dart = mock(DartStockClient.class);
         FinancialHistoryStore store = mock(FinancialHistoryStore.class);

@@ -165,11 +165,14 @@ export default function ClassPage({ user, onLogin, onDemo }) {
   async function make(event) {
     event.preventDefault()
     setMessage('')
+    // 빈칸이면 막지 않고 예시 이름을 넣어 준다. 한 번 더 누르면 만들어진다.
+    if (!name.trim()) { setName('주식 첫걸음 1기'); setMessage('반 이름 예시를 넣어 드렸어요. 바꾸거나 그대로 「반 만들기」를 한 번 더 누르세요.'); return }
     try { const made = await createClass(name.trim()); window.location.assign(`/classes?id=${made.id}`) } catch (error) { setMessage(say(error)) }
   }
   async function enter(event) {
     event.preventDefault()
     setMessage('')
+    if (code.trim().length < 6) { setMessage('반장에게 받은 초대 코드(6자리 이상)를 넣고 눌러 주세요. 코드가 없으면 왼쪽에서 반을 직접 만들어 볼 수 있어요.'); document.getElementById('class-code')?.focus(); return }
     try { const joined = await joinClass(code.trim()); window.location.assign(`/classes?id=${joined.id}`) } catch (error) { setMessage(say(error)) }
   }
   const owned = list.data?.owned ?? []
@@ -186,14 +189,14 @@ export default function ClassPage({ user, onLogin, onDemo }) {
             <span>수강생 {c.members}명 · 과제 {c.assignments}개{c.sample ? ' · 예시' : ''}</span></a></li>)}</ul>}
         <form className="class-row" onSubmit={make}><label htmlFor="class-name">새 반 이름</label>
           <input id="class-name" value={name} maxLength={100} onChange={e => setName(e.target.value)} placeholder="예: 주식 첫걸음 4기" />
-          <button type="submit" className="primary-action" disabled={!name.trim()}>반 만들기</button></form>
+          <button type="submit" className="primary-action">반 만들기</button></form>
       </section>
       <section className="class-section" aria-labelledby="joined-title"><h2 id="joined-title">들어간 반</h2>
         {joined.length === 0 ? <p className="stock-empty">아직 들어간 반이 없습니다.</p>
           : <ul className="class-cards">{joined.map(c => <li key={c.id}><a href={`/classes?id=${c.id}`}><strong>{c.name}{c.newAssignments > 0 && <span className="class-new">새 과제 {c.newAssignments}</span>}</strong><span>과제 {c.assignments}개</span></a></li>)}</ul>}
         <form className="class-row" onSubmit={enter}><label htmlFor="class-code">초대 코드</label>
           <input id="class-code" value={code} maxLength={12} onChange={e => setCode(e.target.value)} placeholder="반장에게 받은 코드" />
-          <button type="submit" className="secondary-action" disabled={code.trim().length < 6}>들어가기</button></form>
+          <button type="submit" className="secondary-action">들어가기</button></form>
         <p className="class-help">반에 들어가면 반장이 이 반 과제 회사에 대해 내가 남긴 코스 노트와 진도를 볼 수 있습니다. 다른 공부 노트는 보이지 않습니다.</p>
       </section>
     </div>}

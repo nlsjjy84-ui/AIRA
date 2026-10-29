@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import ClassPage from './ClassPage.jsx'
 
 const ok = body => ({ ok: true, status: 200, json: async () => body })
@@ -22,7 +22,11 @@ describe('study class page', () => {
     render(<ClassPage user={user} onLogin={() => {}} onDemo={() => {}} />)
     expect(await screen.findByText('주식 첫걸음 3기')).toBeInTheDocument()
     expect(screen.getByText('수강생 3명 · 과제 1개 · 예시')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '반 만들기' })).toBeDisabled()
+    const make = screen.getByRole('button', { name: '반 만들기' })
+    expect(make).toBeEnabled()
+    fireEvent.click(make)
+    expect(screen.getByLabelText('새 반 이름')).toHaveValue('주식 첫걸음 1기')
+    expect(screen.getByText(/한 번 더 누르세요/)).toBeInTheDocument()
   })
 
   it('shows the teacher numbers first, then every student progress', async () => {

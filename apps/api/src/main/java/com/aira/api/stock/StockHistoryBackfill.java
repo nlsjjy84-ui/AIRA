@@ -66,6 +66,19 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
 
     private void note(String key, Object value) { if (value != null) status.put(key, value); }
 
+    /**
+     * 저장 공간이 찼어도 최근 거래일(오늘부터 열흘 안)은 꼭 받는다. 그 시장의 가장 오래된 하루를 빼고 넣어서
+     * 크기는 그대로 두고 화면의 「장 마감」 날짜가 멈추지 않게 한다. 더 오래된 날은 채우지 않고 멈춘다.
+     */
+    private boolean makeRoomForRecentDay(String store, LocalDate date, LocalDate today) {
+        if (date.isBefore(today.minusDays(10))) return false;
+        LocalDate dropped = prices.dropOldestDay(store);
+        if (dropped == null || !dropped.isBefore(date)) return false;
+        note("rolledOff." + store, dropped + " → " + date);
+        log.info("Stock backfill {}: dropped oldest day {} to keep recent day {}", store, dropped, date);
+        return true;
+    }
+
     /** 저장 공간이 기준을 넘었으면 새 자료를 쓰지 않는다. */
     private boolean storageFull(String phase) {
         if (storage == null || !storage.nearlyFull()) return false;
@@ -151,7 +164,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         for (LocalDate date = today; !date.isBefore(from); date = date.minusDays(1)) {
             if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
             if (done.contains(date)) continue;
-            if (storageFull("prices " + market)) break;
+            if (storageFull("prices " + market) && !makeRoomForRecentDay(market, date, today)) break;
             try {
                 List<Map<String, String>> rows = krx.fetch(dataset, date).rows();
                 // 오늘·어제 자료는 아직 안 올라왔을 수 있으므로 비어 있으면 "받음"으로 표시하지 않는다.
@@ -185,7 +198,7 @@ public class StockHistoryBackfill implements org.springframework.boot.Applicatio
         for (LocalDate date = today; !date.isBefore(from); date = date.minusDays(1)) {
             if (date.getDayOfWeek() == DayOfWeek.SATURDAY || date.getDayOfWeek() == DayOfWeek.SUNDAY) continue;
             if (done.contains(date)) continue;
-            if (storageFull("index " + market)) break;
+            if (storageFull("index " + market) && !makeRoomForRecentDay(store, date, today)) break;
             try {
                 List<Map<String, String>> rows = krx.fetch(dataset, date).rows();
                 if (rows.isEmpty() && !date.isBefore(today.minusDays(1))) continue;

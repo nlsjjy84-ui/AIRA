@@ -45,6 +45,21 @@ public class StockPriceStore {
                 market, Date.valueOf(date), rows.size(), OffsetDateTime.now());
     }
 
+    /**
+     * 저장 공간이 찼을 때 새 거래일 자리를 만든다: 이 시장의 가장 오래된 하루를 지우고 그 날짜를 돌려준다(없으면 null).
+     * 지운 자리는 PostgreSQL이 다시 쓰므로 데이터베이스 크기는 늘지 않고, 최신 거래일은 계속 들어온다.
+     */
+    @Transactional
+    public LocalDate dropOldestDay(String market) {
+        List<LocalDate> oldest = jdbc.query("SELECT min(trading_date) FROM stock_price_day_loaded WHERE market=?",
+                (rs, i) -> rs.getObject(1, LocalDate.class), market);
+        LocalDate day = oldest.isEmpty() ? null : oldest.get(0);
+        if (day == null) return null;
+        jdbc.update("DELETE FROM stock_price_daily WHERE market=? AND trading_date=?", market, Date.valueOf(day));
+        jdbc.update("DELETE FROM stock_price_day_loaded WHERE market=? AND trading_date=?", market, Date.valueOf(day));
+        return day;
+    }
+
     public List<Row> series(String shortCode, LocalDate from) {
         return jdbc.query("""
                 SELECT short_code,trading_date,market,close_price,open_price,high_price,low_price,change_rate,

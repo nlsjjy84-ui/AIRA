@@ -74,6 +74,8 @@ function formatKoreanDate(value) {
   return year && month && day ? `${year}.${month}.${day}` : String(value)
 }
 
+const SAMPLE_COMPANY = '삼성전자'
+
 export default function CanonicalExplorer({ embedded = false, interest = null }) {
   const [context, setContext] = useState(() => window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState())
   const [term, setTerm] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '')
@@ -97,6 +99,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
   const routeRef = useRef(null)
   const preferredYear = useRef(null)
   const [routeNotice, setRouteNotice] = useState('')
+  const [shellNotice, setShellNotice] = useState('')
 
   useEffect(() => {
     const restore = () => { requestNumber.current += 1; setContext(window.history.state?.[EXPLORER_HISTORY_KEY] ?? initialExplorerState()); setData({ loading: false, state: null, value: null }); setCompare({ open: false, periodStart: '', periodEnd: '', receipt: '', loading: false, data: null, state: null }); setMarketRange({ open: false, from: '', to: '', loading: false, data: null, state: null }); setPrevious({ loading: false, data: null, state: null }); setEventDetailState({ loading: false, value: null, error: null }) }
@@ -177,9 +180,36 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     if (stepChanged) requestAnimationFrame(() => document.querySelector('.canonical-explorer')?.scrollIntoView?.({ block: 'start' }))
   }
 
+  // 왼쪽 「묻다·보다·잇다·가늠하다」는 언제나 눌린다. 회사를 고르기 전이면 예시 회사(삼성전자)로 열고,
+  // 사건이 필요한 「가늠하다」는 사건을 고르는 「잇다」로 데려가며 그 이유를 한 줄로 알려 준다.
+  async function moveToStep(step) {
+    setShellNotice('')
+    if (step === 'MAIN' || (context.target && (step !== 'Assess' || context.eventId))) { navigate(advance(context, step)); return }
+    let base = context
+    if (!base.target) {
+      const request = ++requestNumber.current
+      setShellNotice('회사를 먼저 골라야 해서, 예시로 삼성전자를 열어 드릴게요.')
+      let entity = null
+      try {
+        const response = await searchEntities(SAMPLE_COMPANY)
+        const found = response?.entities ?? []
+        entity = found.find(item => item.entityType === 'COMPANY') ?? found.find(item => item.entityType === 'SECURITY') ?? null
+      } catch { entity = null }
+      if (request !== requestNumber.current) return
+      if (!entity) { setShellNotice('먼저 위 검색칸에서 회사를 골라 주세요. 고르면 이 메뉴가 바로 열려요.'); document.querySelector('.site-search input, input[type="search"]')?.focus?.(); return }
+      base = selectTarget(base, entity)
+    }
+    if (step === 'Assess' && !base.eventId) {
+      navigate({ ...base, step: 'Relate', perspective: '사건과 분석', category: null, detail: null })
+      setShellNotice('「가늠하다」는 사건 하나를 고른 뒤에 열려요. 아래 사건 중 하나를 골라 주세요.')
+      return
+    }
+    navigate(advance(base, step))
+  }
+
   useEffect(() => {
     if (!embedded) return undefined
-    const moveFromShell = event => navigate(advance(context, event.detail))
+    const moveFromShell = event => { moveToStep(event.detail) }
     window.addEventListener('aira-workflow-step', moveFromShell)
     return () => window.removeEventListener('aira-workflow-step', moveFromShell)
   }, [embedded, context])
@@ -425,6 +455,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     <header className="explorer-head stage-hero"><p className="eyebrow">{stageVisual.eyebrow}</p><h1>{stageVisual.title}</h1>
       <p className="explorer-head-copy">{stageVisual.copy}</p></header>
     {routeNotice && context.step === 'Inspect' && <p className="route-notice" role="status">AI 길찾기 · {routeNotice}</p>}
+    {shellNotice && <p className="route-notice" role="status">{shellNotice}</p>}
     {!embedded && <form role="search" onSubmit={submitSearch} className="explorer-search">
       <label htmlFor="canonical-search">기업·종목 찾기</label>
       <input id="canonical-search" type="search" value={term} onChange={event => setTerm(event.target.value)}
@@ -475,8 +506,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
     </section>}
     {!embedded && <nav aria-label="탐색 단계" className="explorer-steps">{STEPS.map(step => <button key={step} type="button"
       aria-current={context.step === step ? 'step' : undefined}
-      disabled={step !== 'MAIN' && !target || step === 'Assess' && !context.eventId}
-      onClick={() => navigate(advance(context, step))}>{step}</button>)}</nav>}
+      onClick={() => moveToStep(step)}>{step}</button>)}</nav>}
     {context.step !== 'MAIN' && target?.entityType === 'COMPANY' && interest && <section className="explorer-interest" aria-label="선택한 회사 관심 설정">
       <div><span>관심회사</span><strong>{target.canonicalName}</strong></div>
       <div className="explorer-interest-actions">
@@ -551,7 +581,7 @@ export default function CanonicalExplorer({ embedded = false, interest = null })
       <p className="event-meta">{eventDetail ? `선택한 사건 · ${eventDetail.title}` : eventDetailState.loading ? '선택한 사건 확인 중…'
         : eventDetailState.error?.status === 404 ? '선택한 사건 · 현재 공개 상세 없음' : '선택한 사건 · 불러오기 실패'}</p>
       <nav className="subsection-nav assess-submenu" aria-label="Assess 하위 메뉴">{ASSESS_SECTIONS.map(([key, label]) => <button key={key} type="button"
-        aria-current={assessSection === key ? 'page' : undefined} disabled={!eventDetail} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
+        aria-current={assessSection === key ? 'page' : undefined} onClick={() => setAssessSection(key)}>{label}</button>)}</nav>
       {assessSection === 'fact' && <div className="subsection-panel" aria-label="확인된 사실">{eventDetail ? <>
         <h3>{eventDetail.title}</h3><dl className="assessment-facts"><div><dt>대상</dt><dd>{(eventDetail.companies ?? []).map(company => company.companyName).join(' · ')}</dd></div>
           <div><dt>사건 유형</dt><dd>{EVENT_TYPE_LABEL[eventDetail.eventType] ?? eventDetail.eventType}</dd></div><div><dt>발생일</dt><dd>{eventDetail.occurredAt?.slice(0, 10) ?? '발생시각 미상'}</dd></div></dl>

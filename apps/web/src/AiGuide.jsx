@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './aiGuide/aiFluid.js'
 import { createAiGuide } from './aiGuide/aiGuide.js'
-import { STEPS, COURSES, SAME_PLACE, courseIds, isAt, hrefFor, fillInput, iyeyo, placeName, recap, zoneOf } from './GuideOrb.jsx'
+import { STEPS, SAME_PLACE, courseIds, isAt, hrefFor, fillInput, iyeyo, placeName, recap, zoneOf } from './GuideOrb.jsx'
 import { STOCK_TABS, STOCK_TREE } from './StockPage.jsx'
 import { GUIDE } from './stockGuide.js'
 import { answerQuestion } from './guideAsk.js'
@@ -124,6 +124,13 @@ export function startCourse(state, course) {
   return { ...state, course, index }
 }
 
+// 코스는 하나: 「데모 둘러보기」(예전 10분 코스의 열세 곳). 3분·10분·평가자용으로 나누지 않는다.
+export const TOUR = 'long'
+export const TOUR_NAME = '데모 둘러보기'
+const QUIET_KEY = 'aira-guide-quiet'
+export function readQuiet() { try { return window.sessionStorage.getItem(QUIET_KEY) === '1' } catch { return false } }
+export function writeQuiet(on) { try { if (on) window.sessionStorage.setItem(QUIET_KEY, '1'); else window.sessionStorage.removeItem(QUIET_KEY) } catch { /* 이 화면에서만 */ } }
+
 const isTestEnv = () => typeof navigator !== 'undefined' && /jsdom/i.test(navigator.userAgent)
 
 export default function AiGuide({ greet = false, menus = [], navigate = url => window.location.assign(url) }) {
@@ -131,12 +138,18 @@ export default function AiGuide({ greet = false, menus = [], navigate = url => w
   const runningRef = useRef(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [asking, setAsking] = useState({ text: '', busy: false })
+  const [quiet, setQuietState] = useState(readQuiet)
+  const explainOnRef = useRef(false) // 설명은 처음 온 사람(비로그인·데모)과 코스 중일 때만. 효과는 누구에게나 늘 켠다.
+  explainOnRef.current = greet && !quiet // 「설명 없이 둘러볼게요」를 고르면 설명 글만 끄고 커서·빛은 그대로 둔다.
+  function setQuiet(on) { writeQuiet(on); setQuietState(on); explainOnRef.current = greet && !on }
 
   useEffect(() => {
     if (isTestEnv() || typeof window === 'undefined') return undefined
     const g = createAiGuide({
-      name: 'AIRA AI', accent: ACCENT, effect: 'splash', calm: true, fade: 7, radius: 0.1, sim: 96, dye: 640,
-      explain: el => guideText(el, menus), where: whereNow,
+      name: 'AIRA AI', accent: ACCENT, topBar: 'header.site-header, .ld-top', effect: 'splash', calm: true, fade: 7, radius: 0.1, sim: 96, dye: 640,
+      explain: el => (explainOnRef.current || readGuide().course ? guideText(el, menus) : null), where: whereNow,
+      hud: () => explainOnRef.current || Boolean(readGuide().course),
+      onQuit: () => { writeGuide({ ...readGuide(), course: null, index: 0 }); explainOnRef.current = false },
     })
     guideRef.current = g
     return () => { g.stop(); guideRef.current = null }
@@ -163,7 +176,7 @@ export default function AiGuide({ greet = false, menus = [], navigate = url => w
           navigate(hrefFor(step)); return
         }
         const zone = zoneOf(state.course, id)
-        const where = id === 'entry' ? '입구' : `${COURSES[state.course].name} · ${zone?.name ?? ''} ${zone ? `${zone.ids.indexOf(id) + 1}/${zone.ids.length}` : ''}`
+        const where = id === 'entry' ? '입구' : `${TOUR_NAME} · ${zone?.name ?? ''} ${zone ? `${zone.ids.indexOf(id) + 1}/${zone.ids.length}` : ''}`
         const ok = await g.point({
           target: step.target, say: step.say, look: step.look, react: step.react, after: step.after, label: step.place,
           fill: step.fill ? () => fillInput(step.fill.selector, step.fill.value) : undefined,
@@ -174,18 +187,16 @@ export default function AiGuide({ greet = false, menus = [], navigate = url => w
       }
       if (state.course) {
         const lines = recap(state.done ?? [], state.log ?? {}, state.course).filter(line => !line.small.includes('풍이'))
-        const judge = state.course === 'judge', short = state.course === 'short'
-        const choice = await g.speak(`<b>${COURSES[state.course].name} 끝!</b> ${lines.map(line => `${line.big} ${line.small}`).join(' · ')}. 이제 아무 버튼에나 마우스를 올려 보세요. 무엇인지 바로 알려 드려요.`,
-          { kicker: 'AIRA AI · 오늘의 길 결산', buttons: [...(short || judge ? [{ label: '10분 자세히 이어 가기', value: 'long', main: true }] : []), ...(judge ? [{ label: 'GitHub 열기', value: 'gh' }] : []), { label: '여기까지 볼게요', value: 'end' }] })
-        if (choice === 'gh') window.open('https://github.com/nlsjjy84-ui/AIRA', '_blank', 'noopener')
+        await g.speak(`<b>${TOUR_NAME} 끝!</b> ${lines.map(line => `${line.big} ${line.small}`).join(' · ')}. 이제 마음대로 눌러 보세요. 아무 버튼에나 마우스를 올리면 무엇인지 바로 알려 드려요.`,
+          { kicker: 'AIRA AI · 오늘의 길 결산', buttons: [{ label: '마음대로 둘러볼게요', value: 'end', main: true }] })
         writeGuide({ ...state, course: null, index: 0 })
-        if (choice === 'long') { writeGuide(startCourse({ ...state, course: null }, 'long')); runningRef.current = false; drive(); return }
       }
     } finally { runningRef.current = false }
   }
 
   function choose(course) {
     setMenuOpen(false)
+    setQuiet(false)
     writeGuide(startCourse(readGuide(), course))
     drive()
   }
@@ -217,22 +228,24 @@ export default function AiGuide({ greet = false, menus = [], navigate = url => w
     if (go === 'go' && answer.href) navigate(answer.href)
   }
 
+  useEffect(() => { document.documentElement.classList.toggle('aig-menu-open', menuOpen); return () => document.documentElement.classList.remove('aig-menu-open') }, [menuOpen])
+
   if (typeof document === 'undefined') return null
   const resume = readGuide().course
+  if (!greet && !resume) return null // 실제 사용자에게는 「길 안내」 글자도 띄우지 않는다(효과만 남는다)
   return createPortal(<div className="aig-launch-wrap">
     {menuOpen && <div className="aig-menu" role="dialog" aria-label="AIRA 길 안내">
       <p className="aig-menu-q">처음이세요? AIRA를 둘러볼까요?</p>
-      <button type="button" onClick={() => choose('short')}>3분 간략<small>핵심 네 곳</small></button>
-      <button type="button" onClick={() => choose('long')}>10분 자세히<small>4구역 열세 곳</small></button>
-      <button type="button" onClick={() => choose('judge')}>평가자용 빠른 코스<small>5분 · 면접관·선생님께 · AI를 믿을 수 있게 만든 다섯 곳</small></button>
+      <button type="button" className="aig-menu-quiet" onClick={() => { setQuiet(true); setMenuOpen(false); guideRef.current?.speak?.('설명은 끌게요. 마음대로 둘러보세요. 다시 보고 싶으면 오른쪽 위 「✦ 데모 길 안내 켜기」를 누르세요.', { kicker: 'AIRA AI' }) }}>설명 없이 둘러볼게요<small>설명 글은 끄고 바로 써 보기</small></button>
+      <button type="button" onClick={() => choose(TOUR)}>데모 둘러보기<small>처음부터 끝까지 같이 걸어요 · 언제든 그만 볼 수 있어요</small></button>
       <form className="aig-ask" onSubmit={onAsk}>
         <label htmlFor="aig-ask-input">AI에게 길 묻기</label>
         <input id="aig-ask-input" value={asking.text} maxLength={120} disabled={asking.busy} onChange={event => setAsking({ text: event.target.value, busy: false })} placeholder="예: 배당은 어디서 봐? · PER이 뭐야?" />
       </form>
       <button type="button" className="aig-menu-later" onClick={() => setMenuOpen(false)}>나중에 볼게요</button>
     </div>}
-    <button type="button" className="aig-launch" aria-expanded={menuOpen} onClick={() => { if (resume && !menuOpen) { drive(); return } setMenuOpen(open => !open) }}>
-      ✦ {resume ? '이어서 안내' : '길 안내'}
+    <button type="button" className="aig-launch" aria-expanded={menuOpen} onClick={() => { if (resume && !menuOpen) { drive(); return } if (quiet) setQuiet(false); setMenuOpen(open => !open) }}>
+      ✦ {resume ? '이어서 안내' : quiet ? '데모 길 안내 켜기' : '데모 길 안내'}
     </button>
   </div>, document.body)
 }

@@ -16,9 +16,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * 데이터베이스 저장 공간을 지킨다. Railway 체험 요금제는 볼륨이 0.5GB라, 꽉 차면 회원가입·노트 저장까지 실패한다.
+ * 데이터베이스 저장 공간을 지킨다. 볼륨이 꽉 차면 회원가입·노트 저장까지 실패하므로 기준선(운영 볼륨 5GB 중 DB 3GB)을 둔다.
  * <ul>
- *   <li>사용량이 기준(softLimitMb)을 넘으면 백필이 새 자료를 쓰지 않고 멈춘다.</li>
+ *   <li>사용량이 기준(softLimitMb)을 넘으면 오래된 주가를 하루씩 빼고 최근 거래일만 넣는다(화면 날짜가 멈추지 않게).</li>
  *   <li>보관 기간보다 오래된 주가는 지운다. 지울 양이 많으면 TRUNCATE로 한 번에 비워 디스크를 바로 돌려받고, 보관 기간만 다시 받는다.</li>
  * </ul>
  * 크기 확인은 PostgreSQL에서만 하고(H2 테스트에서는 null), 실패해도 서비스는 멈추지 않는다.
@@ -33,7 +33,7 @@ public class StockStorage {
     private Instant cachedAt = Instant.EPOCH;
 
     @Autowired
-    public StockStorage(JdbcTemplate jdbc, @Value("${aira.stock.storage.soft-limit-mb:430}") long softLimitMb) {
+    public StockStorage(JdbcTemplate jdbc, @Value("${aira.stock.storage.soft-limit-mb:3000}") long softLimitMb) {
         this(jdbc, softLimitMb, Clock.systemUTC());
     }
 

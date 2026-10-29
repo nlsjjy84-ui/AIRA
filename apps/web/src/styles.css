@@ -3196,3 +3196,13 @@ a.guide-glow { text-decoration: none; }
 .aig-ask input::placeholder{color:rgba(223,230,238,.7)}
 :root[data-theme="light"] .aig-menu-q,:root[data-theme="light"] .aig-ask input{color:#fff}
 @media (prefers-reduced-motion:reduce){.aig-launch{animation:none}}
+
+/* 회사를 고르기 전 「보다·잇다…」는 흐리게만, 누르면 예시 회사로 열린다(막지 않는다) */
+.workflow-sidebar nav [data-workflow-step][data-needs-target="true"] { opacity: .62; }
+.workflow-sidebar nav [data-workflow-step][data-needs-target="true"]:hover { opacity: 1; }
+.aig-menu .aig-menu-quiet{color:#dfe6ee;font-size:15px}
+
+/* 「✦ 데모 길 안내」와 위치 표시는 위쪽 메뉴줄 바로 아래 오른쪽에 고정(엔진이 --aig-top을 맞춘다) — 잘 보이고, 마우스를 따라다니며 가리지 않는다 */
+.aig-launch-wrap{left:auto;right:20px;bottom:auto;top:var(--aig-top,14px);align-items:flex-end;text-align:right;transition:top .25s}
+.aig-launch-wrap .aig-launch{order:-1;font-size:15.5px}
+.aig-menu{align-items:flex-end}

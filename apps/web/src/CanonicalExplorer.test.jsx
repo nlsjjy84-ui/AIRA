@@ -8,6 +8,26 @@ const dataCalls = mock => mock.mock.calls.filter(([path]) => /financial-facts\/(
 beforeEach(() => { window.history.replaceState({}, '', '/explore'); vi.restoreAllMocks() })
 
 describe('canonical explorer', () => {
+  it('왼쪽 「보다」를 회사 고르기 전에 눌러도 막히지 않고 예시 회사로 연다', async () => {
+    const fetchMock = vi.fn(async path => ({ ok: true, status: 200, json: async () => String(path).startsWith('/api/search')
+      ? { state: 'AVAILABLE', entities: [{ entityId: '00000000-0000-0000-0000-000000000001', entityType: 'COMPANY', canonicalName: '삼성전자', canonicalKey: 'COMPANY:1', externalIdentifier: '00126380' }] } : {} }))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<CanonicalExplorer embedded />)
+    window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: 'Inspect' }))
+    expect(await screen.findByText(/예시로 삼성전자를 열어 드릴게요/)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('region', { name: '현재 탐색 문맥' })).toHaveTextContent('삼성전자 · 기업'))
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes(encodeURIComponent('삼성전자')) || String(path).includes('삼성전자'))).toBe(true)
+  })
+
+  it('「가늠하다」는 사건이 없으면 사건을 고르는 「잇다」로 데려간다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async path => ({ ok: true, status: 200, json: async () => String(path).startsWith('/api/search')
+      ? { state: 'AVAILABLE', entities: [{ entityId: '00000000-0000-0000-0000-000000000001', entityType: 'COMPANY', canonicalName: '삼성전자', canonicalKey: 'COMPANY:1', externalIdentifier: '00126380' }] } : {} })))
+    render(<CanonicalExplorer embedded />)
+    window.dispatchEvent(new CustomEvent('aira-workflow-step', { detail: 'Assess' }))
+    expect(await screen.findByText(/사건 하나를 고른 뒤에 열려요/)).toBeInTheDocument()
+    expect(document.querySelector('.canonical-explorer')).toHaveClass('stage-relate')
+  })
+
   it('runs a header search query on entry', async () => {
     window.history.replaceState({}, '', '/explore?q=005930')
     const fetchMock = vi.fn(async () => ({ ok: true, status: 200,
@@ -319,7 +339,7 @@ describe('canonical explorer', () => {
     expect(screen.getByText('사건 사실 확인 중…')).toBeInTheDocument()
     rejectEvent({ status: 500 })
     expect(await screen.findByRole('alert')).toHaveTextContent('사건 상세를 불러오지 못했습니다.')
-    expect(screen.getByRole('button', { name: 'AIRA 해석' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'AIRA 해석' })).toBeEnabled() // 불러오는 중에도 막지 않는다(눌러 보면 불러오는 중이라고 보인다)
   })
 
   it('keeps a public not-found Assess event distinct from a request failure', async () => {

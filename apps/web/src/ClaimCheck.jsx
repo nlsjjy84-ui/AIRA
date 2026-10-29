@@ -65,7 +65,10 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
 
   async function submit(event) {
     event.preventDefault()
-    await run(text.trim())
+    // 빈칸이어도 막지 않는다: 첫 예시 문장을 넣어 바로 확인해 보여 준다.
+    const value = text.trim().length >= 4 ? text.trim() : HERO_EXAMPLES[0].text
+    if (value !== text.trim()) setText(value)
+    await run(value)
   }
 
   async function run(value) {
@@ -104,7 +107,7 @@ export default function ClaimCheck({ loggedIn, hero = false, onNeedLogin }) {
           <small>{example.hint}</small> {example.text}</button>)}
       </div>}
       <div className="claim-check-actions">
-        <button type="submit" disabled={state.status === 'loading' || text.trim().length < 4}>{state.status === 'loading' ? '확인하는 중…' : '사실 확인'}</button>
+        <button type="submit" disabled={state.status === 'loading'}>{state.status === 'loading' ? '확인하는 중…' : '사실 확인'}</button>
         <span className="claim-check-count">{text.length}/600</span>
       </div>
     </form>

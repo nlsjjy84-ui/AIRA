@@ -2,7 +2,7 @@
  * 누를 버튼에 꺾쇠를 잠그고, 화면의 버튼을 하나씩(넓이) 그리고 안쪽 메뉴까지(깊이) 설명한다.
  * 참고: React Bits(Splash·Target·Click Spark), Aceternity(Following Pointer·Glowing Effect), driver.js(미끄러지는 조명),
  *       Copilot Vision Highlights·Gemini Live(말하며 짚기), 노션 AI 에이전트(직접 해 보이기), Dia(끌려오는 목적지), Arc(날아 들어가기).
- * 프로젝트마다 따라다니는 효과를 고른다(AIRA는 차분하게: 효과 없이 꺾쇠 커서와 글씨 확대만). 유체(splash)는 window.AiFluid가 있을 때만 쓴다.
+ * 프로젝트마다 따라다니는 효과를 고른다. 유체(splash)는 window.AiFluid(aiFluid.js, Pavel Dobryakov MIT)가 있을 때만 쓴다.
  */
   const CSS = `
   .aig{position:fixed;inset:0;pointer-events:none;z-index:2147483600;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
@@ -26,6 +26,11 @@
     font-size:16px;line-height:1.5;font-weight:800;letter-spacing:-.01em;
     text-shadow:0 0 1px #000,0 1px 2px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.85),0 0 22px rgba(0,0,0,.6);opacity:0;transition:opacity .25s;will-change:transform}
   .aig .say.on{opacity:1}
+  .aig .say.ink-dark{color:#1d1612;text-shadow:0 0 1px #fff,0 0 6px rgba(255,255,255,.98),0 0 14px rgba(255,255,255,.9),0 0 24px rgba(255,255,255,.7)}
+  .aig .say.ink-dark b{color:var(--ink-strong,#9a3d12)}
+  .aig .say.ink-dark .k{color:var(--ink-strong,#9a3d12)}
+  .aig .say.ink-dark button{color:var(--ink-strong,#9a3d12)}
+  .aig .hud.ink-dark .row{color:#1d1612;text-shadow:0 0 1px #fff,0 0 6px rgba(255,255,255,.98),0 0 14px rgba(255,255,255,.85)}
   @property --aa{syntax:'<angle>';inherits:false;initial-value:0deg}
   @keyframes aig-spin{to{--aa:360deg}}
   .aig .say .t{display:block}
@@ -57,12 +62,13 @@
   .aig .menu button{all:unset;pointer-events:auto;cursor:pointer;color:var(--c1);font-size:17px;font-weight:900;text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:2px}
   .aig .menu button small{display:block;text-align:right;color:#dfe6ee;font-size:11.5px;font-weight:700;text-decoration:none}
   .aig .menu button:hover{color:#fff}
-  .aig .hud{position:fixed;right:16px;bottom:14px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none}
-  .aig .hud .row{display:flex;align-items:center;gap:8px;color:#fff;font-size:12.5px;font-weight:800;text-shadow:0 0 1px #000,0 1px 3px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.8)}
+  .aig .hud{position:fixed;right:20px;top:calc(var(--aig-top,14px) + 34px);display:flex;flex-direction:column;align-items:flex-end;gap:5px;pointer-events:none;transition:top .25s,opacity .2s}
+  html.aig-menu-open .aig .hud{opacity:0}
+  .aig .hud .row{display:flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:800;text-shadow:0 0 1px #000,0 1px 3px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.85),0 0 18px rgba(0,0,0,.6)}
   .aig .hud .crumb{max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
   .aig .hud .meter{width:90px;height:4px;border-radius:9px;background:rgba(255,255,255,.25);overflow:hidden;box-shadow:0 0 6px rgba(0,0,0,.6)}
   .aig .hud .meter b{display:block;height:100%;background:linear-gradient(90deg,var(--c1),var(--c2));transition:width .5s}
-  .aig .hud button{all:unset;pointer-events:auto;cursor:pointer;color:#cfd8e2;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+  .aig .hud button{all:unset;pointer-events:auto;cursor:pointer;color:var(--c1);font-weight:900;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:2px}
   @media (prefers-reduced-motion:reduce){.aig .core::after,.aig .say::before,.aig .dot{animation:none}}
   `;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -78,7 +84,7 @@
     const raf = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (f) => setTimeout(f, 16);
     if (!document.getElementById('aig-css')) { const s = document.createElement('style'); s.id = 'aig-css'; s.textContent = CSS; document.head.appendChild(s); }
     const root = document.createElement('div'); root.className = 'aig';
-    root.style.cssText = `--c1:${C[0]};--c2:${C[1]};--c3:${C[2]};--c4:${C[3]};--g1:${rgba(C[0], .55)};--g2:${rgba(C[2], .35)}`;
+    root.style.cssText = `--ink-strong:${opt.inkStrong || '#7a3410'};--c1:${C[0]};--c2:${C[1]};--c3:${C[2]};--c4:${C[3]};--g1:${rgba(C[0], .55)};--g2:${rgba(C[2], .35)}`;
     root.innerHTML = `<canvas class="fl"></canvas><canvas class="fx"></canvas><div class="dim"></div>
       <svg class="thread"><defs><linearGradient id="aig-lg" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${C[0]}"/><stop offset="1" stop-color="${C[2]}"/></linearGradient></defs><path fill="none" stroke="url(#aig-lg)" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="2 9" opacity="0"/></svg>
       <div class="tg main"><i></i><i></i><i></i><i></i><span class="lbl"></span></div><div class="tg soft"><i></i><i></i><i></i><i></i></div>
@@ -107,7 +113,7 @@
     const clickable = (el) => el && el.closest && el.closest('a[href],button,[role=button],[role=tab],select,summary,label,input[type=button],input[type=submit],input[type=checkbox],input[type=radio],[onclick]');
     const typeable = (el) => el && el.closest && el.closest('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]),textarea,[contenteditable=true]');
     addEventListener('pointerdown', (e) => { if (!e.target.closest('.aig')) spark(e.clientX, e.clientY); }, true);
-    $('.hud .x').onclick = () => stop();
+    $('.hud .x').onclick = () => (opt.onQuit ? (opt.onQuit(), say.classList.remove('on')) : stop());
 
     const R = (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; };
     const perchPoint = (r) => ({ x: r.x + r.w + 26 < innerWidth - 20 ? r.x + r.w + 20 : r.x - 20, y: Math.max(28, r.y - 6) });
@@ -134,7 +140,7 @@
         node.style.transform = `translate(${bx.x}px,${bx.y}px)`; node.style.width = bx.w + 'px'; node.style.height = bx.h + 'px'; node.classList.add('on');
       };
       lock(target, box, tg, 7);
-      lock(hoverEl && hoverEl !== target ? hoverEl : null, sbox, tgSoft, 5);
+      lock(!CUR && hoverEl && hoverEl !== target ? hoverEl : null, sbox, tgSoft, 5); // 꺾쇠 커서가 이미 감싸면 옅은 꺾쇠는 겹쳐 띄우지 않는다
       if (target && document.contains(target)) {
         const r = R(target);
         hole.x = lerp(hole.x, r.cx, .12); hole.y = lerp(hole.y, r.cy, .12); hole.w = lerp(hole.w, r.w / 2 + 46, .12); hole.h = lerp(hole.h, r.h / 2 + 38, .12);
@@ -146,7 +152,7 @@
         } else thread.style.opacity = 0;
       } else thread.style.opacity = 0;
       if (CUR) {
-        const under = document.elementFromPoint ? document.elementFromPoint(mouse.x, mouse.y) : null;
+        const under = document.elementFromPoint(mouse.x, mouse.y);
         const over = under && !under.closest('.aig') ? clickable(under) : null;
         const typing = under && typeable(under);
         cdot.style.opacity = typing ? 0 : 1; cbr.style.opacity = typing ? 0 : 1;
@@ -196,10 +202,23 @@
         else { x = r.x - 18 - w; y = r.cy - h / 2; }
       } else { x = pos.x + 22; y = pos.y + 18; }
       x = Math.max(10, Math.min(innerWidth - w - 10, x)); y = Math.max(10, Math.min(innerHeight - h - 50, y));
+      if (++inkTick % 20 === 0) { const dark = isLightAt(x + w / 2, y + h / 2); say.classList.toggle('ink-dark', dark); }
       sx = sx == null ? x : R2(sx, x); sy = sy == null ? y : R2(sy, y);
       say.style.transform = `translate(${sx}px,${sy}px)`;
     }
-    let sx = null, sy = null; const R2 = (a, b) => a + (b - a) * .25;
+    let sx = null, sy = null, inkTick = 0; const R2 = (a, b) => a + (b - a) * .25;
+    const hudEl = $('.hud');
+    // 글씨 뒤 바탕이 밝으면 진한 글씨 + 흰 빛, 어두우면 흰 글씨 + 검은 그림자
+    function isLightAt(x, y) {
+      if (!document.elementsFromPoint) return false;
+      for (const el of document.elementsFromPoint(Math.max(0, x), Math.max(0, y))) {
+        if (el.closest && el.closest('.aig')) continue;
+        const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+        if (!m) continue; const a = m[3] === undefined ? 1 : +m[3]; if (a < .5) continue;
+        return (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) / 255 > .62;
+      }
+      return false;
+    }
     // Click Spark — 누르는 자리에서 빛살 여덟 줄이 튄다
     function spark(x, y, big) {
       const n = big ? 12 : 8;
@@ -261,7 +280,18 @@
       $('.cov').textContent = list.length ? `이 화면 버튼 ${seenTotal}/${list.length}` : '';
       $('.meter b').style.width = list.length ? `${Math.round((seenTotal / list.length) * 100)}%` : '0';
     }
-    setInterval(() => { if (!stopped) { refreshDots(); $('.crumb').textContent = '지금 위치 · ' + where(); } }, 900);
+    // 위쪽 메뉴줄 바로 아래를 기준선으로 삼는다(스크롤로 메뉴줄이 사라지면 화면 맨 위). 「길 안내」·위치 표시가 여기 붙는다.
+    function placeTop() {
+      let top = 14;
+      for (const el of document.querySelectorAll(opt.topBar || 'header')) {
+        if (el.closest('.aig')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.top < 60 && r.bottom > 0 && r.right > innerWidth - 320) { top = Math.max(top, Math.min(r.bottom + 8, 220)); break; }
+      }
+      document.documentElement.style.setProperty('--aig-top', Math.round(top) + 'px');
+    }
+    placeTop(); addEventListener('scroll', placeTop, { passive: true }); addEventListener('resize', placeTop);
+    setInterval(() => { if (!stopped) { placeTop(); { const hr = hudEl.getBoundingClientRect(); if (hr.width) hudEl.classList.toggle('ink-dark', isLightAt(hr.left + hr.width / 2, hr.top + hr.height / 2)); } const show = opt.hud ? opt.hud() : true; $('.hud').style.display = show ? '' : 'none'; if (!show) { dots.innerHTML = ''; return; } refreshDots(); $('.crumb').textContent = '지금 위치 · ' + where(); } }, 900);
 
     // 한 걸음: 목적지를 짚고, 사용자가 누르거나 「AI가 직접 해 보기」를 고를 때까지 같이 다닌다
     async function pointStep(st, label) {
@@ -376,7 +406,7 @@
     function step(x, y, flying) {
       t++; if (kind === 'none') return;
       ctx.clearRect(0, 0, W, H);
-      hist.unshift({ x, y }); if (hist.length > 34) hist.pop();
+      hist.unshift({ x, y }); if (hist.length > (opt.trail || 34)) hist.pop();
       if (kind === 'glow') {
         ctx.globalCompositeOperation = 'lighter';
         for (let pass = 0; pass < 2; pass++) {
@@ -388,7 +418,7 @@
             const px = a.x + nx / nl * wob, py = a.y + ny / nl * wob;
             i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
           }
-          ctx.strokeStyle = pass ? '#fff' : C[0]; ctx.lineWidth = pass ? 2 : 9; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.strokeStyle = pass ? '#fff' : C[0]; ctx.lineWidth = (pass ? 2 : 9) * (opt.calm ? .6 : 1); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
           ctx.shadowColor = C[pass ? 1 : 0]; ctx.shadowBlur = pass ? 10 : 28; ctx.globalAlpha = pass ? .9 : .55; ctx.stroke();
         }
         // 커서를 감싸 도는 작은 빛

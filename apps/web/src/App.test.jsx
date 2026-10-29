@@ -128,13 +128,12 @@ describe('authenticated interest and return experience', () => {
     const inspectButton = within(flow).getByRole('button', { name: 'Inspect 보다' })
     expect(mainButton).toHaveAttribute('aria-current', 'step')
     expect(mainButton).toBeEnabled()
-    expect(within(flow).getByRole('button', { name: 'Ask 묻다' })).toBeDisabled()
-    expect(inspectButton).toBeDisabled()
-    expect(within(flow).getByRole('button', { name: 'Relate 잇다' })).toBeDisabled()
-    expect(within(flow).getByRole('button', { name: 'Assess 가늠하다' })).toBeDisabled()
-    await user.click(inspectButton)
-    expect(mainButton).toHaveAttribute('aria-current', 'step')
-    expect(inspectButton).not.toHaveAttribute('aria-current')
+    // 회사를 고르기 전에도 막지 않는다(흐리게만). 누르면 예시 회사를 찾아 연다.
+    for (const name of ['Ask 묻다', 'Inspect 보다', 'Relate 잇다', 'Assess 가늠하다']) {
+      const button = within(flow).getByRole('button', { name })
+      expect(button).toBeEnabled()
+      expect(button).toHaveAttribute('data-needs-target', 'true')
+    }
     expect(screen.queryByRole('navigation', { name: '탐색 단계' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '사이드바 접기' }))
     expect(document.querySelector('.workflow-sidebar')).toHaveClass('collapsed')
