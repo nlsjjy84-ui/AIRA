@@ -3176,3 +3176,23 @@ a.guide-glow { text-decoration: none; }
 .guide-recap b { min-width: 4.2rem; font-size: 1.45rem; line-height: 1.15; letter-spacing: -.02em; color: var(--ink); text-shadow: 0 0 18px var(--guide-haze); }
 .guide-recap span { color: var(--muted); font-size: .8rem; }
 @media (prefers-reduced-motion: reduce) { .guide-recap div { animation: none; } }
+
+/* AI 길 안내(2026-10-29): 상자 없이 빛나는 글자만. 아무것도 가리지 않는다. */
+.aig-launch-wrap{position:fixed;left:18px;bottom:16px;z-index:2147483601;display:flex;flex-direction:column;align-items:flex-start;gap:10px;pointer-events:none;font-family:inherit}
+.aig-launch{all:unset;pointer-events:auto;cursor:pointer;color:#b7e36a;font-size:14px;font-weight:900;letter-spacing:-.01em;
+  text-shadow:0 0 1px #000,0 1px 3px rgba(0,0,0,.95),0 0 12px rgba(0,0,0,.8),0 0 18px rgba(183,227,106,.45);animation:aig-launch-glow 2.4s ease-in-out infinite}
+.aig-launch:hover,.aig-launch:focus-visible{color:#fff}
+@keyframes aig-launch-glow{0%,100%{opacity:.75}50%{opacity:1}}
+.aig-menu{display:flex;flex-direction:column;align-items:flex-start;gap:8px;pointer-events:none;
+  text-shadow:0 0 1px #000,0 1px 3px rgba(0,0,0,.95),0 0 12px rgba(0,0,0,.8)}
+.aig-menu-q{margin:0;color:#fff;font-size:15px;font-weight:800}
+.aig-menu button{all:unset;pointer-events:auto;cursor:pointer;color:#b7e36a;font-size:17px;font-weight:900;text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:2px}
+.aig-menu button small{display:block;color:#dfe6ee;font-size:11.5px;font-weight:700;text-decoration:none;margin-top:2px}
+.aig-menu button:hover,.aig-menu button:focus-visible{color:#fff}
+.aig-menu .aig-menu-later{font-size:12.5px;color:#cfd8e2}
+.aig-ask{display:flex;flex-direction:column;gap:2px;pointer-events:auto}
+.aig-ask label{color:#5fd4c4;font-size:12px;font-weight:800}
+.aig-ask input{all:unset;width:260px;max-width:70vw;padding:4px 0;color:#fff;font-size:14px;font-weight:700;border-bottom:2px solid rgba(95,212,196,.7);text-shadow:inherit}
+.aig-ask input::placeholder{color:rgba(223,230,238,.7)}
+:root[data-theme="light"] .aig-menu-q,:root[data-theme="light"] .aig-ask input{color:#fff}
+@media (prefers-reduced-motion:reduce){.aig-launch{animation:none}}
