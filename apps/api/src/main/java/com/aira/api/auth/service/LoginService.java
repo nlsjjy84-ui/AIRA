@@ -4,6 +4,7 @@ import com.aira.api.auth.dto.LoginRequest;
 import com.aira.api.auth.dto.LoginResponse;
 import com.aira.api.auth.exception.AuthenticationFailedException;
 import com.aira.api.auth.exception.InvalidLoginRequestException;
+import com.aira.api.auth.security.LoginAttemptLimiter;
 import com.aira.api.auth.security.NicknameNormalizer;
 import com.aira.api.auth.security.PasswordHasher;
 import com.aira.api.auth.security.SessionTokenGenerator;
@@ -14,6 +15,7 @@ import com.aira.api.user.domain.CredentialStatus;
 import com.aira.api.user.domain.UserStatus;
 import com.aira.api.user.repository.AppUserRepository;
 import com.aira.api.user.repository.AuthenticationCredentialRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,11 +29,22 @@ public class LoginService {
     private final SessionTokenHasher tokenHasher;
     private final LoginPersistenceService persistence;
     private final String dummyPasswordHash;
+    private final LoginAttemptLimiter attemptLimiter;
 
     public LoginService(AppUserRepository users, AuthenticationCredentialRepository credentials,
             NicknameNormalizer nicknameNormalizer, PasswordHasher passwordHasher,
             SessionTokenGenerator tokenGenerator, SessionTokenHasher tokenHasher,
             LoginPersistenceService persistence) {
+        this(users, credentials, nicknameNormalizer, passwordHasher, tokenGenerator, tokenHasher, persistence,
+                LoginAttemptLimiter.systemDefault());
+    }
+
+    @Autowired
+    public LoginService(AppUserRepository users, AuthenticationCredentialRepository credentials,
+            NicknameNormalizer nicknameNormalizer, PasswordHasher passwordHasher,
+            SessionTokenGenerator tokenGenerator, SessionTokenHasher tokenHasher,
+            LoginPersistenceService persistence, LoginAttemptLimiter attemptLimiter) {
+        this.attemptLimiter = attemptLimiter;
         this.users = users;
         this.credentials = credentials;
         this.nicknameNormalizer = nicknameNormalizer;
@@ -45,6 +58,7 @@ public class LoginService {
     public LoginResult login(LoginRequest request) {
         String normalizedNickname = normalize(request.nickname());
         validatePassword(request.password());
+        attemptLimiter.checkAllowed(normalizedNickname);
         AppUser user = users.findByNicknameNormalized(normalizedNickname).orElse(null);
         AuthenticationCredential credential = user == null
                 ? null
@@ -54,8 +68,10 @@ public class LoginService {
         if (!matches || user == null || credential == null
                 || user.getStatus() != UserStatus.ACTIVE
                 || credential.getStatus() != CredentialStatus.ACTIVE) {
+            attemptLimiter.recordFailure(normalizedNickname);
             throw new AuthenticationFailedException();
         }
+        attemptLimiter.recordSuccess(normalizedNickname);
         String rawToken = tokenGenerator.generate();
         persistence.save(user, credential, tokenHasher.hash(rawToken));
         return new LoginResult(LoginResponse.from(user), rawToken);

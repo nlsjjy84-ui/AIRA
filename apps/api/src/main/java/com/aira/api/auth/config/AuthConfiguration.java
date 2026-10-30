@@ -1,6 +1,7 @@
 package com.aira.api.auth.config;
 
 import com.aira.api.auth.security.NicknameNormalizer;
+import com.aira.api.auth.security.LoginAttemptLimiter;
 import com.aira.api.auth.security.PasswordHasher;
 import com.aira.api.auth.security.SessionCookieFactory;
 import com.aira.api.auth.security.SessionTokenGenerator;
@@ -48,6 +49,11 @@ public class AuthConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    LoginAttemptLimiter loginAttemptLimiter(Clock clock) {
+        return new LoginAttemptLimiter(clock);
     }
 
     @Bean

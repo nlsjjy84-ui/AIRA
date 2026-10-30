@@ -137,6 +137,7 @@ function AuthPanel({ mode, setMode, close, authenticated, onDemo }) {
       let copy = '요청을 처리하지 못했습니다. 다시 시도해 주세요.'
       if (error.code === 'NICKNAME_ALREADY_EXISTS') copy = '사용할 수 없는 닉네임입니다.'
       else if (error.code === 'AUTHENTICATION_FAILED') copy = '닉네임 또는 비밀번호를 확인해 주세요.'
+      else if (error.code === 'LOGIN_TEMPORARILY_LOCKED') copy = '로그인을 여러 번 틀려 잠시 막혔어요. 15분 뒤에 다시 시도해 주세요.'
       else if (error.code === 'INVALID_REQUEST') {
         copy = error.fields?.[0]?.field === 'password'
           ? '비밀번호는 10자 이상 72자 이하로 입력해 주세요.'

@@ -1001,9 +1001,22 @@ initFramebuffers();
 
 let lastUpdateTime = Date.now();
 let colorUpdateTimer = 0.0;
+// 쉬기: 물감을 마지막으로 뿌린 뒤 4초가 지나면(물감이 다 옅어진 뒤) 계산을 멈추고, 다시 뿌릴 때 깨운다.
+// 마우스를 움직이지 않을 때도 매 프레임 WebGL 계산을 돌려 낮은 사양 PC가 느려지던 것을 막는다.
+let lastSplatAt = Date.now(), fluidAsleep = false;
+function wakeFluid () {
+    lastSplatAt = Date.now();
+    if (fluidAsleep) { fluidAsleep = false; lastUpdateTime = Date.now(); requestAnimationFrame(update); }
+}
 update();
 
 function update () {
+    if (Date.now() - lastSplatAt > 4000 || document.hidden) {
+        fluidAsleep = true;
+        const gl0 = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        if (gl0) { gl0.clearColor(0, 0, 0, 0); gl0.clear(gl0.COLOR_BUFFER_BIT); }
+        return;
+    }
     const dt = calcDeltaTime();
     if (resizeCanvas())
         initFramebuffers();
@@ -1429,9 +1442,10 @@ return {
     // 차분하게: 천천히 움직이면(글 읽을 때) 거의 안 보이고, 빠르게 움직이거나 안내가 날아갈 때만 진해진다
     const sp = opts.calm ? Math.min(1, Math.hypot(dx, dy) * (opts.calm === true ? 55 : opts.calm)) * (k > 1 ? 1.4 : 1) : 1;
     const c = pick(); if (sp < 0.04) return;
+    wakeFluid();
     splat(tx, ty, dx * config.SPLAT_FORCE * k, dy * config.SPLAT_FORCE * k, { r: c.r * sp, g: c.g * sp, b: c.b * sp });
   },
-  burst (x, y, n) { const W = canvas.clientWidth, H = canvas.clientHeight; for (let i = 0; i < (n || 10); i++) { const a = i / (n || 10) * Math.PI * 2; const c = pal[i % pal.length]; splat(x / W, 1 - y / H, Math.cos(a) * 900, Math.sin(a) * 900, { r: c.r * 6, g: c.g * 6, b: c.b * 6 }); } },
+  burst (x, y, n) { wakeFluid(); const W = canvas.clientWidth, H = canvas.clientHeight; for (let i = 0; i < (n || 10); i++) { const a = i / (n || 10) * Math.PI * 2; const c = pal[i % pal.length]; splat(x / W, 1 - y / H, Math.cos(a) * 900, Math.sin(a) * 900, { r: c.r * 6, g: c.g * 6, b: c.b * 6 }); } },
   reset () { last = null; }
 };
 };

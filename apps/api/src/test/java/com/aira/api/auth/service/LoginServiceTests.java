@@ -106,4 +106,28 @@ class LoginServiceTests {
         assertFalse(request.toString().contains(request.password()));
         assertTrue(request.toString().contains("<redacted>"));
     }
+
+    @Test
+    void locksTheNicknameAfterRepeatedWrongPasswordsEvenForUnknownNicknames() {
+        com.aira.api.auth.security.LoginAttemptLimiter limiter =
+                com.aira.api.auth.security.LoginAttemptLimiter.systemDefault();
+        LoginService limited = new LoginService(users, credentials, new NicknameNormalizer(new AuthProperties()),
+                hasher, tokenGenerator, tokenHasher, persistence, limiter);
+        when(hasher.matches(eq("wrong-password-value"), anyString())).thenReturn(false);
+        for (int i = 0; i < com.aira.api.auth.security.LoginAttemptLimiter.MAX_FAILURES; i++) {
+            assertThrows(AuthenticationFailedException.class,
+                    () -> limited.login(new LoginRequest("AiraUser", "wrong-password-value")));
+        }
+        assertThrows(com.aira.api.auth.exception.LoginTemporarilyLockedException.class,
+                () -> limited.login(new LoginRequest("AiraUser", "correct-password-value")));
+        verify(persistence, never()).save(any(), any(), any());
+
+        when(users.findByNicknameNormalized("ghostuser")).thenReturn(Optional.empty());
+        for (int i = 0; i < com.aira.api.auth.security.LoginAttemptLimiter.MAX_FAILURES; i++) {
+            assertThrows(AuthenticationFailedException.class,
+                    () -> limited.login(new LoginRequest("GhostUser", "wrong-password-value")));
+        }
+        assertThrows(com.aira.api.auth.exception.LoginTemporarilyLockedException.class,
+                () -> limited.login(new LoginRequest("GhostUser", "wrong-password-value")));
+    }
 }

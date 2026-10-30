@@ -108,6 +108,12 @@
     if (CUR) document.documentElement.classList.add('aig-nocur'); else { cdot.remove(); cbr.remove(); }
     if (CUR) core.style.display = 'none';
     const cb = { x: 0, y: 0, w: 30, h: 30, rot: 0 }; let press = 0;
+    // 쉬기: 마우스가 2.5초 넘게 멈춰 있고 안내할 곳·설명이 없으면 매 프레임 그리기를 멈춘다(낮은 사양 PC에서 느려지지 않게).
+    // 움직이거나 누르거나 스크롤하면 바로 다시 깨운다. 창이 가려져 있을 때도 쉰다.
+    let lastInput = performance.now(), sleeping = false;
+    const wake = () => { lastInput = performance.now(); if (sleeping && !stopped) { sleeping = false; raf(frame); } };
+    ['mousemove', 'pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => addEventListener(ev, wake, { passive: true, capture: true }));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
     addEventListener('mousemove', (e) => { mouse = { x: e.clientX, y: e.clientY }; if (CUR) cdot.style.transform = `translate(${e.clientX}px,${e.clientY}px)`; }, { passive: true });
     addEventListener('mousedown', () => { press = 1; }, true); addEventListener('mouseup', () => { press = 0; }, true);
     const CLICK_SEL = 'a[href],button,[role=button],[role=tab],select,summary,label,input[type=button],input[type=submit],input[type=checkbox],input[type=radio],[onclick]' + (opt.clickSel ? ',' + opt.clickSel : '');
@@ -121,6 +127,8 @@
 
     function frame() {
       if (stopped) return;
+      const resting = mode !== 'fly' && !target && !say.classList.contains('on') && Math.abs(vel.x) + Math.abs(vel.y) < 0.05;
+      if (document.hidden || (resting && performance.now() - lastInput > 2500)) { sleeping = true; return; }
       let goal;
       if (mode === 'follow') {
         const b = say.classList.contains('on') ? say.getBoundingClientRect() : null;
@@ -347,10 +355,25 @@
         const r = el.getBoundingClientRect();
         if (r.height > 0 && r.top < 60 && r.bottom > 0 && r.right > innerWidth - 320) { top = Math.max(top, Math.min(r.bottom + 8, 220)); break; }
       }
+      // 메뉴줄이 없는 화면(그림책 「건너뛰기」처럼 오른쪽 위에 작은 단추만 있는 곳)에서도 단추를 가리지 않게, 그 아래로 내려 선다.
+      for (let pass = 0; pass < 4; pass++) {
+        let push = 0;
+        for (const [dx, dy] of [[24, 2], [70, 2], [120, 2], [170, 2], [24, 10], [70, 10], [120, 10], [170, 10], [24, 18], [70, 18], [120, 18], [170, 18]]) {
+          for (const el of document.elementsFromPoint ? document.elementsFromPoint(innerWidth - dx, top + dy) : []) {
+            if (el.closest('.aig,.aig-launch-wrap,#pf-back')) continue;
+            const c = clickable(el); if (!c) continue;
+            const r = c.getBoundingClientRect();
+            if (r.height > 120 || r.width > innerWidth * .6) continue;
+            push = Math.max(push, r.bottom + 8); break;
+          }
+        }
+        if (!push || push <= top || push > 220) break;
+        top = push;
+      }
       document.documentElement.style.setProperty('--aig-top', Math.round(top) + 'px');
     }
     placeTop(); addEventListener('scroll', placeTop, { passive: true }); addEventListener('resize', placeTop);
-    setInterval(() => { if (!stopped) { placeTop(); { const hr = hudEl.getBoundingClientRect(); if (hr.width) hudEl.classList.toggle('ink-dark', isLightAt(hr.left + hr.width / 2, hr.top + hr.height / 2)); } const show = opt.hud ? opt.hud() : true; $('.hud').style.display = show ? '' : 'none'; if (!show) { dots.innerHTML = ''; return; } refreshDots(); $('.crumb').textContent = '지금 위치 · ' + where(); } }, 900);
+    setInterval(() => { if (sleeping && (target || mode === 'fly' || say.classList.contains('on'))) wake(); if (!stopped) { placeTop(); { const hr = hudEl.getBoundingClientRect(); if (hr.width) hudEl.classList.toggle('ink-dark', isLightAt(hr.left + hr.width / 2, hr.top + hr.height / 2)); } const show = opt.hud ? opt.hud() : true; $('.hud').style.display = show ? '' : 'none'; if (!show) { dots.innerHTML = ''; return; } refreshDots(); $('.crumb').textContent = '지금 위치 · ' + where(); } }, 900);
 
     // 한 걸음: 목적지를 짚고, 사용자가 누르거나 「AI가 직접 해 보기」를 고를 때까지 같이 다닌다
     async function pointStep(st, label) {

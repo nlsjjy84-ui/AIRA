@@ -3,11 +3,13 @@ package com.aira.api.auth.controller;
 import com.aira.api.auth.exception.InvalidSignupRequestException;
 import com.aira.api.auth.exception.InvalidLoginRequestException;
 import com.aira.api.auth.exception.AuthenticationFailedException;
+import com.aira.api.auth.exception.LoginTemporarilyLockedException;
 import com.aira.api.auth.exception.NicknameAlreadyExistsException;
 import com.aira.api.auth.exception.InvalidPasswordResetTokenException;
 import com.aira.api.auth.exception.InvalidPasswordResetRequestException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -21,6 +23,14 @@ public class AuthExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     ErrorResponse authenticationFailed() {
         return new ErrorResponse("AUTHENTICATION_FAILED", "닉네임 또는 비밀번호를 확인해주세요.", null);
+    }
+
+    @ExceptionHandler(LoginTemporarilyLockedException.class)
+    ResponseEntity<ErrorResponse> loginLocked(LoginTemporarilyLockedException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(exception.getRetryAfterSeconds()))
+                .body(new ErrorResponse("LOGIN_TEMPORARILY_LOCKED",
+                        "로그인 시도가 너무 많습니다. 잠시 뒤에 다시 시도해주세요.", null));
     }
 
     @ExceptionHandler(InvalidLoginRequestException.class)
